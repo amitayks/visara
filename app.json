@@ -4,7 +4,7 @@
     "slug": "visara",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/visara-icon.png",
     "userInterfaceStyle": "light",
     "scheme": "visara",
     "plugins": [
@@ -19,7 +19,7 @@
     ],
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/visara-adaptive-icon-black.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -29,15 +29,26 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/visara-adaptive-icon-black.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.visara.app",
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./assets/visara-icon.png",
       "bundler": "metro"
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "87b53428-5a13-4f53-8dfa-e7eae01f31ef"
+      }
+    },
+    "owner": "amitayks"
   }
 }

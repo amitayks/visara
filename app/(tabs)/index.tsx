@@ -59,9 +59,9 @@ export default function ChatScreen() {
         sender: 'ai',
         timestamp: new Date(),
         documents: [
-          { id: '1', uri: 'https://via.placeholder.com/150', title: 'Receipt from Store' },
-          { id: '2', uri: 'https://via.placeholder.com/150', title: 'Invoice #1234' },
-          { id: '3', uri: 'https://via.placeholder.com/150', title: 'Bank Statement' },
+          { id: '1', uri: 'https://via.placeholder.com/150', title: 'Eitan birth satificate' },
+          { id: '2', uri: 'https://via.placeholder.com/150', title: 'invoice #1234' },
+          { id: '3', uri: 'https://via.placeholder.com/150', title: 'Eitan ID' },
         ]
       };
       setMessages(prev => [...prev, aiResponse]);
@@ -112,7 +112,7 @@ export default function ChatScreen() {
       />
       
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={'padding'}
         style={styles.inputContainer}
       >
         <View style={styles.inputWrapper}>
