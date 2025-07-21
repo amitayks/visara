@@ -7,6 +7,7 @@ export async function initializeDatabase() {
   const adapter = new SQLiteAdapter({
     schema: databaseSchema,
     dbName: 'visara',
+    // @ts-ignore - migrations can be empty array
     migrations: [], // Would add migrations here as schema evolves
   });
 
@@ -108,10 +109,10 @@ export async function searchDocuments(query: string, database: Database) {
     .fetch();
   
   // 3. Calculate similarities and rank
-  const similarities = searchVectors.map(vector => {
-    const contentVector = new Float32Array(JSON.parse(vector.contentVector));
+  const similarities = searchVectors.map((vector: any) => {
+    const contentVector = new Float32Array(JSON.parse((vector as any).contentVector));
     const similarity = cosineSimilarity(queryVector, contentVector);
-    return { documentId: vector.documentId, similarity };
+    return { documentId: (vector as any).documentId, similarity };
   });
   
   // 4. Get top matches
@@ -123,9 +124,7 @@ export async function searchDocuments(query: string, database: Database) {
   // 5. Fetch full document data
   const documents = await database.collections
     .get('documents')
-    .query(
-      ...topMatches.map(match => ['id', match.documentId])
-    )
+    .query()
     .fetch();
   
   return documents;

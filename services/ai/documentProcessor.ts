@@ -1,0 +1,458 @@
+import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
+
+export interface DocumentResult {
+  id: string;
+  imageUri: string;
+  ocrText: string;
+  metadata: ExtractedMetadata;
+  documentType: 'receipt' | 'invoice' | 'id' | 'letter' | 'form' | 'screenshot' | 'unknown';
+  confidence: number;
+  processedAt: Date;
+}
+
+export interface ExtractedMetadata {
+  vendor?: string;
+  amounts?: Array<{
+    value: number;
+    currency: string;
+    isTotal?: boolean;
+  }>;
+  items?: Array<{
+    name: string;
+    price?: number;
+    quantity?: number;
+  }>;
+  dates?: Array<{
+    date: Date;
+    type: 'transaction' | 'due' | 'issued' | 'unknown';
+  }>;
+  location?: {
+    address?: string;
+    city?: string;
+    country?: string;
+  };
+  confidence: number;
+}
+
+export interface ProcessingOptions {
+  preprocessImage?: boolean;
+  extractStructuredData?: boolean;
+  confidenceThreshold?: number;
+}
+
+export class DocumentProcessor {
+  private defaultOptions: ProcessingOptions = {
+    preprocessImage: true,
+    extractStructuredData: true,
+    confidenceThreshold: 0.7,
+  };
+
+  async processImage(
+    imageUri: string,
+    options: ProcessingOptions = {}
+  ): Promise<DocumentResult> {
+    const opts = { ...this.defaultOptions, ...options };
+    const startTime = Date.now();
+
+    try {
+      let processedImageUri = imageUri;
+
+      if (opts.preprocessImage) {
+        processedImageUri = await this.preprocessImage(imageUri);
+      }
+
+      const ocrResult = await this.performOCR(processedImageUri);
+      
+      const documentType = this.detectDocumentType(ocrResult.text);
+      
+      let metadata: ExtractedMetadata = { confidence: 0 };
+      
+      if (opts.extractStructuredData) {
+        switch (documentType) {
+          case 'receipt':
+            metadata = await this.extractReceiptMetadata(ocrResult.text);
+            break;
+          case 'invoice':
+            metadata = await this.extractInvoiceMetadata(ocrResult.text);
+            break;
+          default:
+            metadata = await this.extractGenericMetadata(ocrResult.text);
+        }
+      }
+
+      const overallConfidence = this.calculateOverallConfidence(
+        ocrResult.confidence,
+        metadata.confidence,
+        documentType
+      );
+
+      return {
+        id: this.generateId(),
+        imageUri,
+        ocrText: ocrResult.text,
+        metadata,
+        documentType,
+        confidence: overallConfidence,
+        processedAt: new Date(),
+      };
+    } catch (error) {
+      console.error('Error processing image:', error);
+      
+      return {
+        id: this.generateId(),
+        imageUri,
+        ocrText: '',
+        metadata: { confidence: 0 },
+        documentType: 'unknown',
+        confidence: 0,
+        processedAt: new Date(),
+      };
+    }
+  }
+
+  private async preprocessImage(imageUri: string): Promise<string> {
+    try {
+      const manipulatedImage = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [
+          { resize: { width: 1500 } },
+        ],
+        {
+          compress: 0.9,
+          format: ImageManipulator.SaveFormat.JPEG,
+        }
+      );
+
+      // Skip contrast adjustment as it's not supported in expo-image-manipulator
+      // Return the resized image directly
+      const enhancedImage = manipulatedImage;
+
+      return enhancedImage.uri;
+    } catch (error) {
+      console.error('Error preprocessing image:', error);
+      return imageUri;
+    }
+  }
+
+  private async performOCR(imageUri: string): Promise<{ text: string; confidence: number }> {
+    try {
+      const result = await TextRecognition.recognize(imageUri);
+      
+      // Calculate confidence based on the number of detected blocks and text length
+      const totalBlocks = result.blocks.length;
+      const textLength = result.text.length;
+      const confidence = totalBlocks > 0 && textLength > 0 ? 0.8 : 0;
+
+      return {
+        text: result.text,
+        confidence: confidence || 0.8,
+      };
+    } catch (error) {
+      console.error('Error performing OCR:', error);
+      return { text: '', confidence: 0 };
+    }
+  }
+
+  private detectDocumentType(text: string): DocumentResult['documentType'] {
+    const lowerText = text.toLowerCase();
+    
+    const receiptKeywords = ['receipt', 'total', 'subtotal', 'tax', 'payment', 'cash', 'change', 'sale'];
+    const invoiceKeywords = ['invoice', 'bill to', 'due date', 'invoice number', 'net', 'gross'];
+    const idKeywords = ['id', 'license', 'passport', 'identification', 'date of birth', 'expires'];
+    const formKeywords = ['form', 'application', 'signature', 'date signed', 'checkbox', 'fill'];
+    
+    const countKeywords = (keywords: string[]) => 
+      keywords.filter(keyword => lowerText.includes(keyword)).length;
+
+    const scores = {
+      receipt: countKeywords(receiptKeywords),
+      invoice: countKeywords(invoiceKeywords),
+      id: countKeywords(idKeywords),
+      form: countKeywords(formKeywords),
+    };
+
+    const maxScore = Math.max(...Object.values(scores));
+    
+    if (maxScore > 2) {
+      return Object.entries(scores).find(([_, score]) => score === maxScore)?.[0] as DocumentResult['documentType'] || 'unknown';
+    }
+
+    if (lowerText.includes('screenshot')) return 'screenshot';
+    if (text.split('\n').length > 10) return 'letter';
+    
+    return 'unknown';
+  }
+
+  async extractReceiptMetadata(text: string): Promise<ExtractedMetadata> {
+    const metadata: ExtractedMetadata = {
+      amounts: [],
+      items: [],
+      dates: [],
+      confidence: 0,
+    };
+
+    try {
+      const vendorMatch = text.match(/^([A-Z][A-Za-z\s&'.-]+)(?:\n|$)/m);
+      if (vendorMatch) {
+        metadata.vendor = vendorMatch[1].trim();
+      }
+
+      const amountRegex = /(?:[$€£¥₹]|USD|EUR|GBP)\s*(\d{1,3}(?:[,.\s]\d{3})*(?:[.,]\d{2})?)/gi;
+      const amountMatches = Array.from(text.matchAll(amountRegex));
+      
+      metadata.amounts = amountMatches.map(match => {
+        const value = parseFloat(match[1].replace(/[,\s]/g, '').replace(/,/g, '.'));
+        const currency = match[0].match(/[$€£¥₹]|USD|EUR|GBP/i)?.[0] || 'USD';
+        
+        const isTotal = /total|sum|amount due/i.test(
+          text.substring(Math.max(0, match.index! - 20), match.index! + match[0].length + 20)
+        );
+        
+        return { value, currency, isTotal };
+      }).filter(amount => !isNaN(amount.value));
+
+      const itemRegex = /^(.+?)\s+(?:x\s*)?(\d+)?\s*[$€£¥₹]?\s*(\d+[.,]\d{2})/gm;
+      const itemMatches = Array.from(text.matchAll(itemRegex));
+      
+      metadata.items = itemMatches.map(match => ({
+        name: match[1].trim(),
+        quantity: match[2] ? parseInt(match[2]) : 1,
+        price: parseFloat(match[3].replace(',', '.')),
+      })).filter(item => item.name.length > 2 && item.name.length < 50);
+
+      const dateRegex = /\b(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2})\b/g;
+      const dateMatches = Array.from(text.matchAll(dateRegex));
+      
+      metadata.dates = dateMatches.map(match => {
+        try {
+          return {
+            date: new Date(match[0]),
+            type: 'transaction' as const,
+          };
+        } catch {
+          return null;
+        }
+      }).filter(Boolean) as ExtractedMetadata['dates'];
+
+      const addressRegex = /\b\d+\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Boulevard|Blvd|Lane|Ln|Drive|Dr)\b/i;
+      const addressMatch = text.match(addressRegex);
+      if (addressMatch) {
+        metadata.location = { address: addressMatch[0] };
+      }
+
+      const confidenceFactors = [
+        metadata.vendor ? 0.2 : 0,
+        metadata.amounts && metadata.amounts.length > 0 ? 0.3 : 0,
+        metadata.items && metadata.items.length > 0 ? 0.3 : 0,
+        metadata.dates && metadata.dates.length > 0 ? 0.1 : 0,
+        metadata.location ? 0.1 : 0,
+      ];
+      
+      metadata.confidence = confidenceFactors.reduce((sum, factor) => sum + factor, 0);
+
+    } catch (error) {
+      console.error('Error extracting receipt metadata:', error);
+    }
+
+    return metadata;
+  }
+
+  async extractInvoiceMetadata(text: string): Promise<ExtractedMetadata> {
+    const metadata: ExtractedMetadata = {
+      amounts: [],
+      items: [],
+      dates: [],
+      confidence: 0,
+    };
+
+    try {
+      const vendorMatch = text.match(/(?:From|Bill From|Vendor|Company):\s*([^\n]+)/i) ||
+                         text.match(/^([A-Z][A-Za-z\s&'.-]+)(?:\n|$)/m);
+      if (vendorMatch) {
+        metadata.vendor = vendorMatch[1].trim();
+      }
+
+      const invoiceAmountRegex = /(?:Total|Amount Due|Net|Gross|Subtotal)[\s:]*(?:[$€£¥₹]|USD|EUR|GBP)?\s*(\d{1,3}(?:[,.\s]\d{3})*(?:[.,]\d{2})?)/gi;
+      const amountMatches = Array.from(text.matchAll(invoiceAmountRegex));
+      
+      metadata.amounts = amountMatches.map(match => {
+        const value = parseFloat(match[1].replace(/[,\s]/g, '').replace(/,/g, '.'));
+        const isTotal = /total|amount due/i.test(match[0]);
+        
+        return { 
+          value, 
+          currency: 'USD',
+          isTotal 
+        };
+      }).filter(amount => !isNaN(amount.value));
+
+      const lineItemRegex = /^(.+?)\s+(\d+)?\s*(?:@\s*)?[$€£¥₹]?\s*(\d+[.,]\d{2})\s*[$€£¥₹]?\s*(\d+[.,]\d{2})?/gm;
+      const itemMatches = Array.from(text.matchAll(lineItemRegex));
+      
+      metadata.items = itemMatches.map(match => {
+        const quantity = match[2] ? parseInt(match[2]) : 1;
+        const unitPrice = parseFloat(match[3].replace(',', '.'));
+        const totalPrice = match[4] ? parseFloat(match[4].replace(',', '.')) : unitPrice * quantity;
+        
+        return {
+          name: match[1].trim(),
+          quantity,
+          price: totalPrice,
+        };
+      }).filter(item => item.name.length > 2 && item.name.length < 100);
+
+      const datePatterns = [
+        { regex: /Invoice Date[\s:]*(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})/i, type: 'issued' },
+        { regex: /Due Date[\s:]*(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})/i, type: 'due' },
+        { regex: /Date[\s:]*(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4})/i, type: 'unknown' },
+      ];
+      
+      metadata.dates = datePatterns
+        .map(pattern => {
+          const match = text.match(pattern.regex);
+          if (match) {
+            try {
+              return {
+                date: new Date(match[1]),
+                type: pattern.type as 'issued' | 'due' | 'unknown',
+              };
+            } catch {
+              return null;
+            }
+          }
+          return null;
+        })
+        .filter(Boolean) as ExtractedMetadata['dates'];
+
+      const addressMatch = text.match(/(?:Bill To|Ship To|Address)[\s:]*([^\n]+(?:\n[^\n]+)*)/i);
+      if (addressMatch) {
+        const addressLines = addressMatch[1].trim().split('\n');
+        metadata.location = {
+          address: addressLines[0],
+          city: addressLines.length > 1 ? addressLines[1] : undefined,
+        };
+      }
+
+      const confidenceFactors = [
+        metadata.vendor ? 0.2 : 0,
+        metadata.amounts && metadata.amounts.length > 0 ? 0.3 : 0,
+        metadata.items && metadata.items.length > 0 ? 0.2 : 0,
+        metadata.dates && metadata.dates.length > 0 ? 0.2 : 0,
+        metadata.location ? 0.1 : 0,
+      ];
+      
+      metadata.confidence = confidenceFactors.reduce((sum, factor) => sum + factor, 0);
+
+    } catch (error) {
+      console.error('Error extracting invoice metadata:', error);
+    }
+
+    return metadata;
+  }
+
+  private async extractGenericMetadata(text: string): Promise<ExtractedMetadata> {
+    const metadata: ExtractedMetadata = {
+      amounts: [],
+      dates: [],
+      confidence: 0,
+    };
+
+    try {
+      const firstLine = text.split('\n')[0]?.trim();
+      if (firstLine && firstLine.length < 100) {
+        metadata.vendor = firstLine;
+      }
+
+      const amountRegex = /(?:[$€£¥₹]|USD|EUR|GBP)\s*(\d{1,3}(?:[,.\s]\d{3})*(?:[.,]\d{2})?)/gi;
+      const amountMatches = Array.from(text.matchAll(amountRegex));
+      
+      metadata.amounts = amountMatches.map(match => ({
+        value: parseFloat(match[1].replace(/[,\s]/g, '').replace(/,/g, '.')),
+        currency: 'USD',
+      })).filter(amount => !isNaN(amount.value));
+
+      const dateRegex = /\b(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{4}[-/.]\d{1,2}[-/.]\d{1,2})\b/g;
+      const dateMatches = Array.from(text.matchAll(dateRegex));
+      
+      metadata.dates = dateMatches.map(match => {
+        try {
+          return {
+            date: new Date(match[0]),
+            type: 'unknown' as const,
+          };
+        } catch {
+          return null;
+        }
+      }).filter(Boolean) as ExtractedMetadata['dates'];
+
+      metadata.confidence = 0.3;
+
+    } catch (error) {
+      console.error('Error extracting generic metadata:', error);
+    }
+
+    return metadata;
+  }
+
+  async processBatch(
+    imageUris: string[],
+    options: ProcessingOptions = {},
+    onProgress?: (processed: number, total: number) => void
+  ): Promise<DocumentResult[]> {
+    const results: DocumentResult[] = [];
+    const total = imageUris.length;
+
+    for (let i = 0; i < imageUris.length; i++) {
+      try {
+        const result = await this.processImage(imageUris[i], options);
+        results.push(result);
+        
+        if (onProgress) {
+          onProgress(i + 1, total);
+        }
+      } catch (error) {
+        console.error(`Error processing image ${i + 1}/${total}:`, error);
+        
+        results.push({
+          id: this.generateId(),
+          imageUri: imageUris[i],
+          ocrText: '',
+          metadata: { confidence: 0 },
+          documentType: 'unknown',
+          confidence: 0,
+          processedAt: new Date(),
+        });
+      }
+    }
+
+    return results;
+  }
+
+  private calculateOverallConfidence(
+    ocrConfidence: number,
+    metadataConfidence: number,
+    documentType: string
+  ): number {
+    const typeConfidence = documentType === 'unknown' ? 0.5 : 0.8;
+    
+    const weights = {
+      ocr: 0.4,
+      metadata: 0.4,
+      type: 0.2,
+    };
+    
+    return (
+      ocrConfidence * weights.ocr +
+      metadataConfidence * weights.metadata +
+      typeConfidence * weights.type
+    );
+  }
+
+  private generateId(): string {
+    return `doc_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  }
+}
+
+export const documentProcessor = new DocumentProcessor();

@@ -71,6 +71,7 @@ export default function ChatScreen() {
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.sender === 'user';
     
+  
     return (
       <View style={[styles.messageContainer, isUser && styles.userMessageContainer]}>
         <View style={[styles.messageBubble, isUser ? styles.userMessage : styles.aiMessage]}>
@@ -123,7 +124,6 @@ export default function ChatScreen() {
             placeholder="Ask about your documents..."
             placeholderTextColor="#999999"
             multiline
-            maxHeight={100}
           />
           <TouchableOpacity 
             style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
