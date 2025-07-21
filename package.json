@@ -13,6 +13,7 @@
   "dependencies": {
     "@nozbe/watermelondb": "^0.27.1",
     "@react-native-ml-kit/text-recognition": "^1.5.2",
+    "react-native-vision-camera": "^4.0.5",
     "@tamagui/animations-react-native": "^1.79.0",
     "@tamagui/config": "^1.79.0",
     "@tamagui/core": "^1.79.0",

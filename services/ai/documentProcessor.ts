@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
+import { ocrEngineManager } from './OCREngineManager';
+import { OCREngineName } from './ocrTypes';
 
 export interface DocumentResult {
   id: string;
@@ -40,6 +41,7 @@ export interface ProcessingOptions {
   preprocessImage?: boolean;
   extractStructuredData?: boolean;
   confidenceThreshold?: number;
+  ocrEngine?: OCREngineName;
 }
 
 export class DocumentProcessor {
@@ -47,6 +49,7 @@ export class DocumentProcessor {
     preprocessImage: true,
     extractStructuredData: true,
     confidenceThreshold: 0.7,
+    ocrEngine: 'mlkit',
   };
 
   async processImage(
@@ -63,7 +66,7 @@ export class DocumentProcessor {
         processedImageUri = await this.preprocessImage(imageUri);
       }
 
-      const ocrResult = await this.performOCR(processedImageUri);
+      const ocrResult = await this.performOCR(processedImageUri, opts.ocrEngine);
       
       const documentType = this.detectDocumentType(ocrResult.text);
       
@@ -136,18 +139,17 @@ export class DocumentProcessor {
     }
   }
 
-  private async performOCR(imageUri: string): Promise<{ text: string; confidence: number }> {
+  async performOCR(imageUri: string, engineName: OCREngineName = 'mlkit'): Promise<{ text: string; confidence: number }> {
     try {
-      const result = await TextRecognition.recognize(imageUri);
+      // Initialize engine manager if needed
+      await ocrEngineManager.initialize();
       
-      // Calculate confidence based on the number of detected blocks and text length
-      const totalBlocks = result.blocks.length;
-      const textLength = result.text.length;
-      const confidence = totalBlocks > 0 && textLength > 0 ? 0.8 : 0;
-
+      // Process with selected engine
+      const result = await ocrEngineManager.processImage(imageUri, engineName);
+      
       return {
         text: result.text,
-        confidence: confidence || 0.8,
+        confidence: result.confidence,
       };
     } catch (error) {
       console.error('Error performing OCR:', error);

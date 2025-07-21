@@ -58,6 +58,15 @@ export default function TabLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="ocrtest"
+        options={{
+          title: 'OCR Compare',
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="git-compare-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tabs>
   );
 }
