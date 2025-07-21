@@ -1,121 +1,336 @@
-import React from 'react';
-import { 
-  View, 
-  Text, 
-  ScrollView, 
-  TouchableOpacity, 
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
   StyleSheet,
   Image,
+  Alert,
+  TextInput,
+  Share,
+  ActivityIndicator,
   Dimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { copyToClipboard } from '../../utils/clipboard';
+import { documentStorage } from '../../services/database/documentStorage';
+import Document from '../../services/database/models/Document';
 
-const { width } = Dimensions.get('window');
+const { width: screenWidth } = Dimensions.get('window');
 
 export default function DocumentDetailScreen() {
   const { id } = useLocalSearchParams();
-  
-  // Mock document data
-  const document = {
-    id: id as string,
-    uri: 'https://via.placeholder.com/400x600',
-    type: 'receipt',
-    title: 'Grocery Store Receipt',
-    date: new Date(),
-    metadata: {
-      amount: 45.99,
-      organization: 'SuperMart',
-      date: '2024-01-15',
-      items: [
-        { name: 'Milk', price: 4.99 },
-        { name: 'Bread', price: 2.99 },
-        { name: 'Eggs', price: 3.99 },
-      ],
-      tax: 5.00,
-      total: 45.99,
+  const router = useRouter();
+  const [document, setDocument] = useState<Document | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedData, setEditedData] = useState({
+    vendor: '',
+    totalAmount: '',
+    currency: '',
+  });
+
+  useEffect(() => {
+    loadDocument();
+  }, [id]);
+
+  const loadDocument = async () => {
+    try {
+      const doc = await documentStorage.getDocumentById(id as string);
+      setDocument(doc);
+      if (doc) {
+        setEditedData({
+          vendor: doc.vendor || '',
+          totalAmount: doc.totalAmount?.toString() || '',
+          currency: doc.currency || 'USD',
+        });
+      }
+    } catch (error) {
+      console.error('Error loading document:', error);
+      Alert.alert('Error', 'Failed to load document');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const actions = [
-    { id: 'share', icon: 'share-outline', label: 'Share' },
-    { id: 'export', icon: 'download-outline', label: 'Export' },
-    { id: 'delete', icon: 'trash-outline', label: 'Delete', danger: true },
-  ];
+  // copyToClipboard is now imported from utils
+
+  const shareDocument = async () => {
+    if (!document) return;
+    
+    try {
+      await Share.share({
+        message: `Document: ${document.vendor || 'Unknown'}\n\n${document.ocrText}`,
+        title: document.vendor || 'Document'
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
+  const deleteDocument = () => {
+    Alert.alert(
+      'Delete Document',
+      'Are you sure you want to delete this document?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await documentStorage.deleteDocument(id as string);
+              router.back();
+            } catch (error) {
+              console.error('Error deleting document:', error);
+              Alert.alert('Error', 'Failed to delete document');
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const saveEdits = async () => {
+    if (!document) return;
+    
+    try {
+      // Create a new document object with updated fields
+      // Make sure to preserve all existing fields
+      const updatedDoc = {
+        ...document,
+        vendor: editedData.vendor || document.vendor,
+        totalAmount: editedData.totalAmount ? parseFloat(editedData.totalAmount) : document.totalAmount,
+        currency: editedData.currency || document.currency || 'USD',
+      };
+      
+      // Ensure critical fields are preserved
+      if (!updatedDoc.ocrText) {
+        updatedDoc.ocrText = document.ocrText || '';
+      }
+      
+      // Update the document in the database
+      const savedDoc = await documentStorage.updateDocument(document.id, {
+        vendor: editedData.vendor || undefined,
+        totalAmount: editedData.totalAmount ? parseFloat(editedData.totalAmount) : undefined,
+        currency: editedData.currency || undefined,
+      });
+      
+      // Update local state with the saved document
+      setDocument(savedDoc);
+      setIsEditing(false);
+      Alert.alert('Success', 'Document updated successfully');
+    } catch (error) {
+      console.error('Error saving edits:', error);
+      Alert.alert('Error', 'Failed to save changes');
+    }
+  };
+
+  const renderTextLine = (text: string | undefined, label: string) => {
+    // Handle undefined or null text
+    if (!text) {
+      return (
+        <View style={styles.textSection}>
+          <Text style={styles.sectionLabel}>{label}</Text>
+          <Text style={styles.lineText}>No text available</Text>
+        </View>
+      );
+    }
+    
+    const lines = text.split('\n').filter(line => line.trim());
+    
+    if (lines.length === 0) {
+      return (
+        <View style={styles.textSection}>
+          <Text style={styles.sectionLabel}>{label}</Text>
+          <Text style={styles.lineText}>No text available</Text>
+        </View>
+      );
+    }
+    
+    return (
+      <View style={styles.textSection}>
+        <Text style={styles.sectionLabel}>{label}</Text>
+        {lines.map((line, index) => (
+          <TouchableOpacity
+            key={index}
+            onPress={() => copyToClipboard(line, `Line ${index + 1}`)}
+            style={styles.textLine}
+          >
+            <Text style={styles.lineText}>{line}</Text>
+            <Ionicons name="copy-outline" size={16} color="#666666" />
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#0066FF" />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!document) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>Document not found</Text>
+          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+            <Text style={styles.backButtonText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView}>
-        <View style={styles.imageContainer}>
-          <Image source={{ uri: document.uri }} style={styles.documentImage} />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
+          <Ionicons name="arrow-back" size={24} color="#000000" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Document Details</Text>
+        <View style={styles.headerActions}>
+          <TouchableOpacity onPress={shareDocument} style={styles.headerButton}>
+            <Ionicons name="share-outline" size={24} color="#000000" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={deleteDocument} style={styles.headerButton}>
+            <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+          </TouchableOpacity>
         </View>
-        
-        <View style={styles.contentContainer}>
-          <Text style={styles.documentTitle}>{document.title}</Text>
-          <Text style={styles.documentDate}>
-            {document.metadata.date} • {document.metadata.organization}
-          </Text>
-          
-          <View style={styles.metadataSection}>
-            <Text style={styles.sectionTitle}>Extracted Information</Text>
-            
-            <View style={styles.metadataItem}>
-              <Text style={styles.metadataLabel}>Organization</Text>
-              <Text style={styles.metadataValue}>{document.metadata.organization}</Text>
-            </View>
-            
-            <View style={styles.metadataItem}>
-              <Text style={styles.metadataLabel}>Date</Text>
-              <Text style={styles.metadataValue}>{document.metadata.date}</Text>
-            </View>
-            
-            <View style={styles.metadataItem}>
-              <Text style={styles.metadataLabel}>Total Amount</Text>
-              <Text style={styles.metadataValue}>${document.metadata.total.toFixed(2)}</Text>
-            </View>
-            
-            {document.metadata.items && (
-              <>
-                <View style={styles.divider} />
-                <Text style={styles.subsectionTitle}>Items</Text>
-                {document.metadata.items.map((item, index) => (
-                  <View key={index} style={styles.itemRow}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
-                  </View>
-                ))}
-                <View style={styles.itemRow}>
-                  <Text style={styles.itemName}>Tax</Text>
-                  <Text style={styles.itemPrice}>${document.metadata.tax.toFixed(2)}</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.itemRow}>
-                  <Text style={styles.totalLabel}>Total</Text>
-                  <Text style={styles.totalValue}>${document.metadata.total.toFixed(2)}</Text>
-                </View>
-              </>
-            )}
+      </View>
+
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.imageContainer}>
+          <Image source={{ uri: document.imageUri }} style={styles.documentImage} />
+          <View style={styles.confidenceBadge}>
+            <Text style={styles.confidenceText}>
+              {(document.confidence * 100).toFixed(0)}% confidence
+            </Text>
           </View>
-          
-          <View style={styles.actionsContainer}>
-            {actions.map(action => (
+        </View>
+
+        <View style={styles.metadataContainer}>
+          <View style={styles.metadataHeader}>
+            <Text style={styles.metadataTitle}>Document Information</Text>
+            <TouchableOpacity
+              onPress={() => isEditing ? saveEdits() : setIsEditing(true)}
+              style={styles.editButton}
+            >
+              <Ionicons 
+                name={isEditing ? "checkmark" : "pencil"} 
+                size={20} 
+                color="#0066FF" 
+              />
+              <Text style={styles.editButtonText}>
+                {isEditing ? 'Save' : 'Edit'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.metadataRow}>
+            <Text style={styles.metadataLabel}>Type:</Text>
+            <Text style={styles.metadataValue}>{document.documentType}</Text>
+          </View>
+
+          <View style={styles.metadataRow}>
+            <Text style={styles.metadataLabel}>Vendor:</Text>
+            {isEditing ? (
+              <TextInput
+                style={styles.editInput}
+                value={editedData.vendor}
+                onChangeText={(text) => setEditedData({...editedData, vendor: text})}
+                placeholder="Enter vendor name"
+              />
+            ) : (
               <TouchableOpacity
-                key={action.id}
-                style={[styles.actionButton, action.danger && styles.dangerButton]}
+                onPress={() => document.vendor && copyToClipboard(document.vendor, 'Vendor')}
               >
-                <Ionicons 
-                  name={action.icon as any} 
-                  size={24} 
-                  color={action.danger ? '#FF3B30' : '#0066FF'} 
-                />
-                <Text style={[styles.actionLabel, action.danger && styles.dangerLabel]}>
-                  {action.label}
+                <Text style={styles.metadataValue}>
+                  {document.vendor || 'Not specified'}
                 </Text>
               </TouchableOpacity>
-            ))}
+            )}
+          </View>
+
+          {document.totalAmount !== undefined && (
+            <View style={styles.metadataRow}>
+              <Text style={styles.metadataLabel}>Amount:</Text>
+              {isEditing ? (
+                <View style={styles.amountEditContainer}>
+                  <TextInput
+                    style={[styles.editInput, styles.currencyInput]}
+                    value={editedData.currency}
+                    onChangeText={(text) => setEditedData({...editedData, currency: text})}
+                    placeholder="USD"
+                  />
+                  <TextInput
+                    style={[styles.editInput, styles.amountInput]}
+                    value={editedData.totalAmount}
+                    onChangeText={(text) => setEditedData({...editedData, totalAmount: text})}
+                    keyboardType="numeric"
+                    placeholder="0.00"
+                  />
+                </View>
+              ) : (
+                <TouchableOpacity
+                  onPress={() => copyToClipboard(
+                    `${document.currency || 'USD'} ${document.totalAmount}`,
+                    'Amount'
+                  )}
+                >
+                  <Text style={styles.metadataValue}>
+                    {document.currency || 'USD'} {document.totalAmount}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
+          {document.date && (
+            <View style={styles.metadataRow}>
+              <Text style={styles.metadataLabel}>Date:</Text>
+              <TouchableOpacity
+                onPress={() => copyToClipboard(
+                  new Date(document.date!).toLocaleDateString(),
+                  'Date'
+                )}
+              >
+                <Text style={styles.metadataValue}>
+                  {new Date(document.date).toLocaleDateString()}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          <View style={styles.metadataRow}>
+            <Text style={styles.metadataLabel}>Processed:</Text>
+            <Text style={styles.metadataValue}>
+              {new Date(document.processedAt).toLocaleString()}
+            </Text>
           </View>
         </View>
+
+        {renderTextLine(document.ocrText, 'Extracted Text')}
+
+        <TouchableOpacity
+          style={styles.fullMetadataButton}
+          onPress={() => copyToClipboard(
+            JSON.stringify(document.metadata, null, 2),
+            'Full metadata'
+          )}
+        >
+          <Ionicons name="code-outline" size={20} color="#0066FF" />
+          <Text style={styles.fullMetadataButtonText}>Copy Full Metadata</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -126,113 +341,194 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAFAFA',
   },
-  scrollView: {
+  loadingContainer: {
     flex: 1,
-  },
-  imageContainer: {
-    backgroundColor: '#000000',
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 20,
+    alignItems: 'center',
   },
-  documentImage: {
-    width: width - 40,
-    height: (width - 40) * 1.5,
-    resizeMode: 'contain',
-  },
-  contentContainer: {
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     padding: 20,
   },
-  documentTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#000000',
-    marginBottom: 8,
-  },
-  documentDate: {
-    fontSize: 16,
+  errorText: {
+    fontSize: 18,
     color: '#666666',
-    marginBottom: 24,
+    marginBottom: 20,
   },
-  metadataSection: {
+  backButton: {
+    backgroundColor: '#0066FF',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  backButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E7',
   },
-  sectionTitle: {
+  headerButton: {
+    padding: 4,
+  },
+  headerTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#000000',
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  content: {
+    flex: 1,
+  },
+  imageContainer: {
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
     marginBottom: 16,
   },
-  subsectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-    marginTop: 16,
-    marginBottom: 12,
+  documentImage: {
+    width: screenWidth,
+    height: screenWidth * 0.75,
+    resizeMode: 'contain',
+    backgroundColor: '#F2F2F7',
   },
-  metadataItem: {
+  confidenceBadge: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    backgroundColor: 'rgba(0, 102, 255, 0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  confidenceText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  metadataContainer: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  metadataHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  metadataTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000000',
+  },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  editButtonText: {
+    color: '#0066FF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  metadataRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
   },
   metadataLabel: {
     fontSize: 14,
     color: '#666666',
+    flex: 1,
   },
   metadataValue: {
     fontSize: 14,
     color: '#000000',
-    fontWeight: '500',
+    flex: 2,
+    textAlign: 'right',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E5E7',
-    marginVertical: 12,
+  editInput: {
+    flex: 2,
+    borderWidth: 1,
+    borderColor: '#E5E5E7',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    fontSize: 14,
+    textAlign: 'right',
   },
-  itemRow: {
+  amountEditContainer: {
+    flex: 2,
+    flexDirection: 'row',
+    gap: 8,
+  },
+  currencyInput: {
+    flex: 0.8,
+  },
+  amountInput: {
+    flex: 1.2,
+  },
+  textSection: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  sectionLabel: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000000',
+    marginBottom: 12,
+  },
+  textLine: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  itemName: {
-    fontSize: 14,
-    color: '#666666',
-  },
-  itemPrice: {
-    fontSize: 14,
-    color: '#000000',
-  },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  totalValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000000',
-  },
-  actionsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingTop: 20,
-  },
-  actionButton: {
     alignItems: 'center',
-    padding: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2F2F7',
   },
-  dangerButton: {
-    // Style for danger button if needed
+  lineText: {
+    fontSize: 14,
+    color: '#333333',
+    flex: 1,
+    marginRight: 8,
   },
-  actionLabel: {
-    fontSize: 12,
+  fullMetadataButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginBottom: 32,
+    padding: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  fullMetadataButtonText: {
     color: '#0066FF',
-    marginTop: 4,
-  },
-  dangerLabel: {
-    color: '#FF3B30',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });

@@ -16,6 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { ocrEngineManager } from '../../services/ai/OCREngineManager';
 import { OCRResult, OCREngineName, OCRComparison } from '../../services/ai/ocrTypes';
 import { HebrewPatterns } from '../../services/ai/hebrewPatterns';
+import { documentProcessor } from '../../services/ai/documentProcessor';
+import { documentStorage } from '../../services/database/documentStorage';
+import { useRouter } from 'expo-router';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -26,6 +29,7 @@ interface EngineSelection {
 }
 
 export default function OCRTestScreen() {
+  const router = useRouter();
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [results, setResults] = useState<OCRResult[]>([]);
@@ -120,6 +124,31 @@ export default function OCRTestScreen() {
       Alert.alert('Error', 'Failed to process image');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const saveToDatabase = async () => {
+    if (!selectedImage || results.length === 0) return;
+
+    try {
+      // Find the best result (highest confidence)
+      const bestResult = results.reduce((best, current) => 
+        current.confidence > best.confidence ? current : best
+      );
+
+      // Process the image with document processor using the best engine
+      const documentResult = await documentProcessor.processImage(selectedImage, {
+        ocrEngine: bestResult.engineName,
+      });
+
+      // Save to database
+      const savedDoc = await documentStorage.saveDocument(documentResult);
+
+      // Navigate to document detail view
+      router.push(`/document/${savedDoc.id}`);
+    } catch (error) {
+      console.error('Error saving document:', error);
+      Alert.alert('Error', 'Failed to save document');
     }
   };
 
@@ -327,14 +356,26 @@ export default function OCRTestScreen() {
         )}
 
         {results.length > 0 && (
-          <View style={styles.resultsContainer}>
-            <Text style={styles.sectionTitle}>Results</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.resultsRow}>
-                {results.map(result => renderEngineResult(result))}
-              </View>
-            </ScrollView>
-          </View>
+          <>
+            <View style={styles.resultsContainer}>
+              <Text style={styles.sectionTitle}>Results</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.resultsRow}>
+                  {results.map(result => renderEngineResult(result))}
+                </View>
+              </ScrollView>
+            </View>
+            
+            <View style={styles.saveButtonContainer}>
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={saveToDatabase}
+              >
+                <Ionicons name="save-outline" size={20} color="#FFFFFF" />
+                <Text style={styles.saveButtonText}>Save to Documents</Text>
+              </TouchableOpacity>
+            </View>
+          </>
         )}
       </ScrollView>
     </View>
@@ -571,5 +612,24 @@ const styles = StyleSheet.create({
     color: '#666666',
     marginLeft: 10,
     marginBottom: 2,
+  },
+  saveButtonContainer: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 30,
+  },
+  saveButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 14,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
