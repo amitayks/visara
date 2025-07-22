@@ -141,6 +141,23 @@ export default function OCRTestScreen() {
         ocrEngine: bestResult.engineName,
       });
 
+      // Check if document already exists
+      const existingDoc = await documentStorage.checkDuplicateByHash(documentResult.imageHash);
+      if (existingDoc) {
+        Alert.alert(
+          'Duplicate Document',
+          'This document has already been processed. Would you like to view it?',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { 
+              text: 'View', 
+              onPress: () => router.push(`/document/${existingDoc.id}`)
+            }
+          ]
+        );
+        return;
+      }
+
       // Save to database
       const savedDoc = await documentStorage.saveDocument(documentResult);
 

@@ -115,7 +115,8 @@ export class ImagePreprocessor {
   ): Promise<string> {
     const optionsString = JSON.stringify(options);
     const fileInfo = await FileSystem.getInfoAsync(imageUri);
-    const content = `${imageUri}_${fileInfo.modificationTime}_${optionsString}`;
+    const modTime = fileInfo.exists && 'modificationTime' in fileInfo ? fileInfo.modificationTime : 0;
+    const content = `${imageUri}_${modTime}_${optionsString}`;
     return await Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, content);
   }
 

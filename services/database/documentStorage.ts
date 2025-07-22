@@ -7,14 +7,35 @@ export class DocumentStorage {
   async saveDocument(result: DocumentResult): Promise<Document> {
     const documentsCollection = database.get<Document>('documents');
     
+    // Check for duplicate by image hash
+    const existingDocs = await documentsCollection
+      .query(Q.where('image_hash', result.imageHash))
+      .fetch();
+      
+    if (existingDocs.length > 0) {
+      console.log('Document already exists with hash:', result.imageHash);
+      return existingDocs[0];
+    }
+    
     return await database.write(async () => {
       const document = await documentsCollection.create(doc => {
         doc.imageUri = result.imageUri;
+        doc.thumbnailUri = result.thumbnailUri;
+        doc.imageHash = result.imageHash;
         doc.ocrText = result.ocrText;
         doc.documentType = result.documentType;
         doc.confidence = result.confidence;
         doc.processedAt = result.processedAt;
         doc.metadata = result.metadata;
+        doc.keywords = result.keywords;
+        doc.searchVector = result.searchVector;
+        doc.imageWidth = result.imageWidth;
+        doc.imageHeight = result.imageHeight;
+        doc.imageSize = result.imageSize;
+        
+        if (result.imageTakenDate) {
+          doc.imageTakenDate = result.imageTakenDate.getTime();
+        }
         
         // Extract key metadata fields
         if (result.metadata.vendor) {
@@ -122,6 +143,15 @@ export class DocumentStorage {
         }
       });
     });
+  }
+  
+  async checkDuplicateByHash(imageHash: string): Promise<Document | null> {
+    const documentsCollection = database.get<Document>('documents');
+    const docs = await documentsCollection
+      .query(Q.where('image_hash', imageHash))
+      .fetch();
+    
+    return docs.length > 0 ? docs[0] : null;
   }
 }
 

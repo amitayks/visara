@@ -11,7 +11,8 @@
       "Bash(npm start)",
       "Bash(npx tsc:*)",
       "Bash(mkdir:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

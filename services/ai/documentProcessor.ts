@@ -2,15 +2,25 @@ import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { ocrEngineManager } from './OCREngineManager';
 import { OCREngineName } from './ocrTypes';
+import { thumbnailService } from '../thumbnailService';
+import { keywordExtractor } from './keywordExtractor';
 
 export interface DocumentResult {
   id: string;
   imageUri: string;
+  thumbnailUri?: string;
+  imageHash: string;
   ocrText: string;
   metadata: ExtractedMetadata;
   documentType: 'receipt' | 'invoice' | 'id' | 'letter' | 'form' | 'screenshot' | 'unknown';
   confidence: number;
   processedAt: Date;
+  imageTakenDate?: Date;
+  keywords: string[];
+  searchVector: number[];
+  imageWidth?: number;
+  imageHeight?: number;
+  imageSize?: number;
 }
 
 export interface ExtractedMetadata {
@@ -60,6 +70,22 @@ export class DocumentProcessor {
     const startTime = Date.now();
 
     try {
+      // Calculate image hash first for deduplication
+      const imageHash = await thumbnailService.calculateImageHash(imageUri);
+      
+      // Get image info
+      const imageInfo = await thumbnailService.getImageInfo(imageUri);
+      
+      // Create thumbnail
+      let thumbnailUri: string | undefined;
+      try {
+        const thumbnailResult = await thumbnailService.createThumbnail(imageUri);
+        thumbnailUri = thumbnailResult.thumbnailUri;
+        console.log(`Thumbnail created with ${(thumbnailResult.compressionRatio * 100).toFixed(1)}% size reduction`);
+      } catch (error) {
+        console.error('Failed to create thumbnail:', error);
+      }
+
       let processedImageUri = imageUri;
 
       if (opts.preprocessImage) {
@@ -85,6 +111,13 @@ export class DocumentProcessor {
         }
       }
 
+      // Extract keywords and document date
+      const keywords = keywordExtractor.extractKeywords(ocrResult.text);
+      const documentDate = keywordExtractor.extractDocumentDate(ocrResult.text);
+      
+      // Generate search vector
+      const searchVector = keywordExtractor.generateSearchVector(ocrResult.text, keywords);
+
       const overallConfidence = this.calculateOverallConfidence(
         ocrResult.confidence,
         metadata.confidence,
@@ -94,23 +127,37 @@ export class DocumentProcessor {
       return {
         id: this.generateId(),
         imageUri,
+        thumbnailUri,
+        imageHash,
         ocrText: ocrResult.text,
         metadata,
         documentType,
         confidence: overallConfidence,
         processedAt: new Date(),
+        imageTakenDate: imageInfo.takenDate,
+        keywords,
+        searchVector,
+        imageWidth: imageInfo.width,
+        imageHeight: imageInfo.height,
+        imageSize: imageInfo.size,
       };
     } catch (error) {
       console.error('Error processing image:', error);
       
+      // Still calculate hash for failed processing
+      const imageHash = await thumbnailService.calculateImageHash(imageUri);
+      
       return {
         id: this.generateId(),
         imageUri,
+        imageHash,
         ocrText: '',
         metadata: { confidence: 0 },
         documentType: 'unknown',
         confidence: 0,
         processedAt: new Date(),
+        keywords: [],
+        searchVector: [],
       };
     }
   }
@@ -417,14 +464,20 @@ export class DocumentProcessor {
       } catch (error) {
         console.error(`Error processing image ${i + 1}/${total}:`, error);
         
+        // Calculate hash even for failed images
+        const imageHash = await thumbnailService.calculateImageHash(imageUris[i]);
+        
         results.push({
           id: this.generateId(),
           imageUri: imageUris[i],
+          imageHash,
           ocrText: '',
           metadata: { confidence: 0 },
           documentType: 'unknown',
           confidence: 0,
           processedAt: new Date(),
+          keywords: [],
+          searchVector: [],
         });
       }
     }

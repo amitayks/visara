@@ -141,7 +141,7 @@ export default function DocumentsScreen() {
       onPress={() => router.push(`/document/${item.id}`)}
       onLongPress={() => showDocumentOptions(item)}
     >
-      <Image source={{ uri: item.imageUri }} style={styles.documentImage} />
+      <Image source={{ uri: item.thumbnailUri || item.imageUri }} style={styles.documentImage} />
       <View style={styles.documentOverlay}>
         <Text style={styles.documentTitle} numberOfLines={1}>
           {item.vendor || item.documentType}
