@@ -1,0 +1,41 @@
+[33mcommit e916f60dd3aa95d2442f587a0748bac2a6af2769[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m
+Author: amitay keisar <amiteyk3@gmail.com>
+Date:   Tue Jul 22 18:37:58 2025 +0300
+
+    background scaning
+
+[33mcommit d180e4189c4d5af7b24f73f8b3700c1a25f79092[m[33m ([m[1;31morigin/main[m[33m)[m
+Author: amitay keisar <amiteyk3@gmail.com>
+Date:   Tue Jul 22 16:16:15 2025 +0300
+
+    refactor storage
+
+[33mcommit b47469f7e33e648a62ceb486946600bca2250eb9[m
+Author: amitay keisar <amiteyk3@gmail.com>
+Date:   Mon Jul 21 17:10:19 2025 +0300
+
+    add storage
+
+[33mcommit 2938e4f0fb4c0966b80d818f661000cde23a17b6[m
+Author: amitay keisar <amiteyk3@gmail.com>
+Date:   Mon Jul 21 13:37:08 2025 +0300
+
+    llm comparing result
+
+[33mcommit 17e73135d7a2890ffc04b2da551bbd77960d045e[m
+Author: amitay keisar <amiteyk3@gmail.com>
+Date:   Mon Jul 21 11:20:58 2025 +0300
+
+    llm initial
+
+[33mcommit cb8c11e8731deb44d98ac725fec241f1871f8718[m
+Author: amitay keisar <amiteyk3@gmail.com>
+Date:   Thu Jul 17 20:37:51 2025 +0300
+
+    first init
+
+[33mcommit 8bbca4376ec0db64514520539a4abc97424573fe[m
+Author: amitay keisar <amiteyk3@gmail.com>
+Date:   Wed Jul 16 17:40:57 2025 +0300
+
+    first init

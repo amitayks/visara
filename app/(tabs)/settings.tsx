@@ -1,28 +1,143 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { 
   View, 
   Text, 
   ScrollView, 
   TouchableOpacity, 
   StyleSheet,
-  Switch
+  Switch,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { useScannerStore } from '../../stores/scannerStore';
+import { backgroundScanner } from '../../services/gallery/backgroundScanner';
+import { galleryScanner } from '../../services/gallery/GalleryScanner';
 
 interface SettingItem {
   id: string;
   title: string;
   subtitle?: string;
   icon: string;
-  type: 'toggle' | 'link' | 'info';
-  value?: boolean;
+  type: 'toggle' | 'link' | 'info' | 'select';
+  value?: boolean | string | number;
+  onValueChange?: (value: any) => void;
+  onPress?: () => void;
 }
 
 export default function SettingsScreen() {
-  const [autoScan, setAutoScan] = React.useState(true);
-  const [notifications, setNotifications] = React.useState(false);
-  const [biometric, setBiometric] = React.useState(false);
+  const settings = useSettingsStore((state) => state.settings);
+  const updateSetting = useSettingsStore((state) => state.updateSetting);
+  const { scanProgress, setBackgroundScanEnabled, isBackgroundScanEnabled } = useScannerStore();
+
+  useEffect(() => {
+    // Register background task when auto-scan is enabled
+    if (settings.autoScan && !isBackgroundScanEnabled) {
+      backgroundScanner.registerBackgroundTask()
+        .then(() => setBackgroundScanEnabled(true))
+        .catch(console.error);
+    } else if (!settings.autoScan && isBackgroundScanEnabled) {
+      backgroundScanner.unregisterBackgroundTask()
+        .then(() => setBackgroundScanEnabled(false))
+        .catch(console.error);
+    }
+  }, [settings.autoScan, isBackgroundScanEnabled, setBackgroundScanEnabled]);
+
+  const handleManualScan = async () => {
+    try {
+      const hasPermission = await galleryScanner.requestPermissions();
+      if (!hasPermission) {
+        Alert.alert('Permission Required', 'Please grant access to your photo library to scan for documents.');
+        return;
+      }
+
+      Alert.alert(
+        'Start Manual Scan',
+        'This will scan your entire photo library for documents. Continue?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Start Scan',
+            onPress: () => {
+              galleryScanner.startScan({}, (progress) => {
+                useScannerStore.getState().setScanProgress(progress);
+              });
+              Alert.alert('Scan Started', 'The scan is running in the background. You can check progress in the app.');
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to start scan. Please try again.');
+    }
+  };
+
+  const handleClearScanProgress = () => {
+    Alert.alert(
+      'Clear Scan Progress',
+      'This will reset the scan progress and start fresh next time. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            await galleryScanner.clearProgress();
+            useScannerStore.getState().reset();
+            Alert.alert('Success', 'Scan progress has been cleared.');
+          }
+        }
+      ]
+    );
+  };
+
+  const getScanFrequencySubtitle = () => {
+    const frequencies = {
+      hourly: 'Scan every hour',
+      daily: 'Scan once per day',
+      weekly: 'Scan once per week',
+      manual: 'Manual scan only'
+    };
+    return frequencies[settings.scanFrequency];
+  };
+
+  const handleScanFrequencyPress = () => {
+    const options = [
+      { label: 'Every Hour', value: 'hourly' },
+      { label: 'Daily', value: 'daily' },
+      { label: 'Weekly', value: 'weekly' },
+      { label: 'Manual Only', value: 'manual' }
+    ];
+
+    Alert.alert(
+      'Scan Frequency',
+      'How often should the app scan for new documents?',
+      [
+        ...options.map(option => ({
+          text: option.label,
+          onPress: () => updateSetting('scanFrequency', option.value as 'hourly' | 'daily' | 'weekly' | 'manual')
+        })),
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const handleBatteryThresholdPress = () => {
+    const options = [10, 20, 30, 40, 50];
+    
+    Alert.alert(
+      'Battery Threshold',
+      'Minimum battery level required for scanning',
+      [
+        ...options.map(option => ({
+          text: `${option}%`,
+          onPress: () => updateSetting('batteryThreshold', option)
+        })),
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
 
   const settingSections = [
     {
@@ -34,15 +149,60 @@ export default function SettingsScreen() {
           subtitle: 'Automatically scan new photos for documents',
           icon: 'scan-outline',
           type: 'toggle' as const,
-          value: autoScan,
-          onValueChange: setAutoScan,
+          value: settings.autoScan,
+          onValueChange: (value: boolean) => updateSetting('autoScan', value),
+        },
+        {
+          id: 'scan-frequency',
+          title: 'Scan Frequency',
+          subtitle: getScanFrequencySubtitle(),
+          icon: 'time-outline',
+          type: 'select' as const,
+          onPress: handleScanFrequencyPress,
+        },
+        {
+          id: 'scan-wifi-only',
+          title: 'WiFi Only',
+          subtitle: 'Only scan when connected to WiFi',
+          icon: 'wifi-outline',
+          type: 'toggle' as const,
+          value: settings.scanWifiOnly,
+          onValueChange: (value: boolean) => updateSetting('scanWifiOnly', value),
+        },
+        {
+          id: 'battery-threshold',
+          title: 'Battery Threshold',
+          subtitle: `Pause scanning below ${settings.batteryThreshold}% battery`,
+          icon: 'battery-half-outline',
+          type: 'select' as const,
+          onPress: handleBatteryThresholdPress,
         },
         {
           id: 'scan-quality',
           title: 'Scan Quality',
-          subtitle: 'High quality (uses more battery)',
+          subtitle: settings.scanQuality === 'high' ? 'High quality (uses more battery)' : 
+                    settings.scanQuality === 'medium' ? 'Balanced quality and performance' : 
+                    'Low quality (saves battery)',
           icon: 'options-outline',
           type: 'link' as const,
+        },
+        {
+          id: 'manual-scan',
+          title: 'Manual Scan',
+          subtitle: scanProgress.isScanning ? 
+                    `Scanning... ${scanProgress.processedImages}/${scanProgress.totalImages}` :
+                    'Start a manual scan now',
+          icon: 'play-circle-outline',
+          type: 'link' as const,
+          onPress: handleManualScan,
+        },
+        {
+          id: 'clear-progress',
+          title: 'Clear Scan Progress',
+          subtitle: 'Reset and start fresh',
+          icon: 'refresh-outline',
+          type: 'link' as const,
+          onPress: handleClearScanProgress,
         },
       ],
     },
@@ -55,15 +215,17 @@ export default function SettingsScreen() {
           subtitle: 'Require Face ID or Touch ID to open app',
           icon: 'finger-print-outline',
           type: 'toggle' as const,
-          value: biometric,
-          onValueChange: setBiometric,
+          value: settings.biometricLock,
+          onValueChange: (value: boolean) => updateSetting('biometricLock', value),
         },
         {
           id: 'encryption',
-          title: 'Document Encryption',
-          subtitle: 'Encrypt sensitive documents',
+          title: 'Encrypt Sensitive Documents',
+          subtitle: 'Add extra security for sensitive files',
           icon: 'lock-closed-outline',
-          type: 'link' as const,
+          type: 'toggle' as const,
+          value: settings.encryptSensitiveDocuments,
+          onValueChange: (value: boolean) => updateSetting('encryptSensitiveDocuments', value),
         },
       ],
     },
@@ -76,8 +238,8 @@ export default function SettingsScreen() {
           subtitle: 'Get notified about new documents',
           icon: 'notifications-outline',
           type: 'toggle' as const,
-          value: notifications,
-          onValueChange: setNotifications,
+          value: settings.notifications,
+          onValueChange: (value: boolean) => updateSetting('notifications', value),
         },
       ],
     },
@@ -86,8 +248,8 @@ export default function SettingsScreen() {
       items: [
         {
           id: 'storage',
-          title: 'Storage Used',
-          subtitle: '1.2 GB of 5 GB',
+          title: 'Storage Limit',
+          subtitle: `${settings.storageLimit} GB maximum`,
           icon: 'server-outline',
           type: 'info' as const,
         },
@@ -97,6 +259,27 @@ export default function SettingsScreen() {
           subtitle: 'Free up space by clearing temporary files',
           icon: 'trash-outline',
           type: 'link' as const,
+        },
+      ],
+    },
+    {
+      title: 'Scan Progress',
+      items: [
+        {
+          id: 'last-scan',
+          title: 'Last Scan',
+          subtitle: scanProgress.lastScanDate ? 
+                    new Date(scanProgress.lastScanDate).toLocaleString() : 
+                    'Never scanned',
+          icon: 'calendar-outline',
+          type: 'info' as const,
+        },
+        {
+          id: 'processed',
+          title: 'Images Processed',
+          subtitle: `${scanProgress.processedImages} of ${scanProgress.totalImages}`,
+          icon: 'images-outline',
+          type: 'info' as const,
         },
       ],
     },
@@ -126,19 +309,19 @@ export default function SettingsScreen() {
     },
   ];
 
-  const renderSettingItem = (item: any) => {
+  const renderSettingItem = (item: SettingItem) => {
     if (item.type === 'toggle') {
       return (
         <View style={styles.settingItem}>
           <View style={styles.settingItemLeft}>
-            <Ionicons name={item.icon} size={24} color="#666666" />
+            <Ionicons name={item.icon as any} size={24} color="#666666" />
             <View style={styles.settingTextContainer}>
               <Text style={styles.settingTitle}>{item.title}</Text>
               {item.subtitle && <Text style={styles.settingSubtitle}>{item.subtitle}</Text>}
             </View>
           </View>
           <Switch
-            value={item.value}
+            value={item.value as boolean}
             onValueChange={item.onValueChange}
             trackColor={{ false: '#E5E5E7', true: '#0066FF' }}
             thumbColor="#FFFFFF"
@@ -148,15 +331,19 @@ export default function SettingsScreen() {
     }
 
     return (
-      <TouchableOpacity style={styles.settingItem}>
+      <TouchableOpacity 
+        style={styles.settingItem}
+        onPress={item.onPress}
+        disabled={item.type === 'info'}
+      >
         <View style={styles.settingItemLeft}>
-          <Ionicons name={item.icon} size={24} color="#666666" />
+          <Ionicons name={item.icon as any} size={24} color="#666666" />
           <View style={styles.settingTextContainer}>
             <Text style={styles.settingTitle}>{item.title}</Text>
             {item.subtitle && <Text style={styles.settingSubtitle}>{item.subtitle}</Text>}
           </View>
         </View>
-        {item.type === 'link' && (
+        {(item.type === 'link' || item.type === 'select') && (
           <Ionicons name="chevron-forward" size={20} color="#CCCCCC" />
         )}
       </TouchableOpacity>

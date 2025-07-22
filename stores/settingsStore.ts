@@ -11,6 +11,9 @@ interface AppSettings {
   darkMode: boolean;
   language: string;
   storageLimit: number; // in GB
+  scanFrequency: 'hourly' | 'daily' | 'weekly' | 'manual';
+  scanWifiOnly: boolean;
+  batteryThreshold: number; // percentage
 }
 
 interface SettingsStore {
@@ -33,6 +36,9 @@ const defaultSettings: AppSettings = {
   darkMode: false,
   language: 'en',
   storageLimit: 5,
+  scanFrequency: 'daily',
+  scanWifiOnly: true,
+  batteryThreshold: 20,
 };
 
 // Custom storage using Expo SecureStore
@@ -108,3 +114,6 @@ export const useSettingsStore = create<SettingsStore>()(
     }
   )
 );
+
+// Export the store for direct access
+export const settingsStore = useSettingsStore;
