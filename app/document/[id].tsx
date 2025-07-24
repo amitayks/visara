@@ -5,7 +5,6 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Image,
   Alert,
   TextInput,
   Share,
@@ -15,6 +14,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import * as FileSystem from 'expo-file-system';
 import { copyToClipboard } from '../../utils/clipboard';
 import { documentStorage } from '../../services/database/documentStorage';
 import Document from '../../services/database/models/Document';
@@ -27,6 +28,7 @@ export default function DocumentDetailScreen() {
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [editedData, setEditedData] = useState({
     vendor: '',
     totalAmount: '',
@@ -42,6 +44,20 @@ export default function DocumentDetailScreen() {
       const doc = await documentStorage.getDocumentById(id as string);
       setDocument(doc);
       if (doc) {
+        console.log('Document loaded:', {
+          id: doc.id,
+          imageUri: doc.imageUri,
+          thumbnailUri: doc.thumbnailUri,
+          documentType: doc.documentType
+        });
+        
+        // Check if the image URI exists (for handling old temporary URIs)
+        const imageInfo = await FileSystem.getInfoAsync(doc.imageUri);
+        if (!imageInfo.exists) {
+          console.warn('Original image not found at:', doc.imageUri);
+          setImageError(true);
+        }
+        
         setEditedData({
           vendor: doc.vendor || '',
           totalAmount: doc.totalAmount?.toString() || '',
@@ -210,7 +226,33 @@ export default function DocumentDetailScreen() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.imageContainer}>
-          <Image source={{ uri: document.imageUri }} style={styles.documentImage} />
+          {!imageError ? (
+            <Image 
+              source={{ uri: document.imageUri }} 
+              style={styles.documentImage}
+              contentFit="contain"
+              placeholder={document.thumbnailUri ? { uri: document.thumbnailUri } : undefined}
+              transition={300}
+              onError={(error) => {
+                console.error('Image loading error:', error);
+                console.log('Image URI:', document.imageUri);
+                setImageError(true);
+              }}
+            />
+          ) : (
+            <View style={[styles.documentImage, styles.imagePlaceholder]}>
+              <Ionicons name="image-outline" size={64} color="#CCCCCC" />
+              <Text style={styles.imagePlaceholderText}>Image not available</Text>
+              {document.thumbnailUri && (
+                <TouchableOpacity 
+                  style={styles.showThumbnailButton}
+                  onPress={() => setImageError(false)}
+                >
+                  <Text style={styles.showThumbnailButtonText}>Try loading again</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
           <View style={styles.confidenceBadge}>
             <Text style={styles.confidenceText}>
               {(document.confidence * 100).toFixed(0)}% confidence
@@ -403,7 +445,6 @@ const styles = StyleSheet.create({
   documentImage: {
     width: screenWidth,
     height: screenWidth * 0.75,
-    resizeMode: 'contain',
     backgroundColor: '#F2F2F7',
   },
   confidenceBadge: {
@@ -529,6 +570,27 @@ const styles = StyleSheet.create({
   fullMetadataButtonText: {
     color: '#0066FF',
     fontSize: 16,
+    fontWeight: '500',
+  },
+  imagePlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imagePlaceholderText: {
+    color: '#999999',
+    fontSize: 16,
+    marginTop: 8,
+  },
+  showThumbnailButton: {
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#0066FF',
+    borderRadius: 6,
+  },
+  showThumbnailButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '500',
   },
 });

@@ -4,6 +4,7 @@ import { ocrEngineManager } from './OCREngineManager';
 import { OCREngineName } from './ocrTypes';
 import { thumbnailService } from '../thumbnailService';
 import { keywordExtractor } from './keywordExtractor';
+import { imageStorage } from '../imageStorage';
 
 export interface DocumentResult {
   id: string;
@@ -76,11 +77,17 @@ export class DocumentProcessor {
       // Get image info
       const imageInfo = await thumbnailService.getImageInfo(imageUri);
       
+      // Copy original image to permanent storage
+      const permanentImageUri = await imageStorage.copyImageToPermanentStorage(imageUri, imageHash);
+      
       // Create thumbnail
       let thumbnailUri: string | undefined;
+      let permanentThumbnailUri: string | undefined;
       try {
         const thumbnailResult = await thumbnailService.createThumbnail(imageUri);
         thumbnailUri = thumbnailResult.thumbnailUri;
+        // Copy thumbnail to permanent storage
+        permanentThumbnailUri = await imageStorage.copyThumbnailToPermanentStorage(thumbnailUri, imageHash);
         console.log(`Thumbnail created with ${(thumbnailResult.compressionRatio * 100).toFixed(1)}% size reduction`);
       } catch (error) {
         console.error('Failed to create thumbnail:', error);
@@ -126,8 +133,8 @@ export class DocumentProcessor {
 
       return {
         id: this.generateId(),
-        imageUri,
-        thumbnailUri,
+        imageUri: permanentImageUri,
+        thumbnailUri: permanentThumbnailUri,
         imageHash,
         ocrText: ocrResult.text,
         metadata,

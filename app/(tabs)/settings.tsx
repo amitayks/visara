@@ -14,6 +14,7 @@ import { useSettingsStore } from '../../stores/settingsStore';
 import { useScannerStore } from '../../stores/scannerStore';
 import { backgroundScanner } from '../../services/gallery/backgroundScanner';
 import { galleryScanner } from '../../services/gallery/GalleryScanner';
+import { checkDocumentStorage } from '../../utils/documentMigration';
 
 interface SettingItem {
   id: string;
@@ -88,6 +89,15 @@ export default function SettingsScreen() {
         }
       ]
     );
+  };
+
+  const handleCheckStorage = async () => {
+    try {
+      await checkDocumentStorage();
+      Alert.alert('Storage Check', 'Check complete. See console logs for details.');
+    } catch (error) {
+      Alert.alert('Error', 'Failed to check storage');
+    }
   };
 
   const getScanFrequencySubtitle = () => {
@@ -234,6 +244,14 @@ export default function SettingsScreen() {
           subtitle: 'Free up space by clearing temporary files',
           icon: 'trash-outline',
           type: 'link' as const,
+        },
+        {
+          id: 'check-storage',
+          title: 'Check Document Storage',
+          subtitle: 'Diagnose image storage issues',
+          icon: 'medical-outline',
+          type: 'link' as const,
+          onPress: handleCheckStorage,
         },
       ],
     },

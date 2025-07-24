@@ -189,13 +189,8 @@ export class GalleryScanner {
       const result = await documentProcessor.processImage(assetInfo.localUri || assetInfo.uri);
       
       if (result && result.confidence > 0.8) {
-        // Save to database
-        await documentStorage.saveDocument({
-          ...result,
-          imageUri: assetInfo.localUri || assetInfo.uri,
-          imageHash: hash,
-          imageTakenDate: new Date(asset.creationTime),
-        });
+        // Save to database (documentProcessor already handles permanent storage)
+        await documentStorage.saveDocument(result);
 
         this.processedHashes.add(hash);
         await this.saveProcessedHashes();
