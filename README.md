@@ -137,7 +137,8 @@ npx expo build:ios
 ## License
 MIT
 
-*the app ui still not perfect (for week long project). 
+*the app ui still not perfect (for week long project :). 
+
 future task are 
 - ejecting from expo 
 - upgrade ai kit for OCR
