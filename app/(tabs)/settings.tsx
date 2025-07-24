@@ -32,17 +32,15 @@ export default function SettingsScreen() {
   const { scanProgress, setBackgroundScanEnabled, isBackgroundScanEnabled } = useScannerStore();
 
   useEffect(() => {
-    // Register background task when auto-scan is enabled
-    if (settings.autoScan && !isBackgroundScanEnabled) {
-      backgroundScanner.registerBackgroundTask()
-        .then(() => setBackgroundScanEnabled(true))
-        .catch(console.error);
-    } else if (!settings.autoScan && isBackgroundScanEnabled) {
-      backgroundScanner.unregisterBackgroundTask()
-        .then(() => setBackgroundScanEnabled(false))
-        .catch(console.error);
+    // Start or stop periodic scanning when auto-scan is toggled
+    if (settings.autoScan) {
+      backgroundScanner.startPeriodicScan();
+      setBackgroundScanEnabled(true);
+    } else {
+      backgroundScanner.stopPeriodicScan();
+      setBackgroundScanEnabled(false);
     }
-  }, [settings.autoScan, isBackgroundScanEnabled, setBackgroundScanEnabled]);
+  }, [settings.autoScan, settings.scanFrequency, setBackgroundScanEnabled]);
 
   const handleManualScan = async () => {
     try {
@@ -123,21 +121,6 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleBatteryThresholdPress = () => {
-    const options = [10, 20, 30, 40, 50];
-    
-    Alert.alert(
-      'Battery Threshold',
-      'Minimum battery level required for scanning',
-      [
-        ...options.map(option => ({
-          text: `${option}%`,
-          onPress: () => updateSetting('batteryThreshold', option)
-        })),
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
-  };
 
   const settingSections = [
     {
@@ -168,14 +151,6 @@ export default function SettingsScreen() {
           type: 'toggle' as const,
           value: settings.scanWifiOnly,
           onValueChange: (value: boolean) => updateSetting('scanWifiOnly', value),
-        },
-        {
-          id: 'battery-threshold',
-          title: 'Battery Threshold',
-          subtitle: `Pause scanning below ${settings.batteryThreshold}% battery`,
-          icon: 'battery-half-outline',
-          type: 'select' as const,
-          onPress: handleBatteryThresholdPress,
         },
         {
           id: 'scan-quality',

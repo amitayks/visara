@@ -19,7 +19,6 @@ export interface ScanOptions {
   minFileSize?: number; // in KB
   maxAspectRatio?: number;
   wifiOnly?: boolean;
-  batteryThreshold?: number; // percentage
 }
 
 const DEFAULT_OPTIONS: ScanOptions = {
@@ -27,7 +26,6 @@ const DEFAULT_OPTIONS: ScanOptions = {
   minFileSize: 100, // 100KB minimum
   maxAspectRatio: 3, // Skip panoramas
   wifiOnly: false,
-  batteryThreshold: 20,
 };
 
 const SCAN_PROGRESS_KEY = 'gallery_scan_progress';

@@ -13,7 +13,6 @@ interface AppSettings {
   storageLimit: number; // in GB
   scanFrequency: 'hourly' | 'daily' | 'weekly' | 'manual';
   scanWifiOnly: boolean;
-  batteryThreshold: number; // percentage
 }
 
 interface SettingsStore {
@@ -38,7 +37,6 @@ const defaultSettings: AppSettings = {
   storageLimit: 5,
   scanFrequency: 'daily',
   scanWifiOnly: true,
-  batteryThreshold: 20,
 };
 
 // Custom storage using Expo SecureStore
