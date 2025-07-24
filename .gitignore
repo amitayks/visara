@@ -6,6 +6,7 @@ node_modules/
 # program data
 %ProgramData%/
 
+
 # Expo
 .expo/
 dist/
