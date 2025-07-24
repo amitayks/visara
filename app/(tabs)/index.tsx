@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -8,87 +8,101 @@ import {
   KeyboardAvoidingView, 
   Platform,
   StyleSheet,
-  Image
+  ActivityIndicator,
+  I18nManager
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-
-interface Message {
-  id: string;
-  text: string;
-  sender: 'user' | 'ai';
-  timestamp: Date;
-  documents?: Array<{
-    id: string;
-    uri: string;
-    title: string;
-  }>;
-}
+import { useRouter } from 'expo-router';
+import { ChatMessage, Message } from '../../components/chat/ChatMessage';
+import { nlSearchService } from '../../services/search/naturalLanguageSearch';
+import Document from '../../services/database/models/Document';
 
 export default function ChatScreen() {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Hi! I can help you find documents in your gallery. Just ask me about any document you\'re looking for.',
-      sender: 'ai',
+      text: 'Hi! I can help you find documents in your gallery. Try asking me:\n• "Show receipts from last week"\n• "Find documents over $100"\n• "Search for Amazon invoices"\n• "מצא קבלות מהחודש האחרון"',
+      user: false,
       timestamp: new Date(),
     }
   ]);
   const [inputText, setInputText] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const flatListRef = useRef<FlatList>(null);
 
-  const sendMessage = () => {
-    if (!inputText.trim()) return;
-
-    const newMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText,
-      sender: 'user',
-      timestamp: new Date(),
-    };
-
-    setMessages(prev => [...prev, newMessage]);
-    setInputText('');
-
-    // Simulate AI response
-    setTimeout(() => {
-      const aiResponse: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'I found 3 documents that might match your query:',
-        sender: 'ai',
-        timestamp: new Date(),
-        documents: [
-          { id: '1', uri: 'https://via.placeholder.com/150', title: 'Eitan birth satificate' },
-          { id: '2', uri: 'https://via.placeholder.com/150', title: 'invoice #1234' },
-          { id: '3', uri: 'https://via.placeholder.com/150', title: 'Eitan ID' },
-        ]
-      };
-      setMessages(prev => [...prev, aiResponse]);
-    }, 1000);
+  const detectRTL = (text: string): boolean => {
+    return /[\u0590-\u05FF]/.test(text);
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
-    const isUser = item.sender === 'user';
+  const handleDocumentPress = useCallback((document: Document) => {
+    router.push(`/document/${document.id}`);
+  }, [router]);
+
+  const sendMessage = async () => {
+    if (!inputText.trim() || isSearching) return;
+
+    const isRTL = detectRTL(inputText);
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputText,
+      user: true,
+      timestamp: new Date(),
+      isRTL,
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setInputText('');
+    setIsSearching(true);
+
+    try {
+      // Perform natural language search
+      const searchResult = await nlSearchService.search(inputText);
+      
+      // Generate response
+      const responseText = nlSearchService.generateResponse(searchResult);
+      
+      const aiResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        text: responseText,
+        user: false,
+        timestamp: new Date(),
+        documents: searchResult.documents.slice(0, 10), // Limit to 10 results
+      };
+      
+      setMessages(prev => [...prev, aiResponse]);
+    } catch (error) {
+      console.error('Search error:', error);
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'Sorry, I encountered an error while searching. Please try again.',
+        user: false,
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const renderMessage = ({ item }: { item: Message }) => (
+    <ChatMessage 
+      message={item} 
+      onDocumentPress={handleDocumentPress}
+    />
+  );
+
+  const renderSearchIndicator = () => {
+    if (!isSearching) return null;
     
-  
     return (
-      <View style={[styles.messageContainer, isUser && styles.userMessageContainer]}>
-        <View style={[styles.messageBubble, isUser ? styles.userMessage : styles.aiMessage]}>
-          <Text style={[styles.messageText, isUser && styles.userMessageText]}>
-            {item.text}
-          </Text>
-          {item.documents && (
-            <View style={styles.documentsContainer}>
-              {item.documents.map(doc => (
-                <TouchableOpacity key={doc.id} style={styles.documentCard}>
-                  <Image source={{ uri: doc.uri }} style={styles.documentThumbnail} />
-                  <Text style={styles.documentTitle}>{doc.title}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
+      <View style={styles.searchingContainer}>
+        <ActivityIndicator size="small" color="#0066FF" />
+        <Text style={styles.searchingText}>Searching...</Text>
       </View>
     );
   };
@@ -98,7 +112,10 @@ export default function ChatScreen() {
       <StatusBar style="dark" />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Visara</Text>
-        <TouchableOpacity style={styles.scanButton}>
+        <TouchableOpacity 
+          style={styles.scanButton}
+          onPress={() => router.push('/ocrtest')}
+        >
           <Ionicons name="scan-outline" size={24} color="#0066FF" />
         </TouchableOpacity>
       </View>
@@ -110,30 +127,36 @@ export default function ChatScreen() {
         keyExtractor={item => item.id}
         contentContainerStyle={styles.messagesContainer}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+        ListFooterComponent={renderSearchIndicator}
       />
       
       <KeyboardAvoidingView 
-        behavior={'padding'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.inputContainer}
       >
         <View style={styles.inputWrapper}>
           <TextInput
-            style={styles.textInput}
+            style={[
+              styles.textInput,
+              detectRTL(inputText) && styles.rtlInput
+            ]}
             value={inputText}
             onChangeText={setInputText}
             placeholder="Ask about your documents..."
             placeholderTextColor="#999999"
             multiline
+            onSubmitEditing={sendMessage}
+            blurOnSubmit={false}
           />
           <TouchableOpacity 
-            style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+            style={[styles.sendButton, (!inputText.trim() || isSearching) && styles.sendButtonDisabled]}
             onPress={sendMessage}
-            disabled={!inputText.trim()}
+            disabled={!inputText.trim() || isSearching}
           >
             <Ionicons 
               name="send" 
               size={20} 
-              color={inputText.trim() ? '#0066FF' : '#CCCCCC'} 
+              color={inputText.trim() && !isSearching ? '#0066FF' : '#CCCCCC'} 
             />
           </TouchableOpacity>
         </View>
@@ -166,57 +189,19 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   messagesContainer: {
-    paddingHorizontal: 16,
     paddingVertical: 16,
+    flexGrow: 1,
   },
-  messageContainer: {
-    marginBottom: 16,
-    alignItems: 'flex-start',
-  },
-  userMessageContainer: {
-    alignItems: 'flex-end',
-  },
-  messageBubble: {
-    maxWidth: '80%',
-    padding: 12,
-    borderRadius: 16,
-  },
-  userMessage: {
-    backgroundColor: '#007AFF',
-  },
-  aiMessage: {
-    backgroundColor: '#F2F2F7',
-  },
-  messageText: {
-    fontSize: 16,
-    color: '#000000',
-  },
-  userMessageText: {
-    color: '#FFFFFF',
-  },
-  documentsContainer: {
-    marginTop: 12,
+  searchingContainer: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
     gap: 8,
   },
-  documentCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    padding: 8,
-    alignItems: 'center',
-    width: 100,
-  },
-  documentThumbnail: {
-    width: 80,
-    height: 80,
-    borderRadius: 4,
-    marginBottom: 4,
-  },
-  documentTitle: {
-    fontSize: 12,
+  searchingText: {
+    fontSize: 14,
     color: '#666666',
-    textAlign: 'center',
   },
   inputContainer: {
     backgroundColor: '#FFFFFF',
@@ -239,6 +224,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000000',
     maxHeight: 100,
+    textAlign: I18nManager.isRTL ? 'right' : 'left',
+  },
+  rtlInput: {
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   sendButton: {
     width: 36,
