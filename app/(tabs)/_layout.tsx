@@ -20,7 +20,6 @@ export default function TabLayout() {
           borderTopColor: '#E5E5E7',
           borderTopWidth: 1,
         },
-        tabBarScrollEnabled: true,
         headerStyle: {
           backgroundColor: '#FAFAFA',
         },
