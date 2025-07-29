@@ -1,0 +1,142 @@
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# React Native
+.react-native-expo/
+
+# Expo
+.expo/
+dist/
+web-build/
+.expo-shared/
+
+# Metro
+.metro-health-check*
+metro.config.js.bak
+
+# Android
+android/app/build/
+android/build/
+android/.gradle/
+android/captures/
+android/gradle/wrapper/gradle-wrapper.jar
+android/local.properties
+android/keystore.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+
+# iOS
+ios/build/
+ios/Pods/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+ios/*.xcodeproj/project.xcworkspace/xcuserdata/
+ios/Podfile.lock
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Flipper
+ios/Flipper/
+Flipper-Folly/
+
+# VS Code
+.vscode/
+.history/
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Watchman
+.watchmanconfig
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.keystore
+
+# Fastlane
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
+ios/fastlane/screenshots
+ios/fastlane/test_output
+android/fastlane/report.xml
+android/fastlane/Preview.html
+android/fastlane/screenshots
+android/fastlane/test_output
+
+# Bundle artifacts
+*.jsbundle
+
+# CocoaPods
+ios/Pods/
+Podfile.lock
+
+# macOS
+.DS_Store
+*.pem
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript
+*.tsbuildinfo
+
+# ESLint
+.eslintcache
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+tmp/
+temp/
+
+# Lock files (choose one)
+# package-lock.json
+# yarn.lock
+
+# Generated files
+coverage/
+.nyc_output/
+
+# Local configuration
+.vscode/settings.json
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Gradle Wrapper
+!gradle/wrapper/gradle-wrapper.jar
