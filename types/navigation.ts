@@ -1,12 +1,12 @@
 export type RootStackParamList = {
-  '(tabs)': undefined;
-  'document/[id]': { id: string };
+	Main: undefined;
+	Document: { id: string };
 };
 
 export type TabParamList = {
-  index: undefined;
-  documents: undefined;
-  ocrtest: undefined;
-  settings: undefined;
-  test: undefined;
+	Chat: undefined;
+	Documents: undefined;
+	Settings: undefined;
+	Test: undefined;
+	OCRTest: undefined;
 };

@@ -1,14 +1,14 @@
-import { LocalOCREngine, OCRResult, OCRBlock } from '../ocrTypes';
-import { HebrewPatterns } from '../hebrewPatterns';
+import { HebrewPatterns } from "../hebrewPatterns";
+import type { LocalOCREngine, OCRBlock, OCRResult } from "../ocrTypes";
 
 export class MockEngine implements LocalOCREngine {
-  name = 'mock' as const;
-  displayName = 'Mock OCR (Demo)';
-  private initialized = false;
+	name = "mock" as const;
+	displayName = "Mock OCR (Demo)";
+	private initialized = false;
 
-  private mockTexts = {
-    hebrew: {
-      receipt: `סופר-פארם בע"מ
+	private mockTexts = {
+		hebrew: {
+			receipt: `סופר-פארם בע"מ
 רח' דיזנגוף 50, תל אביב
 ח.פ. 511234567
 עוסק מורשה: 123456789
@@ -28,7 +28,7 @@ export class MockEngine implements LocalOCREngine {
 
 תודה על קנייתך!
 טל: 03-1234567`,
-      invoice: `חברת הייטק בע"מ
+			invoice: `חברת הייטק בע"מ
 רח' הרצל 123, רמת גן
 ח.פ. 987654321
 
@@ -48,9 +48,9 @@ export class MockEngine implements LocalOCREngine {
 סה"כ כולל מע"מ: ₪65,520
 
 תנאי תשלום: שוטף + 30`,
-    },
-    english: {
-      receipt: `SUPERMARKET CHAIN
+		},
+		english: {
+			receipt: `SUPERMARKET CHAIN
 123 Main Street, New York
 Tax ID: 12-3456789
 
@@ -68,7 +68,7 @@ Tax (8%): $1.24
 Total: $16.70
 
 Thank you for shopping!`,
-      invoice: `TECH SOLUTIONS INC.
+			invoice: `TECH SOLUTIONS INC.
 456 Tech Park Ave
 San Francisco, CA 94105
 
@@ -88,82 +88,88 @@ Tax (8.5%): $510
 Total Due: $6,510
 
 Terms: Net 30`,
-    },
-  };
+		},
+	};
 
-  async initialize(): Promise<void> {
-    // Simulate initialization delay
-    await new Promise(resolve => setTimeout(resolve, 100));
-    this.initialized = true;
-  }
+	async initialize(): Promise<void> {
+		// Simulate initialization delay
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		this.initialized = true;
+	}
 
-  isInitialized(): boolean {
-    return this.initialized;
-  }
+	isInitialized(): boolean {
+		return this.initialized;
+	}
 
-  supportsLanguage(lang: string): boolean {
-    return ['en', 'he'].includes(lang.toLowerCase());
-  }
+	supportsLanguage(lang: string): boolean {
+		return ["en", "he"].includes(lang.toLowerCase());
+	}
 
-  getSupportedLanguages(): string[] {
-    return ['en', 'he'];
-  }
+	getSupportedLanguages(): string[] {
+		return ["en", "he"];
+	}
 
-  async processImage(uri: string): Promise<OCRResult> {
-    const startTime = Date.now();
-    
-    if (!this.initialized) {
-      await this.initialize();
-    }
+	async processImage(uri: string): Promise<OCRResult> {
+		const startTime = Date.now();
 
-    // Simulate processing delay
-    await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 700));
+		if (!this.initialized) {
+			await this.initialize();
+		}
 
-    // Randomly select a mock text
-    const isHebrew = Math.random() > 0.5;
-    const isReceipt = Math.random() > 0.5;
-    const mockText = isHebrew
-      ? (isReceipt ? this.mockTexts.hebrew.receipt : this.mockTexts.hebrew.invoice)
-      : (isReceipt ? this.mockTexts.english.receipt : this.mockTexts.english.invoice);
+		// Simulate processing delay
+		await new Promise((resolve) =>
+			setTimeout(resolve, 300 + Math.random() * 700),
+		);
 
-    // Create blocks from lines
-    const lines = mockText.split('\n').filter(line => line.trim());
-    const blocks: OCRBlock[] = lines.map((line, index) => {
-      const isRTL = HebrewPatterns.getTextDirection(line) === 'rtl';
-      const hasHebrew = HebrewPatterns.isHebrewText(line);
-      
-      return {
-        text: line,
-        confidence: 0.85 + Math.random() * 0.1, // 85-95% confidence
-        boundingBox: {
-          text: line,
-          x: 10,
-          y: 10 + (index * 30),
-          width: 300,
-          height: 25,
-          confidence: 0.9,
-        },
-        isRTL,
-        language: hasHebrew ? 'he' : 'en',
-      };
-    });
+		// Randomly select a mock text
+		const isHebrew = Math.random() > 0.5;
+		const isReceipt = Math.random() > 0.5;
+		const mockText = isHebrew
+			? isReceipt
+				? this.mockTexts.hebrew.receipt
+				: this.mockTexts.hebrew.invoice
+			: isReceipt
+				? this.mockTexts.english.receipt
+				: this.mockTexts.english.invoice;
 
-    const languages = isHebrew ? ['he'] : ['en'];
-    const processingTime = Date.now() - startTime;
+		// Create blocks from lines
+		const lines = mockText.split("\n").filter((line) => line.trim());
+		const blocks: OCRBlock[] = lines.map((line, index) => {
+			const isRTL = HebrewPatterns.getTextDirection(line) === "rtl";
+			const hasHebrew = HebrewPatterns.isHebrewText(line);
 
-    return {
-      text: mockText,
-      confidence: 0.88,
-      blocks,
-      languages,
-      processingTime,
-      engineName: this.name,
-      memoryUsage: this.getMemoryUsage(),
-    };
-  }
+			return {
+				text: line,
+				confidence: 0.85 + Math.random() * 0.1, // 85-95% confidence
+				boundingBox: {
+					text: line,
+					x: 10,
+					y: 10 + index * 30,
+					width: 300,
+					height: 25,
+					confidence: 0.9,
+				},
+				isRTL,
+				language: hasHebrew ? "he" : "en",
+			};
+		});
 
-  getMemoryUsage(): number {
-    // Mock engine uses minimal memory
-    return 5 * 1024 * 1024; // 5MB
-  }
+		const languages = isHebrew ? ["he"] : ["en"];
+		const processingTime = Date.now() - startTime;
+
+		return {
+			text: mockText,
+			confidence: 0.88,
+			blocks,
+			languages,
+			processingTime,
+			engineName: this.name,
+			memoryUsage: this.getMemoryUsage(),
+		};
+	}
+
+	getMemoryUsage(): number {
+		// Mock engine uses minimal memory
+		return 5 * 1024 * 1024; // 5MB
+	}
 }
