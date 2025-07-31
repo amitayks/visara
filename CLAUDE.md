@@ -12,16 +12,16 @@ Visara is a React Native mobile application that uses on-device AI to automatica
 ## Architecture & Tech Stack
 
 ### Core Framework
-- **React Native** with **Expo** (SDK 50+)
+- **React Native** (bare workflow - v0.74.5)
 - **TypeScript** for type safety
-- **Expo Router** for navigation
-- **Biome** for linging 
+- **React Navigation** for navigation
+- **Biome** for linting 
 
 ### UI Libraries
-- **Tamagui** - For minimal, performant UI components with excellent theming
+- **React Native Vector Icons** - For icon components
 - **React Native Reanimated 3** - For smooth animations
-- **Expo Blur** - For iOS-style blur effects
 - **React Native Gesture Handler** - For gesture interactions
+- **React Native Safe Area Context** - For safe area handling
 
 ### AI & ML
 - **ONNX Runtime React Native** - For running lightweight models on device
@@ -31,19 +31,22 @@ Visara is a React Native mobile application that uses on-device AI to automatica
 ### Storage & State
 - **Zustand** - Lightweight state management
 - **WatermelonDB** - Fast, reactive database for metadata storage
-- **Expo SecureStore** - For sensitive data
+- **React Native Keychain** - For sensitive data storage
 - **React Query (TanStack Query)** - For data fetching and caching
+- **AsyncStorage** - For persistent key-value storage
 
 ### Media & Permissions
-- **Expo Media Library** - Gallery access
-- **Expo Image** - Optimized image loading
-- **Expo File System** - File operations
+- **@react-native-camera-roll/camera-roll** - Gallery access
+- **React Native Image Picker** - Image selection
+- **React Native Image Crop Picker** - Advanced image selection and cropping
+- **React Native FS** - File system operations
+- **@bam.tech/react-native-image-resizer** - Image resizing
 
 ## Project Structure
 ```
 visara/
-├── app/                      # Expo Router pages
-│   ├── (tabs)/              # Tab navigation
+├── app/                      # Screen components
+│   ├── (tabs)/              # Tab navigation screens
 │   │   ├── index.tsx        # Chat interface
 │   │   ├── documents.tsx    # Document grid view
 │   │   └── settings.tsx     # App settings
@@ -99,7 +102,8 @@ const colors = {
 ### 1. Gallery Scanning
 ```typescript
 // Background task to scan gallery
-- Use Expo Task Manager for background processing
+- Use React Native background services for processing
+- Utilize @react-native-camera-roll/camera-roll for gallery access
 - Scan in batches to avoid memory issues
 - Skip already processed images (check hash)
 - Queue new images for AI processing
@@ -122,7 +126,7 @@ const colors = {
 ### 3. Metadata Extraction
 ```typescript
 // OCR and information extraction
-- Use on-device OCR (ML Kit or Tesseract.js)
+- Use @react-native-ml-kit/text-recognition for on-device OCR
 - Extract key fields:
   - Date
   - Amount (for receipts/invoices)
@@ -197,10 +201,10 @@ interface DocumentStore {
 - **Performance Tests**: Monitor memory and CPU usage
 
 ## Build & Deployment
-- **Development**: `expo start`
-- **iOS Build**: `eas build --platform ios`
-- **Android Build**: `eas build --platform android`
-- **OTA Updates**: Use Expo Updates for non-native changes
+- **Development**: `npx react-native start`
+- **iOS Build**: `npx react-native run-ios` (development) / Xcode Archive (production)
+- **Android Build**: `npx react-native run-android` (development) / `./gradlew assembleRelease` (production)
+- **Metro Bundler**: `npx react-native start --reset-cache` (clear cache)
 
 ## Security Considerations
 - Implement certificate pinning
