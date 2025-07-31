@@ -48,7 +48,7 @@ export class ImageStorageService {
 			const fileExists = await RNFS.exists(permanentUri);
 			if (fileExists) {
 				console.log("Image already exists in permanent storage:", permanentUri);
-				return permanentUri;
+				return `file://${permanentUri}`;
 			}
 
 			// Check if source file exists
@@ -62,7 +62,8 @@ export class ImageStorageService {
 			await RNFS.copyFile(tempUri, permanentUri);
 
 			console.log("Image successfully copied to:", permanentUri);
-			return permanentUri;
+			// Return with file:// protocol
+			return `file://${permanentUri}`;
 		} catch (error) {
 			console.error("Error copying image to permanent storage:", error);
 			console.error("Error details:", JSON.stringify(error));
@@ -93,7 +94,7 @@ export class ImageStorageService {
 					"Thumbnail already exists in permanent storage:",
 					permanentUri,
 				);
-				return permanentUri;
+				return `file://${permanentUri}`;
 			}
 
 			// Check if source file exists
@@ -107,7 +108,8 @@ export class ImageStorageService {
 			await RNFS.copyFile(tempUri, permanentUri);
 
 			console.log("Thumbnail successfully copied to:", permanentUri);
-			return permanentUri;
+			// Return with file:// protocol
+			return `file://${permanentUri}`;
 		} catch (error) {
 			console.error("Error copying thumbnail to permanent storage:", error);
 			console.error("Error details:", JSON.stringify(error));
@@ -117,9 +119,11 @@ export class ImageStorageService {
 
 	async deleteImage(imageUri: string): Promise<void> {
 		try {
-			const fileExists = await RNFS.exists(imageUri);
+			// Remove file:// protocol if present
+			const cleanUri = imageUri.replace('file://', '');
+			const fileExists = await RNFS.exists(cleanUri);
 			if (fileExists) {
-				await RNFS.unlink(imageUri);
+				await RNFS.unlink(cleanUri);
 				console.log("Deleted image:", imageUri);
 			}
 		} catch (error) {
@@ -129,9 +133,11 @@ export class ImageStorageService {
 
 	async deleteThumbnail(thumbnailUri: string): Promise<void> {
 		try {
-			const fileExists = await RNFS.exists(thumbnailUri);
+			// Remove file:// protocol if present
+			const cleanUri = thumbnailUri.replace('file://', '');
+			const fileExists = await RNFS.exists(cleanUri);
 			if (fileExists) {
-				await RNFS.unlink(thumbnailUri);
+				await RNFS.unlink(cleanUri);
 				console.log("Deleted thumbnail:", thumbnailUri);
 			}
 		} catch (error) {
