@@ -395,6 +395,90 @@ export default function DocumentDetailScreen() {
 
 				{renderTextLine(document.ocrText, "Extracted Text")}
 
+				{/* Hybrid Processing Results */}
+				{document.metadata?.processingLayers && (
+					<View style={styles.hybridSection}>
+						<Text style={styles.hybridTitle}>Hybrid Processing Results</Text>
+						
+						{/* Quality Metrics */}
+						{document.metadata.processingLayers.quality && (
+							<View style={styles.qualityContainer}>
+								<Text style={styles.qualityTitle}>Quality Metrics</Text>
+								<View style={styles.metricsGrid}>
+									<View style={styles.metricItem}>
+										<Text style={styles.metricLabel}>OCR Quality</Text>
+										<Text style={styles.metricValue}>
+											{(document.metadata.processingLayers.quality.ocrQuality * 100).toFixed(1)}%
+										</Text>
+									</View>
+									<View style={styles.metricItem}>
+										<Text style={styles.metricLabel}>Completeness</Text>
+										<Text style={styles.metricValue}>
+											{(document.metadata.processingLayers.quality.completeness * 100).toFixed(1)}%
+										</Text>
+									</View>
+									<View style={styles.metricItem}>
+										<Text style={styles.metricLabel}>Consistency</Text>
+										<Text style={styles.metricValue}>
+											{(document.metadata.processingLayers.quality.consistency * 100).toFixed(1)}%
+										</Text>
+									</View>
+								</View>
+								
+								{/* Quality Warnings */}
+								{document.metadata.processingLayers.quality.warnings?.length > 0 && (
+									<View style={styles.warningsContainer}>
+										<Text style={styles.warningsTitle}>Quality Warnings</Text>
+										{document.metadata.processingLayers.quality.warnings.map((warning: string, index: number) => (
+											<Text key={index} style={styles.warningText}>⚠ {warning}</Text>
+										))}
+									</View>
+								)}
+							</View>
+						)}
+
+						{/* Detected Entities */}
+						{document.metadata.processingLayers.context?.context?.entities?.length > 0 && (
+							<View style={styles.entitiesContainer}>
+								<Text style={styles.entitiesTitle}>Detected Entities</Text>
+								<View style={styles.entitiesGrid}>
+									{document.metadata.processingLayers.context.context.entities.slice(0, 8).map((entity: any, index: number) => (
+										<View key={index} style={styles.entityBadge}>
+											<Text style={styles.entityType}>{entity.type}</Text>
+											<Text style={styles.entityValue}>{entity.value.substring(0, 20)}{entity.value.length > 20 ? '...' : ''}</Text>
+										</View>
+									))}
+								</View>
+							</View>
+						)}
+
+						{/* Processing Info */}
+						<View style={styles.processingInfoContainer}>
+							<Text style={styles.processingInfoTitle}>Processing Information</Text>
+							<View style={styles.processingInfoRow}>
+								<Text style={styles.processingInfoLabel}>Languages:</Text>
+								<Text style={styles.processingInfoValue}>
+									{document.metadata.detectedLanguages?.join(', ') || 'Unknown'}
+								</Text>
+							</View>
+							<View style={styles.processingInfoRow}>
+								<Text style={styles.processingInfoLabel}>Processing Time:</Text>
+								<Text style={styles.processingInfoValue}>
+									{document.metadata.processingTime}ms
+								</Text>
+							</View>
+							{document.metadata.entityCount !== undefined && (
+								<View style={styles.processingInfoRow}>
+									<Text style={styles.processingInfoLabel}>Entities Found:</Text>
+									<Text style={styles.processingInfoValue}>
+										{document.metadata.entityCount}
+									</Text>
+								</View>
+							)}
+						</View>
+					</View>
+				)}
+
 				<TouchableOpacity
 					style={styles.fullMetadataButton}
 					onPress={() =>
@@ -625,6 +709,125 @@ const styles = StyleSheet.create({
 	showThumbnailButtonText: {
 		color: "#FFFFFF",
 		fontSize: 14,
+		fontWeight: "500",
+	},
+	hybridSection: {
+		backgroundColor: "#FFFFFF",
+		marginHorizontal: 16,
+		padding: 16,
+		borderRadius: 8,
+		marginBottom: 16,
+	},
+	hybridTitle: {
+		fontSize: 18,
+		fontWeight: "600",
+		color: "#000000",
+		marginBottom: 16,
+	},
+	qualityContainer: {
+		marginBottom: 16,
+	},
+	qualityTitle: {
+		fontSize: 16,
+		fontWeight: "600",
+		color: "#5856D6",
+		marginBottom: 8,
+	},
+	metricsGrid: {
+		flexDirection: "row",
+		gap: 8,
+		marginBottom: 12,
+	},
+	metricItem: {
+		flex: 1,
+		backgroundColor: "#F8F8FF",
+		padding: 8,
+		borderRadius: 6,
+		alignItems: "center",
+	},
+	metricLabel: {
+		fontSize: 11,
+		color: "#666666",
+		marginBottom: 2,
+	},
+	metricValue: {
+		fontSize: 13,
+		fontWeight: "600",
+		color: "#5856D6",
+	},
+	warningsContainer: {
+		backgroundColor: "#FFF3CD",
+		padding: 8,
+		borderRadius: 6,
+		borderLeftWidth: 3,
+		borderLeftColor: "#FFC107",
+	},
+	warningsTitle: {
+		fontSize: 14,
+		fontWeight: "600",
+		color: "#856404",
+		marginBottom: 4,
+	},
+	warningText: {
+		fontSize: 12,
+		color: "#856404",
+		marginBottom: 2,
+	},
+	entitiesContainer: {
+		marginBottom: 16,
+	},
+	entitiesTitle: {
+		fontSize: 16,
+		fontWeight: "600",
+		color: "#34C759",
+		marginBottom: 8,
+	},
+	entitiesGrid: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 6,
+	},
+	entityBadge: {
+		backgroundColor: "#E8F5E8",
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		borderRadius: 4,
+		maxWidth: "48%",
+	},
+	entityType: {
+		fontSize: 10,
+		fontWeight: "600",
+		color: "#2E7D32",
+		textTransform: "uppercase",
+	},
+	entityValue: {
+		fontSize: 11,
+		color: "#2E7D32",
+		marginTop: 2,
+	},
+	processingInfoContainer: {
+		backgroundColor: "#F2F2F7",
+		padding: 12,
+		borderRadius: 6,
+	},
+	processingInfoTitle: {
+		fontSize: 14,
+		fontWeight: "600",
+		color: "#000000",
+		marginBottom: 8,
+	},
+	processingInfoRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		marginBottom: 4,
+	},
+	processingInfoLabel: {
+		fontSize: 12,
+		color: "#666666",
+	},
+	processingInfoValue: {
+		fontSize: 12,
+		color: "#000000",
 		fontWeight: "500",
 	},
 });

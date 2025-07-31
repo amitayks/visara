@@ -19,9 +19,13 @@ import {
 	launchImageLibrary,
 } from "react-native-image-picker";
 import Icon from "react-native-vector-icons/Ionicons";
-import { documentProcessor } from "../../services/ai/documentProcessor";
+import { hybridDocumentProcessor } from "../../services/ai/hybridDocumentProcessor";
 import { HebrewPatterns } from "../../services/ai/hebrewPatterns";
 import { ocrEngineManager } from "../../services/ai/OCREngineManager";
+import type {
+	HybridProcessingResult,
+	QualityMetrics,
+} from "../../services/ai/types/hybridTypes";
 import type {
 	OCRComparison,
 	OCREngineName,
@@ -45,6 +49,7 @@ export default function OCRTestScreen() {
 	const [isProcessing, setIsProcessing] = useState(false);
 	const [results, setResults] = useState<OCRResult[]>([]);
 	const [comparison, setComparison] = useState<OCRComparison | null>(null);
+	const [hybridResult, setHybridResult] = useState<HybridProcessingResult | null>(null);
 	const [selectedEngines, setSelectedEngines] = useState<EngineSelection[]>([]);
 	const [isInitializing, setIsInitializing] = useState(true);
 
@@ -56,6 +61,7 @@ export default function OCRTestScreen() {
 		setIsInitializing(true);
 		try {
 			await ocrEngineManager.initialize();
+			await hybridDocumentProcessor.initialize();
 
 			const engines = ocrEngineManager.getAllEngines();
 			setSelectedEngines(
@@ -66,8 +72,8 @@ export default function OCRTestScreen() {
 				})),
 			);
 		} catch (error) {
-			console.error("Failed to initialize OCR engines:", error);
-			Alert.alert("Error", "Failed to initialize OCR engines");
+			console.error("Failed to initialize processors:", error);
+			Alert.alert("Error", "Failed to initialize processors");
 		} finally {
 			setIsInitializing(false);
 		}
@@ -98,6 +104,7 @@ export default function OCRTestScreen() {
 					setSelectedImage(response.assets[0].uri || "");
 					setResults([]);
 					setComparison(null);
+					setHybridResult(null);
 				}
 			};
 
@@ -142,41 +149,103 @@ export default function OCRTestScreen() {
 		}
 	};
 
-	const saveToDatabase = async () => {
-		if (!selectedImage || results.length === 0) return;
+	const processWithHybridSystem = async () => {
+		if (!selectedImage) return;
+
+		setIsProcessing(true);
+		setHybridResult(null);
 
 		try {
-			// Find the best result (highest confidence)
-			const bestResult = results.reduce((best, current) =>
-				current.confidence > best.confidence ? current : best,
-			);
+			const result = await hybridDocumentProcessor.processDocument(selectedImage);
+			setHybridResult(result);
+		} catch (error) {
+			console.error("Hybrid processing error:", error);
+			Alert.alert("Error", "Failed to process with hybrid system");
+		} finally {
+			setIsProcessing(false);
+		}
+	};
 
-			// Process the image with document processor using the best engine
-			const documentResult = await documentProcessor.processImage(
-				selectedImage,
-				{
-					ocrEngine: bestResult.engineName,
-				},
-			);
+	const saveToDatabase = async () => {
+		if (!selectedImage || (results.length === 0 && !hybridResult)) return;
 
-			// Check if document already exists
-			const existingDoc = await documentStorage.checkDuplicateByHash(
-				documentResult.imageHash,
-			);
-			if (existingDoc) {
-				Alert.alert(
-					"Duplicate Document",
-					"This document has already been processed. Would you like to view it?",
-					[
-						{ text: "Cancel", style: "cancel" },
-						{
-							text: "View",
-							onPress: () =>
-								navigation.navigate("Document", { id: existingDoc.id }),
+		try {
+			let documentResult: any;
+
+			if (hybridResult) {
+				// Use hybrid processing result
+				documentResult = {
+					imageUri: selectedImage,
+					imageHash: hybridResult.metadata.imageHash,
+					ocrText: hybridResult.ocrResult.text, // Use ocrText field name
+					confidence: hybridResult.qualityMetrics.confidence,
+					documentType: hybridResult.contextualResult.documentType,
+					// Extract structured data fields for direct access
+					vendor: hybridResult.structuredData.metadata?.vendor || 
+					        (hybridResult.structuredData as any).vendor?.name ||
+					        'Unknown',
+					totalAmount: hybridResult.structuredData.metadata?.total || 
+					            (hybridResult.structuredData as any).totals?.total,
+					currency: hybridResult.structuredData.metadata?.currency ||
+					         (hybridResult.structuredData as any).totals?.currency ||
+					         'USD',
+					metadata: {
+						...hybridResult.metadata,
+						processingLayers: {
+							ocr: hybridResult.ocrResult,
+							context: hybridResult.contextualResult,
+							structured: hybridResult.structuredData,
+							quality: hybridResult.qualityMetrics
 						},
-					],
+						// Additional hybrid processing metadata
+						detectedLanguages: hybridResult.ocrResult.detectedLanguages,
+						entityCount: hybridResult.contextualResult.context.entities.length,
+						relationshipCount: hybridResult.contextualResult.context.relationships.length,
+						qualityWarnings: hybridResult.qualityMetrics.warnings
+					},
+					createdAt: new Date(),
+					updatedAt: new Date()
+				};
+			} else {
+				// Fallback to regular OCR results
+				const bestResult = results.reduce((best, current) =>
+					current.confidence > best.confidence ? current : best,
 				);
-				return;
+
+				documentResult = {
+					imageUri: selectedImage,
+					ocrText: bestResult.text, // Use ocrText field name
+					confidence: bestResult.confidence,
+					metadata: {
+						ocrEngine: bestResult.engineName,
+						processingTime: bestResult.processingTime,
+						languages: bestResult.languages
+					},
+					createdAt: new Date(),
+					updatedAt: new Date()
+				};
+			}
+
+			// Check if document already exists (if we have a hash)
+			if (documentResult.imageHash) {
+				const existingDoc = await documentStorage.checkDuplicateByHash(
+					documentResult.imageHash,
+				);
+				if (existingDoc) {
+					Alert.alert(
+						"Duplicate Document",
+						"This document has already been processed. Would you like to view it?",
+						[
+							{ text: "Cancel", style: "cancel" },
+							{
+								text: "View",
+								onPress: () =>
+									navigation.navigate("Document", { id: existingDoc.id }),
+							},
+						],
+					);
+					return;
+				}
 			}
 
 			// Save to database
@@ -208,6 +277,107 @@ export default function OCRTestScreen() {
 		} finally {
 			setIsProcessing(false);
 		}
+	};
+
+	const renderHybridResult = (result: HybridProcessingResult) => {
+		const textDirection = HebrewPatterns.getTextDirection(result.ocrResult.text);
+
+		return (
+			<View style={[styles.resultCard, styles.hybridResultCard]} key="hybrid">
+				<View style={styles.resultHeader}>
+					<Text style={styles.engineName}>HYBRID PROCESSOR</Text>
+					<View style={styles.statsRow}>
+						<Text style={styles.statText}>
+							{(result.qualityMetrics.confidence * 100).toFixed(1)}%
+						</Text>
+						<Text style={styles.statText}>{result.metadata.processingTime}ms</Text>
+					</View>
+				</View>
+
+				<View style={styles.documentTypeRow}>
+					<Text style={styles.documentTypeLabel}>Document Type:</Text>
+					<View style={styles.documentTypeBadge}>
+						<Text style={styles.documentTypeText}>
+							{result.contextualResult.documentType.replace('_', ' ')}
+						</Text>
+					</View>
+				</View>
+
+				<View style={styles.languageRow}>
+					<Text style={styles.languageLabel}>Languages:</Text>
+					{result.ocrResult.detectedLanguages.map((lang) => (
+						<View key={lang} style={styles.languageBadge}>
+							<Text style={styles.languageText}>{lang.toUpperCase()}</Text>
+						</View>
+					))}
+				</View>
+
+				<View style={styles.qualityMetrics}>
+					<Text style={styles.sectionLabel}>Quality Metrics:</Text>
+					<View style={styles.metricsGrid}>
+						<View style={styles.metricItem}>
+							<Text style={styles.metricLabel}>OCR Quality</Text>
+							<Text style={styles.metricValue}>
+								{(result.qualityMetrics.ocrQuality * 100).toFixed(1)}%
+							</Text>
+						</View>
+						<View style={styles.metricItem}>
+							<Text style={styles.metricLabel}>Completeness</Text>
+							<Text style={styles.metricValue}>
+								{(result.qualityMetrics.completeness * 100).toFixed(1)}%
+							</Text>
+						</View>
+						<View style={styles.metricItem}>
+							<Text style={styles.metricLabel}>Consistency</Text>
+							<Text style={styles.metricValue}>
+								{(result.qualityMetrics.consistency * 100).toFixed(1)}%
+							</Text>
+						</View>
+					</View>
+				</View>
+
+				<View style={styles.textContainer}>
+					<Text style={styles.sectionLabel}>Extracted Text:</Text>
+					<ScrollView style={styles.textScroll}>
+						<Text
+							style={[
+								styles.ocrText,
+								textDirection === "rtl" && styles.rtlText,
+							]}
+						>
+							{result.ocrResult.text || "No text detected"}
+						</Text>
+					</ScrollView>
+				</View>
+
+				{result.qualityMetrics.warnings.length > 0 && (
+					<View style={styles.warningsSection}>
+						<Text style={styles.sectionLabel}>Quality Warnings:</Text>
+						{result.qualityMetrics.warnings.map((warning, idx) => (
+							<Text key={idx} style={styles.warningText}>
+								⚠ {warning}
+							</Text>
+						))}
+					</View>
+				)}
+
+				{result.contextualResult.context.entities.length > 0 && (
+					<View style={styles.entitiesSection}>
+						<Text style={styles.sectionLabel}>Detected Entities:</Text>
+						<View style={styles.entitiesGrid}>
+							{result.contextualResult.context.entities.slice(0, 6).map((entity, idx) => (
+								<View key={idx} style={styles.entityBadge}>
+									<Text style={styles.entityText}>
+										{entity.type}: {entity.value.substring(0, 20)}
+										{entity.value.length > 20 ? '...' : ''}
+									</Text>
+								</View>
+							))}
+						</View>
+					</View>
+				)}
+			</View>
+		);
 	};
 
 	const renderEngineResult = (result: OCRResult) => {
@@ -363,6 +533,27 @@ export default function OCRTestScreen() {
 							<TouchableOpacity
 								style={[
 									styles.actionButton,
+									styles.hybridButton,
+									isProcessing && styles.buttonDisabled,
+								]}
+								onPress={processWithHybridSystem}
+								disabled={isProcessing}
+							>
+								{isProcessing ? (
+									<ActivityIndicator color="#FFFFFF" size="small" />
+								) : (
+									<>
+										<Icon name="analytics-outline" size={20} color="#FFFFFF" />
+										<Text style={styles.actionButtonText}>
+											Hybrid Process
+										</Text>
+									</>
+								)}
+							</TouchableOpacity>
+
+							<TouchableOpacity
+								style={[
+									styles.actionButton,
 									isProcessing && styles.buttonDisabled,
 								]}
 								onPress={processWithSelectedEngines}
@@ -374,7 +565,7 @@ export default function OCRTestScreen() {
 									<>
 										<Icon name="play-outline" size={20} color="#FFFFFF" />
 										<Text style={styles.actionButtonText}>
-											Process Selected
+											OCR Only
 										</Text>
 									</>
 								)}
@@ -394,7 +585,7 @@ export default function OCRTestScreen() {
 								) : (
 									<>
 										<Icon name="layers-outline" size={20} color="#FFFFFF" />
-										<Text style={styles.actionButtonText}>Compare All</Text>
+										<Text style={styles.actionButtonText}>Compare</Text>
 									</>
 								)}
 							</TouchableOpacity>
@@ -418,12 +609,13 @@ export default function OCRTestScreen() {
 					</View>
 				)}
 
-				{results.length > 0 && (
+				{(results.length > 0 || hybridResult) && (
 					<>
 						<View style={styles.resultsContainer}>
 							<Text style={styles.sectionTitle}>Results</Text>
 							<ScrollView horizontal showsHorizontalScrollIndicator={false}>
 								<View style={styles.resultsRow}>
+									{hybridResult && renderHybridResult(hybridResult)}
 									{results.map((result) => renderEngineResult(result))}
 								</View>
 							</ScrollView>
@@ -541,7 +733,7 @@ const styles = StyleSheet.create({
 	},
 	actionButtons: {
 		flexDirection: "row",
-		gap: 10,
+		gap: 8,
 	},
 	actionButton: {
 		flex: 1,
@@ -552,6 +744,9 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 		gap: 6,
+	},
+	hybridButton: {
+		backgroundColor: "#5856D6",
 	},
 	compareButton: {
 		backgroundColor: "#FF9500",
@@ -694,5 +889,88 @@ const styles = StyleSheet.create({
 		color: "#FFFFFF",
 		fontSize: 16,
 		fontWeight: "600",
+	},
+	hybridResultCard: {
+		borderColor: "#5856D6",
+		borderWidth: 2,
+		backgroundColor: "#F8F8FF",
+	},
+	documentTypeRow: {
+		flexDirection: "row",
+		alignItems: "center",
+		marginBottom: 12,
+		gap: 8,
+	},
+	documentTypeLabel: {
+		fontSize: 14,
+		color: "#666666",
+	},
+	documentTypeBadge: {
+		backgroundColor: "#5856D6",
+		paddingHorizontal: 8,
+		paddingVertical: 2,
+		borderRadius: 4,
+	},
+	documentTypeText: {
+		fontSize: 12,
+		color: "#FFFFFF",
+		fontWeight: "500",
+		textTransform: "capitalize",
+	},
+	qualityMetrics: {
+		marginBottom: 12,
+	},
+	metricsGrid: {
+		flexDirection: "row",
+		gap: 8,
+	},
+	metricItem: {
+		flex: 1,
+		backgroundColor: "#FFFFFF",
+		padding: 8,
+		borderRadius: 6,
+		alignItems: "center",
+	},
+	metricLabel: {
+		fontSize: 11,
+		color: "#666666",
+		marginBottom: 2,
+	},
+	metricValue: {
+		fontSize: 13,
+		fontWeight: "600",
+		color: "#5856D6",
+	},
+	warningsSection: {
+		marginTop: 8,
+		backgroundColor: "#FFF3CD",
+		padding: 8,
+		borderRadius: 6,
+		borderLeftWidth: 3,
+		borderLeftColor: "#FFC107",
+	},
+	warningText: {
+		fontSize: 12,
+		color: "#856404",
+		marginBottom: 2,
+	},
+	entitiesSection: {
+		marginTop: 8,
+	},
+	entitiesGrid: {
+		flexDirection: "row",
+		flexWrap: "wrap",
+		gap: 4,
+	},
+	entityBadge: {
+		backgroundColor: "#E8F5E8",
+		paddingHorizontal: 6,
+		paddingVertical: 2,
+		borderRadius: 4,
+		maxWidth: "45%",
+	},
+	entityText: {
+		fontSize: 10,
+		color: "#2E7D32",
 	},
 });
