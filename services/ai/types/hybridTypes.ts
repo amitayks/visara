@@ -422,7 +422,19 @@ export interface HybridProcessingResult {
   ocrResult: OCRResult;
   contextualResult: ContextualResult;
   structuredData: StructuredData;
-  qualityMetrics: QualityMetrics;
+  qualityMetrics: {
+    overall: {
+      ocrQuality: number;
+      completeness: number;
+      consistency: number;
+      totalScore: number;
+      warnings: string[];
+    };
+  };
+  processingStats: {
+    totalTime: number;
+    ocrEngines: string[];
+  };
   metadata: {
     processingTime: number;
     imageHash: string;

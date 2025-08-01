@@ -1,5 +1,4 @@
 import { MLKitEngine } from '../engines/MLKitEngine';
-import { MockEngine } from '../engines/MockEngine';
 import { ImagePreprocessor } from './imagePreprocessor';
 import type { 
   OCRResult, 
@@ -22,16 +21,11 @@ export class MultiEngineOCR {
   private initialized = false;
   private usedEngines: string[] = [];
 
-  constructor(options: { includeMockEngine?: boolean } = {}) {
+  constructor() {
     this.preprocessor = ImagePreprocessor.getInstance();
     
     // Register available engines - English only
     this.registerEngine(new MLKitEngine());
-    
-    // Only include MockEngine when explicitly requested (for testing)
-    if (options.includeMockEngine) {
-      this.registerEngine(new MockEngine());
-    }
   }
 
   private registerEngine(engine: LocalOCREngine): void {

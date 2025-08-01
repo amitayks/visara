@@ -1,5 +1,4 @@
 import { MLKitEngine } from "./engines/MLKitEngine";
-import { MockEngine } from "./engines/MockEngine";
 import { VisionCameraEngine } from "./engines/VisionCameraEngine";
 import type {
 	LocalOCREngine,
@@ -16,7 +15,6 @@ export class OCREngineManager {
 		// Register all engines
 		this.registerEngine(new MLKitEngine());
 		this.registerEngine(new VisionCameraEngine());
-		this.registerEngine(new MockEngine());
 	}
 
 	private registerEngine(engine: LocalOCREngine): void {

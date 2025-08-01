@@ -326,9 +326,9 @@ export class ReceiptExtractor implements DocumentExtractor<ReceiptData> {
 
     // Pattern matching for English date formats only
     const datePatterns = [
-      /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/,  // MM/DD/YYYY or DD/MM/YYYY
-      /(\d{4})-(\d{2})-(\d{2})/,          // YYYY-MM-DD
-      /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/i
+      /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/g,  // MM/DD/YYYY or DD/MM/YYYY
+      /(\d{4})-(\d{2})-(\d{2})/g,          // YYYY-MM-DD
+      /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/gi
     ];
 
     for (const pattern of datePatterns) {

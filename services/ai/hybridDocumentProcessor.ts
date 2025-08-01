@@ -40,8 +40,12 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
     ocrEngines: ['mlkit'] // Use ML Kit engine only
   };
 
-  constructor(options: { includeMockEngine?: boolean } = {}) {
-    this.multiEngineOCR = new MultiEngineOCR({ includeMockEngine: options.includeMockEngine });
+  private config = {
+    ocrEngines: ['mlkit']
+  };
+
+  constructor() {
+    this.multiEngineOCR = new MultiEngineOCR();
     this.contextEngine = new LocalContextEngine();
     this.extractorFactory = new DocumentExtractorFactory();
     this.qualityAssurance = new QualityAssurance();
@@ -142,7 +146,19 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
         ocrResult,
         contextualResult,
         structuredData,
-        qualityMetrics: extractionQuality,
+        qualityMetrics: {
+          overall: {
+            ocrQuality: extractionQuality.ocrQuality,
+            completeness: extractionQuality.completeness,
+            consistency: extractionQuality.consistency,
+            totalScore: extractionQuality.confidence,
+            warnings: extractionQuality.warnings
+          }
+        },
+        processingStats: {
+          totalTime: totalProcessingTime,
+          ocrEngines: this.config.ocrEngines
+        },
         metadata: {
           processingTime: totalProcessingTime,
           imageHash: preprocessedImage.hash,
@@ -205,11 +221,17 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
           metadata: { error: error instanceof Error ? error.message : String(error) }
         },
         qualityMetrics: {
-          ocrQuality: 0,
-          completeness: 0,
-          consistency: 0,
-          confidence: 0,
-          warnings: [`Processing error: ${error instanceof Error ? error.message : String(error)}`]
+          overall: {
+            ocrQuality: 0,
+            completeness: 0,
+            consistency: 0,
+            totalScore: 0,
+            warnings: [`Processing error: ${error instanceof Error ? error.message : String(error)}`]
+          }
+        },
+        processingStats: {
+          totalTime: processingTime,
+          ocrEngines: this.config.ocrEngines
         },
         metadata: {
           processingTime,
@@ -313,7 +335,7 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
       metadata: {
         documentType: contextualResult.documentType,
         confidence: contextualResult.confidence,
-        detectedLanguages: [contextualResult.rawOCR.language || 'en']
+        detectedLanguages: contextualResult.rawOCR.language || ['en']
       }
     };
   }

@@ -52,6 +52,7 @@ export interface ExtractedMetadata {
 		city?: string;
 		country?: string;
 	};
+	hybridResult?: any; // Store the full hybrid processing result
 	confidence: number;
 }
 

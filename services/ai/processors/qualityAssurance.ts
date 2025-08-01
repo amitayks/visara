@@ -215,6 +215,18 @@ export class QualityAssurance {
   private checkReceiptData(data: ReceiptData): Check[] {
     const checks: Check[] = [];
 
+    // Check if data has the expected structure
+    if (!data || !('vendor' in data) || !data.vendor) {
+      checks.push({
+        name: 'Data Structure',
+        passed: false,
+        confidence: 0,
+        message: 'Receipt data structure is invalid or missing',
+        suggestion: 'Extraction failed - check document quality'
+      });
+      return checks;
+    }
+
     // Check vendor information
     checks.push({
       name: 'Vendor Information',
@@ -229,51 +241,69 @@ export class QualityAssurance {
     });
 
     // Check total amount
-    checks.push({
-      name: 'Total Amount',
-      passed: data.totals.total > 0,
-      confidence: data.totals.total > 0 ? 0.9 : 0,
-      message: data.totals.total > 0 
-        ? `Total: ${data.totals.currency} ${data.totals.total}` 
-        : 'Total amount not found or invalid',
-      suggestion: data.totals.total <= 0 
-        ? 'Look for total, amount due, or balance on the receipt'
-        : undefined
-    });
+    if (data.totals) {
+      checks.push({
+        name: 'Total Amount',
+        passed: data.totals.total > 0,
+        confidence: data.totals.total > 0 ? 0.9 : 0,
+        message: data.totals.total > 0 
+          ? `Total: ${data.totals.currency} ${data.totals.total}` 
+          : 'Total amount not found or invalid',
+        suggestion: data.totals.total <= 0 
+          ? 'Look for total, amount due, or balance on the receipt'
+          : undefined
+      });
+    }
 
     // Check line items
-    checks.push({
-      name: 'Line Items',
-      passed: data.items.length > 0,
-      confidence: Math.min(1, data.items.length / 3),
-      message: data.items.length > 0 
-        ? `Found ${data.items.length} line items` 
-        : 'No line items found',
-      suggestion: data.items.length === 0 
-        ? 'Check for itemized purchases between header and total'
-        : undefined
-    });
+    if (data.items) {
+      checks.push({
+        name: 'Line Items',
+        passed: data.items.length > 0,
+        confidence: Math.min(1, data.items.length / 3),
+        message: data.items.length > 0 
+          ? `Found ${data.items.length} line items` 
+          : 'No line items found',
+        suggestion: data.items.length === 0 
+          ? 'Check for itemized purchases between header and total'
+          : undefined
+      });
+    }
 
     // Check calculation consistency
-    const itemsTotal = data.items.reduce((sum, item) => sum + item.totalPrice, 0);
-    const calculationDiff = Math.abs(itemsTotal - data.totals.subtotal);
-    checks.push({
-      name: 'Calculation Consistency',
-      passed: calculationDiff < 1.0, // Allow small rounding differences
-      confidence: calculationDiff < 0.1 ? 1 : (calculationDiff < 1.0 ? 0.7 : 0.3),
-      message: calculationDiff < 1.0 
-        ? 'Item totals match subtotal' 
-        : `Item totals don't match subtotal (diff: ${calculationDiff.toFixed(2)})`,
-      suggestion: calculationDiff >= 1.0 
-        ? 'Review line items and subtotal for accuracy'
-        : undefined
-    });
+    if (data.items && data.totals) {
+      const itemsTotal = data.items.reduce((sum, item) => sum + item.totalPrice, 0);
+      const calculationDiff = Math.abs(itemsTotal - data.totals.subtotal);
+      checks.push({
+        name: 'Calculation Consistency',
+        passed: calculationDiff < 1.0, // Allow small rounding differences
+        confidence: calculationDiff < 0.1 ? 1 : (calculationDiff < 1.0 ? 0.7 : 0.3),
+        message: calculationDiff < 1.0 
+          ? 'Item totals match subtotal' 
+          : `Item totals don't match subtotal (diff: ${calculationDiff.toFixed(2)})`,
+        suggestion: calculationDiff >= 1.0 
+          ? 'Review line items and subtotal for accuracy'
+          : undefined
+      });
+    }
 
     return checks;
   }
 
   private checkInvoiceData(data: InvoiceData): Check[] {
     const checks: Check[] = [];
+
+    // Check if data has the expected structure
+    if (!data || !('vendor' in data) || !data.vendor || !('customer' in data) || !data.customer) {
+      checks.push({
+        name: 'Data Structure',
+        passed: false,
+        confidence: 0,
+        message: 'Invoice data structure is invalid or missing',
+        suggestion: 'Extraction failed - check document quality'
+      });
+      return checks;
+    }
 
     // Check invoice number
     checks.push({
@@ -320,6 +350,18 @@ export class QualityAssurance {
 
   private checkIDData(data: IDData): Check[] {
     const checks: Check[] = [];
+
+    // Check if data has the expected structure
+    if (!data || !('personalInfo' in data) || !data.personalInfo || !('documentInfo' in data) || !data.documentInfo) {
+      checks.push({
+        name: 'Data Structure',
+        passed: false,
+        confidence: 0,
+        message: 'ID data structure is invalid or missing',
+        suggestion: 'Extraction failed - check document quality'
+      });
+      return checks;
+    }
 
     // Check personal information
     checks.push({
@@ -501,34 +543,38 @@ export class QualityAssurance {
     switch (documentType) {
       case DocumentType.RECEIPT:
         const receiptData = data as ReceiptData;
+        if (!receiptData || !('vendor' in receiptData)) return 0;
         return (
-          (receiptData.vendor.name !== 'Unknown Vendor' ? 0.3 : 0) +
-          (receiptData.totals.total > 0 ? 0.3 : 0) +
-          (receiptData.items.length > 0 ? 0.4 : 0)
+          (receiptData.vendor?.name !== 'Unknown Vendor' ? 0.3 : 0) +
+          (receiptData.totals?.total > 0 ? 0.3 : 0) +
+          (receiptData.items?.length > 0 ? 0.4 : 0)
         );
 
       case DocumentType.INVOICE:
         const invoiceData = data as InvoiceData;
+        if (!invoiceData || !('vendor' in invoiceData)) return 0;
         return (
           (invoiceData.invoiceNumber !== 'Unknown' ? 0.2 : 0) +
-          (invoiceData.vendor.name !== 'Unknown' ? 0.2 : 0) +
-          (invoiceData.customer.name !== 'Unknown' ? 0.2 : 0) +
-          (invoiceData.totals.total > 0 ? 0.2 : 0) +
-          (invoiceData.items.length > 0 ? 0.2 : 0)
+          (invoiceData.vendor?.name !== 'Unknown' ? 0.2 : 0) +
+          (invoiceData.customer?.name !== 'Unknown' ? 0.2 : 0) +
+          (invoiceData.totals?.total > 0 ? 0.2 : 0) +
+          (invoiceData.items?.length > 0 ? 0.2 : 0)
         );
 
       case DocumentType.ID_CARD:
       case DocumentType.DRIVERS_LICENSE:
         const idData = data as IDData;
+        if (!idData || !('personalInfo' in idData) || !('documentInfo' in idData)) return 0;
         return (
-          (idData.personalInfo.firstName.length > 0 ? 0.3 : 0) +
-          (idData.personalInfo.lastName.length > 0 ? 0.3 : 0) +
-          (idData.documentInfo.documentNumber.length > 0 ? 0.4 : 0)
+          (idData.personalInfo?.firstName?.length > 0 ? 0.3 : 0) +
+          (idData.personalInfo?.lastName?.length > 0 ? 0.3 : 0) +
+          (idData.documentInfo?.documentNumber?.length > 0 ? 0.4 : 0)
         );
 
       case DocumentType.PASSPORT:
         const passportData = data as PassportData;
-        return passportData.validity.isValid ? 1.0 : 0.3;
+        if (!passportData || !('validity' in passportData)) return 0;
+        return passportData.validity?.isValid ? 1.0 : 0.3;
 
       default:
         const genericData = data as GenericDocumentData;

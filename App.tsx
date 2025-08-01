@@ -14,7 +14,6 @@ import DocumentsScreen from "./app/(tabs)/documents";
 import ChatScreen from "./app/(tabs)/index";
 import OCRTestScreen from "./app/(tabs)/ocrtest";
 import SettingsScreen from "./app/(tabs)/settings";
-import TestScreen from "./app/(tabs)/test";
 import DocumentScreen from "./app/document/[id]";
 
 const Tab = createBottomTabNavigator();
@@ -51,7 +50,6 @@ function TabNavigator() {
 			<Tab.Screen name="Chat" component={ChatScreen} />
 			<Tab.Screen name="Documents" component={DocumentsScreen} />
 			<Tab.Screen name="Settings" component={SettingsScreen} />
-			<Tab.Screen name="Test" component={TestScreen} />
 			<Tab.Screen name="OCRTest" component={OCRTestScreen} />
 		</Tab.Navigator>
 	);

@@ -395,67 +395,140 @@ export default function DocumentDetailScreen() {
 
 				{renderTextLine(document.ocrText, "Extracted Text")}
 
-				{/* Extracted Metadata */}
+				{/* Hybrid Processing Results */}
 				{document.metadata && (
 					<View style={styles.hybridSection}>
-						<Text style={styles.hybridTitle}>Extracted Information</Text>
+						<Text style={styles.hybridTitle}>Hybrid Processing Results</Text>
 						
-						{/* Vendor */}
-						{document.metadata.vendor && (
-							<View style={styles.metadataItem}>
-								<Text style={styles.metadataLabel}>Vendor</Text>
-								<Text style={styles.metadataValue}>{document.metadata.vendor}</Text>
-							</View>
-						)}
-						
-						{/* Amounts */}
-						{document.metadata.amounts && document.metadata.amounts.length > 0 && (
-							<View style={styles.metadataItem}>
-								<Text style={styles.metadataLabel}>Amounts</Text>
-								{document.metadata.amounts.map((amount, index) => (
-									<Text key={index} style={styles.metadataValue}>
-										{amount.currency} {amount.value.toFixed(2)}
-										{amount.isTotal ? ' (Total)' : ''}
+						{/* Document Type */}
+						{document.metadata.hybridResult && (
+							<View style={styles.documentTypeContainer}>
+								<Text style={styles.sectionTitle}>Document Type</Text>
+								<View style={styles.documentTypeBadge}>
+									<Text style={styles.documentTypeText}>
+										{document.metadata.hybridResult.contextualResult.documentType}
 									</Text>
-								))}
-							</View>
-						)}
-						
-						{/* Dates */}
-						{document.metadata.dates && document.metadata.dates.length > 0 && (
-							<View style={styles.metadataItem}>
-								<Text style={styles.metadataLabel}>Dates</Text>
-								{document.metadata.dates.map((dateInfo, index) => (
-									<Text key={index} style={styles.metadataValue}>
-										{new Date(dateInfo.date).toLocaleDateString()} ({dateInfo.type})
+									<Text style={styles.confidenceText}>
+										({(document.metadata.hybridResult.contextualResult.confidence * 100).toFixed(1)}%)
 									</Text>
-								))}
+								</View>
 							</View>
 						)}
 						
-						{/* Items */}
-						{document.metadata.items && document.metadata.items.length > 0 && (
-							<View style={styles.metadataItem}>
-								<Text style={styles.metadataLabel}>Items</Text>
-								{document.metadata.items.map((item, index) => (
-									<Text key={index} style={styles.metadataValue}>
-										{item.name} {item.price ? `- $${item.price}` : ''}
-										{item.quantity ? ` x${item.quantity}` : ''}
+						{/* Quality Metrics */}
+						{document.metadata.hybridResult?.qualityMetrics && (
+							<View style={styles.qualityContainer}>
+								<Text style={styles.sectionTitle}>Quality Assessment</Text>
+								<View style={styles.metricsGrid}>
+									<View style={styles.metricItem}>
+										<Text style={styles.metricLabel}>OCR Quality</Text>
+										<Text style={styles.metricValue}>
+											{(document.metadata.hybridResult.qualityMetrics.overall.ocrQuality * 100).toFixed(1)}%
+										</Text>
+									</View>
+									<View style={styles.metricItem}>
+										<Text style={styles.metricLabel}>Completeness</Text>
+										<Text style={styles.metricValue}>
+											{(document.metadata.hybridResult.qualityMetrics.overall.completeness * 100).toFixed(1)}%
+										</Text>
+									</View>
+									<View style={styles.metricItem}>
+										<Text style={styles.metricLabel}>Consistency</Text>
+										<Text style={styles.metricValue}>
+											{(document.metadata.hybridResult.qualityMetrics.overall.consistency * 100).toFixed(1)}%
+										</Text>
+									</View>
+									<View style={styles.metricItem}>
+										<Text style={styles.metricLabel}>Total Score</Text>
+										<Text style={[styles.metricValue, styles.totalScore]}>
+											{(document.metadata.hybridResult.qualityMetrics.overall.totalScore * 100).toFixed(1)}%
+										</Text>
+									</View>
+								</View>
+								{document.metadata.hybridResult.qualityMetrics.overall.warnings.length > 0 && (
+									<View style={styles.warningsContainer}>
+										<Text style={styles.warningsTitle}>Warnings:</Text>
+										{document.metadata.hybridResult.qualityMetrics.overall.warnings.map((warning, index) => (
+											<Text key={index} style={styles.warningText}>• {warning}</Text>
+										))}
+									</View>
+								)}
+							</View>
+						)}
+						
+						{/* Extracted Information */}
+						<View style={styles.structuredDataContainer}>
+							<Text style={styles.sectionTitle}>Extracted Information</Text>
+							
+							{/* Vendor */}
+							{document.metadata.vendor && (
+								<View style={styles.dataRow}>
+									<Text style={styles.dataLabel}>Vendor:</Text>
+									<Text style={styles.dataValue}>{document.metadata.vendor}</Text>
+								</View>
+							)}
+							
+							{/* Total Amount */}
+							{document.metadata.hybridResult?.structuredData?.totalAmount !== undefined && (
+								<View style={styles.dataRow}>
+									<Text style={styles.dataLabel}>Total:</Text>
+									<Text style={styles.dataValue}>
+										{document.metadata.hybridResult.structuredData.currency} {document.metadata.hybridResult.structuredData.totalAmount.toFixed(2)}
 									</Text>
-								))}
-							</View>
-						)}
+								</View>
+							)}
+							
+							{/* Dates */}
+							{document.metadata.dates && document.metadata.dates.length > 0 && (
+								<>
+									{document.metadata.dates.map((dateInfo, index) => (
+										<View key={index} style={styles.dataRow}>
+											<Text style={styles.dataLabel}>{dateInfo.type} Date:</Text>
+											<Text style={styles.dataValue}>
+												{new Date(dateInfo.date).toLocaleDateString()}
+											</Text>
+										</View>
+									))}
+								</>
+							)}
+							
+							{/* Items */}
+							{document.metadata.items && document.metadata.items.length > 0 && (
+								<View style={styles.itemsContainer}>
+									<Text style={styles.dataLabel}>Items:</Text>
+									{document.metadata.items.map((item, index) => (
+										<Text key={index} style={styles.itemText}>
+											• {item.name} {item.price ? `- $${item.price}` : ''}
+											{item.quantity ? ` x${item.quantity}` : ''}
+										</Text>
+									))}
+								</View>
+							)}
+							
+							{/* Location */}
+							{document.metadata.location && (
+								<View style={styles.dataRow}>
+									<Text style={styles.dataLabel}>Location:</Text>
+									<Text style={styles.dataValue}>
+										{[
+											document.metadata.location.address,
+											document.metadata.location.city,
+											document.metadata.location.country
+										].filter(Boolean).join(', ')}
+									</Text>
+								</View>
+							)}
+						</View>
 						
-						{/* Location */}
-						{document.metadata.location && (
-							<View style={styles.metadataItem}>
-								<Text style={styles.metadataLabel}>Location</Text>
-								<Text style={styles.metadataValue}>
-									{[
-										document.metadata.location.address,
-										document.metadata.location.city,
-										document.metadata.location.country
-									].filter(Boolean).join(', ')}
+						{/* Processing Stats */}
+						{document.metadata.hybridResult && (
+							<View style={styles.statsContainer}>
+								<Text style={styles.statsTitle}>Processing Stats</Text>
+								<Text style={styles.statsText}>
+									Total Time: {document.metadata.hybridResult.processingStats.totalTime}ms
+								</Text>
+								<Text style={styles.statsText}>
+									Engines Used: {document.metadata.hybridResult.processingStats.ocrEngines.join(', ')}
 								</Text>
 							</View>
 						)}
@@ -815,5 +888,79 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		color: "#000000",
 		fontWeight: "500",
+	},
+	documentTypeContainer: {
+		marginBottom: 16,
+	},
+	sectionTitle: {
+		fontSize: 16,
+		fontWeight: "600",
+		color: "#000000",
+		marginBottom: 8,
+	},
+	documentTypeBadge: {
+		flexDirection: "row",
+		alignItems: "center",
+		backgroundColor: "#F0F0F0",
+		paddingVertical: 8,
+		paddingHorizontal: 16,
+		borderRadius: 8,
+		alignSelf: "flex-start",
+	},
+	documentTypeText: {
+		fontSize: 16,
+		fontWeight: "600",
+		color: "#000000",
+		textTransform: "capitalize",
+	},
+	totalScore: {
+		color: "#0066FF",
+	},
+	structuredDataContainer: {
+		marginBottom: 16,
+	},
+	dataRow: {
+		flexDirection: "row",
+		justifyContent: "space-between",
+		paddingVertical: 8,
+		borderBottomWidth: 1,
+		borderBottomColor: "#F0F0F0",
+	},
+	dataLabel: {
+		fontSize: 14,
+		color: "#666666",
+	},
+	dataValue: {
+		fontSize: 14,
+		fontWeight: "600",
+		color: "#000000",
+		flex: 1,
+		textAlign: "right",
+	},
+	itemsContainer: {
+		marginTop: 8,
+		marginBottom: 8,
+	},
+	itemText: {
+		fontSize: 14,
+		color: "#333333",
+		marginTop: 4,
+		marginLeft: 16,
+	},
+	statsContainer: {
+		paddingTop: 16,
+		borderTopWidth: 1,
+		borderTopColor: "#F0F0F0",
+	},
+	statsTitle: {
+		fontSize: 14,
+		fontWeight: "600",
+		color: "#666666",
+		marginBottom: 8,
+	},
+	statsText: {
+		fontSize: 12,
+		color: "#666666",
+		marginBottom: 4,
 	},
 });
