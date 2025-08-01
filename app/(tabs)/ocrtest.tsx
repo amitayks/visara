@@ -20,7 +20,6 @@ import {
 } from "react-native-image-picker";
 import Icon from "react-native-vector-icons/Ionicons";
 import { hybridDocumentProcessor } from "../../services/ai/hybridDocumentProcessor";
-import { HebrewPatterns } from "../../services/ai/hebrewPatterns";
 import { ocrEngineManager } from "../../services/ai/OCREngineManager";
 import type {
 	HybridProcessingResult,
@@ -181,13 +180,12 @@ export default function OCRTestScreen() {
 					confidence: hybridResult.qualityMetrics.confidence,
 					documentType: hybridResult.contextualResult.documentType,
 					// Extract structured data fields for direct access
-					vendor: hybridResult.structuredData.metadata?.vendor || 
-					        (hybridResult.structuredData as any).vendor?.name ||
+					vendor: ('vendor' in hybridResult.structuredData && (hybridResult.structuredData as any).vendor?.name) ||
 					        'Unknown',
-					totalAmount: hybridResult.structuredData.metadata?.total || 
-					            (hybridResult.structuredData as any).totals?.total,
-					currency: hybridResult.structuredData.metadata?.currency ||
-					         (hybridResult.structuredData as any).totals?.currency ||
+					totalAmount: ('totals' in hybridResult.structuredData && (hybridResult.structuredData as any).totals?.total) ||
+					            ('totalAmount' in hybridResult.structuredData && (hybridResult.structuredData as any).totalAmount),
+					currency: ('totals' in hybridResult.structuredData && (hybridResult.structuredData as any).totals?.currency) ||
+					         ('currency' in hybridResult.structuredData && (hybridResult.structuredData as any).currency) ||
 					         'USD',
 					metadata: {
 						...hybridResult.metadata,
@@ -198,7 +196,7 @@ export default function OCRTestScreen() {
 							quality: hybridResult.qualityMetrics
 						},
 						// Additional hybrid processing metadata
-						detectedLanguages: hybridResult.ocrResult.detectedLanguages,
+						detectedLanguages: [hybridResult.ocrResult.language || 'en'],
 						entityCount: hybridResult.contextualResult.context.entities.length,
 						relationshipCount: hybridResult.contextualResult.context.relationships.length,
 						qualityWarnings: hybridResult.qualityMetrics.warnings
@@ -217,9 +215,9 @@ export default function OCRTestScreen() {
 					ocrText: bestResult.text, // Use ocrText field name
 					confidence: bestResult.confidence,
 					metadata: {
-						ocrEngine: bestResult.engineName,
+						ocrEngine: bestResult.engine,
 						processingTime: bestResult.processingTime,
-						languages: bestResult.languages
+						languages: [bestResult.language || 'en']
 					},
 					createdAt: new Date(),
 					updatedAt: new Date()
@@ -280,7 +278,7 @@ export default function OCRTestScreen() {
 	};
 
 	const renderHybridResult = (result: HybridProcessingResult) => {
-		const textDirection = HebrewPatterns.getTextDirection(result.ocrResult.text);
+		// Always LTR for English-only processing
 
 		return (
 			<View style={[styles.resultCard, styles.hybridResultCard]} key="hybrid">
@@ -305,11 +303,9 @@ export default function OCRTestScreen() {
 
 				<View style={styles.languageRow}>
 					<Text style={styles.languageLabel}>Languages:</Text>
-					{result.ocrResult.detectedLanguages.map((lang) => (
-						<View key={lang} style={styles.languageBadge}>
-							<Text style={styles.languageText}>{lang.toUpperCase()}</Text>
-						</View>
-					))}
+					<View style={styles.languageBadge}>
+						<Text style={styles.languageText}>{(result.ocrResult.language?.[0] || 'en').toUpperCase()}</Text>
+					</View>
 				</View>
 
 				<View style={styles.qualityMetrics}>
@@ -340,10 +336,7 @@ export default function OCRTestScreen() {
 					<Text style={styles.sectionLabel}>Extracted Text:</Text>
 					<ScrollView style={styles.textScroll}>
 						<Text
-							style={[
-								styles.ocrText,
-								textDirection === "rtl" && styles.rtlText,
-							]}
+							style={styles.ocrText}
 						>
 							{result.ocrResult.text || "No text detected"}
 						</Text>
@@ -381,84 +374,40 @@ export default function OCRTestScreen() {
 	};
 
 	const renderEngineResult = (result: OCRResult) => {
-		const hebrewMetadata = HebrewPatterns.extractHebrewMetadata(result.text);
-		const textDirection = HebrewPatterns.getTextDirection(result.text);
+		// English-only processing, no metadata extraction needed
 
 		return (
-			<View style={styles.resultCard} key={result.engineName}>
+			<View style={styles.resultCard} key={result.engine}>
 				<View style={styles.resultHeader}>
 					<Text style={styles.engineName}>
-						{result.engineName.toUpperCase()}
+						{result.engine.toUpperCase()}
 					</Text>
 					<View style={styles.statsRow}>
 						<Text style={styles.statText}>
 							{(result.confidence * 100).toFixed(1)}%
 						</Text>
 						<Text style={styles.statText}>{result.processingTime}ms</Text>
-						{result.memoryUsage && (
-							<Text style={styles.statText}>
-								{(result.memoryUsage / 1024 / 1024).toFixed(1)}MB
-							</Text>
-						)}
 					</View>
 				</View>
 
 				<View style={styles.languageRow}>
 					<Text style={styles.languageLabel}>Languages:</Text>
-					{result.languages.map((lang) => (
-						<View key={lang} style={styles.languageBadge}>
-							<Text style={styles.languageText}>{lang.toUpperCase()}</Text>
-						</View>
-					))}
+					<View style={styles.languageBadge}>
+						<Text style={styles.languageText}>{(result.language || 'en').toUpperCase()}</Text>
+					</View>
 				</View>
 
 				<View style={styles.textContainer}>
 					<Text style={styles.sectionLabel}>Extracted Text:</Text>
 					<ScrollView style={styles.textScroll}>
 						<Text
-							style={[
-								styles.ocrText,
-								textDirection === "rtl" && styles.rtlText,
-							]}
+							style={styles.ocrText}
 						>
 							{result.text || "No text detected"}
 						</Text>
 					</ScrollView>
 				</View>
 
-				{hebrewMetadata.currency && hebrewMetadata.currency.length > 0 && (
-					<View style={styles.metadataSection}>
-						<Text style={styles.sectionLabel}>Currency:</Text>
-						{hebrewMetadata.currency.map((curr, idx) => (
-							<Text key={idx} style={styles.metadataText}>
-								{curr.symbol}
-								{curr.amount}
-							</Text>
-						))}
-					</View>
-				)}
-
-				{hebrewMetadata.phones && hebrewMetadata.phones.length > 0 && (
-					<View style={styles.metadataSection}>
-						<Text style={styles.sectionLabel}>Phone Numbers:</Text>
-						{hebrewMetadata.phones.map((phone, idx) => (
-							<Text key={idx} style={styles.metadataText}>
-								{phone}
-							</Text>
-						))}
-					</View>
-				)}
-
-				{hebrewMetadata.dates && hebrewMetadata.dates.length > 0 && (
-					<View style={styles.metadataSection}>
-						<Text style={styles.sectionLabel}>Dates:</Text>
-						{hebrewMetadata.dates.map((date, idx) => (
-							<Text key={idx} style={styles.metadataText}>
-								{date.date.toLocaleDateString()} ({date.format})
-							</Text>
-						))}
-					</View>
-				)}
 			</View>
 		);
 	};
@@ -857,10 +806,6 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 		color: "#333333",
 		lineHeight: 20,
-	},
-	rtlText: {
-		textAlign: "right",
-		writingDirection: "rtl",
 	},
 	metadataSection: {
 		marginTop: 8,

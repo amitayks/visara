@@ -248,9 +248,9 @@ export class IDDocumentExtractor implements DocumentExtractor<IDData> {
     };
   }
 
-  private extractPhotoRegion(blocks: typeof context.rawOCR.blocks): IDData['photo'] {
+  private extractPhotoRegion(blocks: any[]): IDData['photo'] {
     // Look for regions with very little text (likely photo areas)
-    const photoRegions = blocks.filter(block => 
+    const photoRegions = blocks.filter((block: any) => 
       block.text.trim().length < 5 && 
       block.boundingBox.width > 50 && 
       block.boundingBox.height > 50
@@ -258,7 +258,7 @@ export class IDDocumentExtractor implements DocumentExtractor<IDData> {
 
     if (photoRegions.length > 0) {
       // Return the largest region (likely the main photo)
-      const largestRegion = photoRegions.reduce((largest, current) => {
+      const largestRegion = photoRegions.reduce((largest: any, current: any) => {
         const currentArea = current.boundingBox.width * current.boundingBox.height;
         const largestArea = largest.boundingBox.width * largest.boundingBox.height;
         return currentArea > largestArea ? current : largest;
@@ -294,7 +294,7 @@ export class IDDocumentExtractor implements DocumentExtractor<IDData> {
     return features;
   }
 
-  async validate(data: IDData): ValidationResult {
+  async validate(data: IDData): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
     const suggestions: string[] = [];

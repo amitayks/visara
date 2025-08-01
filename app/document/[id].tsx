@@ -395,87 +395,70 @@ export default function DocumentDetailScreen() {
 
 				{renderTextLine(document.ocrText, "Extracted Text")}
 
-				{/* Hybrid Processing Results */}
-				{document.metadata?.processingLayers && (
+				{/* Extracted Metadata */}
+				{document.metadata && (
 					<View style={styles.hybridSection}>
-						<Text style={styles.hybridTitle}>Hybrid Processing Results</Text>
+						<Text style={styles.hybridTitle}>Extracted Information</Text>
 						
-						{/* Quality Metrics */}
-						{document.metadata.processingLayers.quality && (
-							<View style={styles.qualityContainer}>
-								<Text style={styles.qualityTitle}>Quality Metrics</Text>
-								<View style={styles.metricsGrid}>
-									<View style={styles.metricItem}>
-										<Text style={styles.metricLabel}>OCR Quality</Text>
-										<Text style={styles.metricValue}>
-											{(document.metadata.processingLayers.quality.ocrQuality * 100).toFixed(1)}%
-										</Text>
-									</View>
-									<View style={styles.metricItem}>
-										<Text style={styles.metricLabel}>Completeness</Text>
-										<Text style={styles.metricValue}>
-											{(document.metadata.processingLayers.quality.completeness * 100).toFixed(1)}%
-										</Text>
-									</View>
-									<View style={styles.metricItem}>
-										<Text style={styles.metricLabel}>Consistency</Text>
-										<Text style={styles.metricValue}>
-											{(document.metadata.processingLayers.quality.consistency * 100).toFixed(1)}%
-										</Text>
-									</View>
-								</View>
-								
-								{/* Quality Warnings */}
-								{document.metadata.processingLayers.quality.warnings?.length > 0 && (
-									<View style={styles.warningsContainer}>
-										<Text style={styles.warningsTitle}>Quality Warnings</Text>
-										{document.metadata.processingLayers.quality.warnings.map((warning: string, index: number) => (
-											<Text key={index} style={styles.warningText}>⚠ {warning}</Text>
-										))}
-									</View>
-								)}
+						{/* Vendor */}
+						{document.metadata.vendor && (
+							<View style={styles.metadataItem}>
+								<Text style={styles.metadataLabel}>Vendor</Text>
+								<Text style={styles.metadataValue}>{document.metadata.vendor}</Text>
 							</View>
 						)}
-
-						{/* Detected Entities */}
-						{document.metadata.processingLayers.context?.context?.entities?.length > 0 && (
-							<View style={styles.entitiesContainer}>
-								<Text style={styles.entitiesTitle}>Detected Entities</Text>
-								<View style={styles.entitiesGrid}>
-									{document.metadata.processingLayers.context.context.entities.slice(0, 8).map((entity: any, index: number) => (
-										<View key={index} style={styles.entityBadge}>
-											<Text style={styles.entityType}>{entity.type}</Text>
-											<Text style={styles.entityValue}>{entity.value.substring(0, 20)}{entity.value.length > 20 ? '...' : ''}</Text>
-										</View>
-									))}
-								</View>
-							</View>
-						)}
-
-						{/* Processing Info */}
-						<View style={styles.processingInfoContainer}>
-							<Text style={styles.processingInfoTitle}>Processing Information</Text>
-							<View style={styles.processingInfoRow}>
-								<Text style={styles.processingInfoLabel}>Languages:</Text>
-								<Text style={styles.processingInfoValue}>
-									{document.metadata.detectedLanguages?.join(', ') || 'Unknown'}
-								</Text>
-							</View>
-							<View style={styles.processingInfoRow}>
-								<Text style={styles.processingInfoLabel}>Processing Time:</Text>
-								<Text style={styles.processingInfoValue}>
-									{document.metadata.processingTime}ms
-								</Text>
-							</View>
-							{document.metadata.entityCount !== undefined && (
-								<View style={styles.processingInfoRow}>
-									<Text style={styles.processingInfoLabel}>Entities Found:</Text>
-									<Text style={styles.processingInfoValue}>
-										{document.metadata.entityCount}
+						
+						{/* Amounts */}
+						{document.metadata.amounts && document.metadata.amounts.length > 0 && (
+							<View style={styles.metadataItem}>
+								<Text style={styles.metadataLabel}>Amounts</Text>
+								{document.metadata.amounts.map((amount, index) => (
+									<Text key={index} style={styles.metadataValue}>
+										{amount.currency} {amount.value.toFixed(2)}
+										{amount.isTotal ? ' (Total)' : ''}
 									</Text>
-								</View>
-							)}
-						</View>
+								))}
+							</View>
+						)}
+						
+						{/* Dates */}
+						{document.metadata.dates && document.metadata.dates.length > 0 && (
+							<View style={styles.metadataItem}>
+								<Text style={styles.metadataLabel}>Dates</Text>
+								{document.metadata.dates.map((dateInfo, index) => (
+									<Text key={index} style={styles.metadataValue}>
+										{new Date(dateInfo.date).toLocaleDateString()} ({dateInfo.type})
+									</Text>
+								))}
+							</View>
+						)}
+						
+						{/* Items */}
+						{document.metadata.items && document.metadata.items.length > 0 && (
+							<View style={styles.metadataItem}>
+								<Text style={styles.metadataLabel}>Items</Text>
+								{document.metadata.items.map((item, index) => (
+									<Text key={index} style={styles.metadataValue}>
+										{item.name} {item.price ? `- $${item.price}` : ''}
+										{item.quantity ? ` x${item.quantity}` : ''}
+									</Text>
+								))}
+							</View>
+						)}
+						
+						{/* Location */}
+						{document.metadata.location && (
+							<View style={styles.metadataItem}>
+								<Text style={styles.metadataLabel}>Location</Text>
+								<Text style={styles.metadataValue}>
+									{[
+										document.metadata.location.address,
+										document.metadata.location.city,
+										document.metadata.location.country
+									].filter(Boolean).join(', ')}
+								</Text>
+							</View>
+						)}
 					</View>
 				)}
 
@@ -596,6 +579,9 @@ const styles = StyleSheet.create({
 		fontSize: 18,
 		fontWeight: "600",
 		color: "#000000",
+	},
+	metadataItem: {
+		marginBottom: 16,
 	},
 	editButton: {
 		flexDirection: "row",

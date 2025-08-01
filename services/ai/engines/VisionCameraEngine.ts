@@ -78,7 +78,6 @@ export class VisionCameraEngine implements LocalOCREngine {
 						height: 30,
 						confidence: 0.9,
 					},
-					isRTL: false,
 					language: "en",
 				});
 			});
@@ -89,10 +88,9 @@ export class VisionCameraEngine implements LocalOCREngine {
 				text: ocrText,
 				confidence: 0.92,
 				blocks,
-				languages: Array.from(detectedLanguages),
+				language: 'en',
 				processingTime,
-				engineName: this.name,
-				memoryUsage: this.getMemoryUsage(),
+				engine: this.name,
 			};
 		} catch (error) {
 			console.error("Vision Camera OCR error:", error);

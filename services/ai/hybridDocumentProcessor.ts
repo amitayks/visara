@@ -33,11 +33,11 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
   private defaultOptions: ProcessingOptions = {
     enableContextUnderstanding: true,
     enableStructuredExtraction: true,
-    languages: ['en', 'he'], // English and Hebrew by default
+    languages: ['en'], // English only
     maxProcessingTime: 30000, // 30 seconds
     qualityThreshold: 0.7,
     enablePreprocessing: true,
-    ocrEngines: ['mlkit', 'tesseract'] // Use multiple engines
+    ocrEngines: ['mlkit'] // Use ML Kit engine only
   };
 
   constructor(options: { includeMockEngine?: boolean } = {}) {
@@ -67,7 +67,7 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
       console.log(`Hybrid Document Processor initialized in ${Date.now() - startTime}ms`);
     } catch (error) {
       console.error('Failed to initialize Hybrid Document Processor:', error);
-      throw new Error(`Initialization failed: ${error.message}`);
+      throw new Error(`Initialization failed: ${error instanceof Error ? error instanceof Error ? error.message : String(error) : String(error)}`);
     }
   }
 
@@ -167,7 +167,8 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
           blocks: [],
           confidence: 0,
           processingTime: 0,
-          detectedLanguages: []
+          language: ['en'],
+          engine: 'mlkit'
         },
         contextualResult: {
           documentType: DocumentType.UNKNOWN,
@@ -177,7 +178,8 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
             blocks: [],
             confidence: 0,
             processingTime: 0,
-            detectedLanguages: []
+            language: ['en'],
+            engine: 'mlkit'
           },
           context: {
             layout: {
@@ -191,7 +193,8 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
             },
             entities: [],
             relationships: [],
-            sections: []
+            sections: [],
+            confidence: 0
           }
         },
         structuredData: {
@@ -199,20 +202,20 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
           content: '',
           entities: [],
           keyValuePairs: [],
-          metadata: { error: error.message }
+          metadata: { error: error instanceof Error ? error.message : String(error) }
         },
         qualityMetrics: {
           ocrQuality: 0,
           completeness: 0,
           consistency: 0,
           confidence: 0,
-          warnings: [`Processing error: ${error.message}`]
+          warnings: [`Processing error: ${error instanceof Error ? error.message : String(error)}`]
         },
         metadata: {
           processingTime,
           imageHash: 'error',
           timestamp: new Date(),
-          processingStages: [...processingSteps, `Error: ${error.message}`]
+          processingStages: [...processingSteps, `Error: ${error instanceof Error ? error.message : String(error)}`]
         }
       };
 
@@ -223,10 +226,16 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
   async extractText(imageUri: string): Promise<OCRResult> {
     try {
       console.log('Starting OCR text extraction...');
-      return await this.multiEngineOCR.extractText(imageUri);
+      
+      // First, try regular multi-engine OCR
+      let result = await this.multiEngineOCR.extractText(imageUri);
+      
+      // Use standard result for English-only processing
+      
+      return result;
     } catch (error) {
       console.error('OCR extraction failed:', error);
-      throw new Error(`OCR extraction failed: ${error.message}`);
+      throw new Error(`OCR extraction failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -304,27 +313,14 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
       metadata: {
         documentType: contextualResult.documentType,
         confidence: contextualResult.confidence,
-        detectedLanguages: contextualResult.rawOCR.detectedLanguages
+        detectedLanguages: [contextualResult.rawOCR.language || 'en']
       }
     };
   }
 
-  private detectTextDirection(text: string): 'ltr' | 'rtl' | 'mixed' {
-    const hebrewPattern = /[\u0590-\u05FF]/;
-    const arabicPattern = /[\u0600-\u06FF]/;
-    const latinPattern = /[a-zA-Z]/;
-
-    const hasHebrew = hebrewPattern.test(text);
-    const hasArabic = arabicPattern.test(text);
-    const hasLatin = latinPattern.test(text);
-
-    if ((hasHebrew || hasArabic) && hasLatin) {
-      return 'mixed';
-    } else if (hasHebrew || hasArabic) {
-      return 'rtl';
-    } else {
-      return 'ltr';
-    }
+  private detectTextDirection(text: string): 'ltr' {
+    // Always return LTR for English-only processing
+    return 'ltr';
   }
 
   private async assessQuality(

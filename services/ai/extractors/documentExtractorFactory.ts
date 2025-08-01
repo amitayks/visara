@@ -224,7 +224,7 @@ export class DocumentExtractorFactory {
 
     // Determine if we should recommend an alternative
     const primaryValidation = await primaryExtractor.validate(primaryResult);
-    const bestAlternative = alternativeResults.reduce((best, current) => 
+    const bestAlternative = alternativeResults.reduce<{extractor: string; result: StructuredData; confidence: number} | null>((best, current) => 
       current.confidence > (best?.confidence || 0) ? current : best
     , null);
 
@@ -278,7 +278,7 @@ export class DocumentExtractorFactory {
         }
       } catch (error) {
         failing.push(docType);
-        details[docType] = `Error: ${error.message}`;
+        details[docType] = `Error: ${error instanceof Error ? error.message : String(error)}`;
       }
     }
 

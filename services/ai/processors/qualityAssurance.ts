@@ -171,14 +171,15 @@ export class QualityAssurance {
 
     // Check layout analysis
     const layout = contextualResult.context.layout;
+    const layoutConfidence = layout.confidence ?? 0.8; // Default to 0.8 if confidence is undefined
     checks.push({
       name: 'Layout Analysis',
-      passed: layout.confidence >= 0.5,
-      confidence: layout.confidence,
-      message: layout.confidence >= 0.5 
+      passed: layoutConfidence >= 0.5,
+      confidence: layoutConfidence,
+      message: layoutConfidence >= 0.5 
         ? 'Layout analysis successful' 
         : 'Layout analysis has low confidence',
-      suggestion: layout.confidence < 0.5 
+      suggestion: layoutConfidence < 0.5 
         ? 'Document structure may be complex or unclear'
         : undefined
     });
@@ -431,13 +432,10 @@ export class QualityAssurance {
   private checkConsistencyAcrossLayers(input: QualityAssessmentInput): Check[] {
     const checks: Check[] = [];
 
-    // Check language consistency
-    const ocrLanguages = input.ocrResult.detectedLanguages;
+    // Check language consistency (simplified for English-only)
+    const ocrLanguages = input.ocrResult.language || ['en'];
     const contextDirection = input.contextualResult.context.layout.textDirection;
-    const hasRTL = ocrLanguages.some(lang => ['he', 'ar'].includes(lang));
-    const directionMatch = (hasRTL && contextDirection === 'rtl') || 
-                          (!hasRTL && contextDirection === 'ltr') ||
-                          contextDirection === 'mixed';
+    const directionMatch = contextDirection === 'ltr';
 
     checks.push({
       name: 'Language Consistency',
@@ -473,7 +471,7 @@ export class QualityAssurance {
       ocrResult.confidence * 0.4,
       Math.min(1, ocrResult.text.length / 100) * 0.2,
       Math.min(1, ocrResult.blocks.length / 10) * 0.2,
-      (ocrResult.detectedLanguages.length > 0 ? 1 : 0) * 0.2
+      ((ocrResult.language || ['en']).length > 0 ? 1 : 0) * 0.2
     ];
 
     return factors.reduce((sum, factor) => sum + factor, 0);
@@ -551,13 +549,10 @@ export class QualityAssurance {
     const confDiff = Math.abs(ocrConf - contextConf);
     score -= confDiff * 0.3;
 
-    // Check language/direction consistency
-    const ocrLanguages = ocrResult.detectedLanguages;
+    // Check language/direction consistency (simplified for English-only)
     const contextDirection = contextualResult.context.layout.textDirection;
-    const hasRTL = ocrLanguages.some(lang => ['he', 'ar'].includes(lang));
     
-    if ((hasRTL && contextDirection !== 'rtl' && contextDirection !== 'mixed') ||
-        (!hasRTL && contextDirection === 'rtl')) {
+    if (contextDirection !== 'ltr') {
       score -= 0.2;
     }
 

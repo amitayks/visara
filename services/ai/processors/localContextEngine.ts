@@ -421,7 +421,7 @@ export class LocalContextEngine {
       for (const total of totals) {
         relationships.push({
           type: RelationshipType.TAX_TOTAL,
-          source: tax.length > 0 ? taxes[0] : subtotal,
+          source: taxes.length > 0 ? taxes[0] : subtotal,
           target: total,
           confidence: 0.8
         });
@@ -587,7 +587,7 @@ export class LocalContextEngine {
     }
   }
 
-  private findEntityBoundingBox(entityValue: string, blocks: TextBlock[]): typeof Entity.prototype.boundingBox {
+  private findEntityBoundingBox(entityValue: string, blocks: TextBlock[]): Entity['boundingBox'] {
     for (const block of blocks) {
       if (block.text.includes(entityValue)) {
         return {
@@ -672,7 +672,8 @@ export class LocalContextEngine {
           hasTable: false,
           hasHeader: false,
           hasFooter: false,
-          textDirection: 'ltr'
+          textDirection: 'ltr',
+          confidence: 0.5
         },
         entities: [],
         relationships: [],

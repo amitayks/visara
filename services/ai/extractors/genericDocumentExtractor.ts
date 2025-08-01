@@ -42,7 +42,7 @@ export class GenericDocumentExtractor implements DocumentExtractor<GenericDocume
     };
   }
 
-  private extractTitle(text: string, blocks: typeof context.rawOCR.blocks): string | undefined {
+  private extractTitle(text: string, blocks: any[]): string | undefined {
     const lines = text.split('\n').filter(line => line.trim().length > 0);
     
     if (lines.length === 0) return undefined;
@@ -155,12 +155,12 @@ export class GenericDocumentExtractor implements DocumentExtractor<GenericDocume
     return {
       documentType: context.documentType,
       confidence: context.confidence,
-      detectedLanguages: context.rawOCR.detectedLanguages,
+      detectedLanguages: context.rawOCR.language || ['en'],
       ocrConfidence: context.rawOCR.confidence,
       processingTime: context.rawOCR.processingTime,
       blockCount: context.rawOCR.blocks.length,
       textLength: context.rawOCR.text.length,
-      hasRTLText: context.context.layout.textDirection === 'rtl' || context.context.layout.textDirection === 'mixed',
+      hasRTLText: false, // Always false for English-only
       layoutInfo: {
         orientation: context.context.layout.orientation,
         columns: context.context.layout.columns,
@@ -226,7 +226,7 @@ export class GenericDocumentExtractor implements DocumentExtractor<GenericDocume
     return hasCommonKeyPattern || key.length <= 20;
   }
 
-  async validate(data: GenericDocumentData): ValidationResult {
+  async validate(data: GenericDocumentData): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
     const suggestions: string[] = [];

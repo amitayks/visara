@@ -80,15 +80,15 @@ export class OCREngineManager {
 			} catch (error) {
 				console.error(`Error with ${engine.name}:`, error);
 				// Return error result
-				return {
+				const errorResult: OCRResult = {
 					text: "",
 					confidence: 0,
 					blocks: [],
-					languages: [],
+					language: 'en',
 					processingTime: 0,
-					engineName: engine.name,
-					memoryUsage: 0,
-				} as OCRResult;
+					engine: engine.name,
+				};
+				return errorResult;
 			}
 		});
 
@@ -108,7 +108,7 @@ export class OCREngineManager {
 			imageUri,
 			timestamp: new Date(),
 			results,
-			bestEngine: bestResult.engineName,
+			bestEngine: bestResult.engine,
 			processingStats,
 		};
 	}

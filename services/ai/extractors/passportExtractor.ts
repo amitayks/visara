@@ -212,7 +212,7 @@ export class PassportExtractor implements DocumentExtractor<PassportData> {
     };
   }
 
-  private extractVisaStamps(text: string, blocks: typeof context.rawOCR.blocks): VisaStamp[] {
+  private extractVisaStamps(text: string, blocks: any[]): VisaStamp[] {
     const stamps: VisaStamp[] = [];
     
     // Look for visa/stamp keywords
@@ -260,16 +260,16 @@ export class PassportExtractor implements DocumentExtractor<PassportData> {
     return stamps;
   }
 
-  private extractPhotoRegion(blocks: typeof context.rawOCR.blocks): PassportData['photo'] {
+  private extractPhotoRegion(blocks: any[]): PassportData['photo'] {
     // Look for large regions with minimal text (likely photo)
-    const photoRegions = blocks.filter(block => 
+    const photoRegions = blocks.filter((block: any) => 
       block.text.trim().length < 3 && 
       block.boundingBox.width > 80 && 
       block.boundingBox.height > 100
     );
 
     if (photoRegions.length > 0) {
-      const largestRegion = photoRegions.reduce((largest, current) => {
+      const largestRegion = photoRegions.reduce((largest: any, current: any) => {
         const currentArea = current.boundingBox.width * current.boundingBox.height;
         const largestArea = largest.boundingBox.width * largest.boundingBox.height;
         return currentArea > largestArea ? current : largest;
@@ -361,7 +361,7 @@ export class PassportExtractor implements DocumentExtractor<PassportData> {
     return checkDigits.every(digit => /^\d$/.test(digit));
   }
 
-  async validate(data: PassportData): ValidationResult {
+  async validate(data: PassportData): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
     const suggestions: string[] = [];

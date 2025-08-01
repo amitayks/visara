@@ -27,7 +27,6 @@ export interface TextBlock {
     height: number;
   };
   language?: string;
-  isRTL?: boolean;
 }
 
 export interface OCRResult {
@@ -35,8 +34,13 @@ export interface OCRResult {
   blocks: TextBlock[];
   confidence: number;
   processingTime: number;
-  detectedLanguages: string[];
+  language: string[]; // Array of languages detected
+  engine: string;
   orientation?: number; // rotation in degrees
+  // Legacy properties for compatibility
+  detectedLanguages?: string[];
+  languages?: string[];
+  engineName?: string;
 }
 
 export interface Entity {
@@ -99,7 +103,8 @@ export interface LayoutInfo {
   hasTable: boolean;
   hasHeader: boolean;
   hasFooter: boolean;
-  textDirection: 'ltr' | 'rtl' | 'mixed';
+  textDirection: 'ltr' | 'rtl' | 'mixed'; // Keep for compatibility
+  confidence?: number;
 }
 
 export interface DocumentSection {
@@ -342,8 +347,9 @@ export interface ProcessingOptions {
 
 // Engine interfaces
 export interface DocumentExtractor<T extends StructuredData> {
+  initialize?: () => Promise<void>;
   extract(context: ContextualResult): Promise<T>;
-  validate(data: T): ValidationResult;
+  validate(data: T): Promise<ValidationResult>;
   canHandle(documentType: DocumentType): boolean;
 }
 
@@ -385,13 +391,15 @@ export interface MultilingualText {
   segments: Array<{
     text: string;
     language: string;
-    boundingBox: {
+    boundingBox?: {
       x: number;
       y: number;
       width: number;
       height: number;
     };
     direction: 'ltr' | 'rtl';
+    startIndex?: number;
+    endIndex?: number;
   }>;
   primaryLanguage: string;
   detectedLanguages: string[];

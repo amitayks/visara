@@ -5,11 +5,12 @@ import type {
   ReceiptData,
   ValidationResult,
   Entity,
-  LineItem
+  LineItem,
+  TextBlock
 } from '../types/hybridTypes';
 
 export class ReceiptExtractor implements DocumentExtractor<ReceiptData> {
-  async initialize?(): Promise<void> {
+  async initialize(): Promise<void> {
     // Receipt extractor initialization if needed
     console.log('Receipt extractor initialized');
   }
@@ -60,7 +61,7 @@ export class ReceiptExtractor implements DocumentExtractor<ReceiptData> {
   private async extractVendor(
     text: string, 
     entities: Entity[], 
-    blocks: typeof context.rawOCR.blocks
+    blocks: TextBlock[]
   ): Promise<ReceiptData['vendor']> {
     // Find vendor name (usually first few lines)
     const lines = text.split('\n').filter(line => line.trim().length > 0);
@@ -122,7 +123,7 @@ export class ReceiptExtractor implements DocumentExtractor<ReceiptData> {
   private async extractLineItems(
     text: string, 
     entities: Entity[], 
-    blocks: typeof context.rawOCR.blocks
+    blocks: TextBlock[]
   ): Promise<LineItem[]> {
     const items: LineItem[] = [];
     
@@ -272,9 +273,7 @@ export class ReceiptExtractor implements DocumentExtractor<ReceiptData> {
     }
 
     // Detect currency
-    if (text.includes('₪') || text.includes('ILS') || text.includes('שקל')) {
-      currency = 'ILS';
-    } else if (text.includes('€') || text.includes('EUR')) {
+    if (text.includes('€') || text.includes('EUR')) {
       currency = 'EUR';
     } else if (text.includes('£') || text.includes('GBP')) {
       currency = 'GBP';
@@ -325,11 +324,11 @@ export class ReceiptExtractor implements DocumentExtractor<ReceiptData> {
       return dateEntity.normalizedValue;
     }
 
-    // Pattern matching for dates
+    // Pattern matching for English date formats only
     const datePatterns = [
-      /\b(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})\b/g,
-      /\b(\d{4})[-/](\d{1,2})[-/](\d{1,2})\b/g,
-      /\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+\d{1,2},?\s+\d{4}/gi
+      /(\d{1,2})\/(\d{1,2})\/(\d{2,4})/,  // MM/DD/YYYY or DD/MM/YYYY
+      /(\d{4})-(\d{2})-(\d{2})/,          // YYYY-MM-DD
+      /(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2}),?\s+(\d{4})/i
     ];
 
     for (const pattern of datePatterns) {
@@ -445,7 +444,7 @@ export class ReceiptExtractor implements DocumentExtractor<ReceiptData> {
     return undefined;
   }
 
-  async validate(data: ReceiptData): ValidationResult {
+  async validate(data: ReceiptData): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
     const suggestions: string[] = [];

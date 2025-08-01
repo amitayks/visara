@@ -395,7 +395,7 @@ export class InvoiceExtractor implements DocumentExtractor<InvoiceData> {
     return totalWords.some(word => text.toLowerCase().includes(word));
   }
 
-  async validate(data: InvoiceData): ValidationResult {
+  async validate(data: InvoiceData): Promise<ValidationResult> {
     const errors: string[] = [];
     const warnings: string[] = [];
     const suggestions: string[] = [];

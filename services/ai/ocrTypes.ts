@@ -13,18 +13,16 @@ export interface OCRBlock {
 	text: string;
 	confidence: number;
 	boundingBox: OCRBoundingBox;
-	isRTL: boolean;
-	language?: string;
+	language: string; // Always 'en'
 }
 
 export interface OCRResult {
 	text: string;
 	confidence: number;
 	blocks: OCRBlock[];
-	languages: string[];
+	language: string; // Always 'en'
 	processingTime: number;
-	engineName: OCREngineName;
-	memoryUsage?: number;
+	engine: OCREngineName;
 }
 
 export interface LocalOCREngine {
@@ -34,8 +32,8 @@ export interface LocalOCREngine {
 	isInitialized(): boolean;
 	initialize(): Promise<void>;
 	supportsLanguage(lang: string): boolean;
-	getMemoryUsage?(): number;
 	getSupportedLanguages(): string[];
+	getMemoryUsage?(): number;
 }
 
 export interface OCRComparison {
@@ -59,22 +57,5 @@ export interface PreprocessingOptions {
 	binarize?: boolean;
 	noiseReduction?: boolean;
 	brightnessAdjustment?: number;
-	targetLanguage?: "hebrew" | "english" | "mixed";
-}
-
-export interface HebrewMetadata {
-	currency?: Array<{
-		amount: number;
-		symbol: string;
-	}>;
-	phones?: string[];
-	vatNumbers?: string[];
-	dates?: Array<{
-		date: Date;
-		format: string;
-	}>;
-	businessNumbers?: Array<{
-		type: "vat" | "company" | "dealer";
-		number: string;
-	}>;
+	targetLanguage?: "english"; // English only
 }
