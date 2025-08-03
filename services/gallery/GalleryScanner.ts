@@ -3,6 +3,7 @@ import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import CryptoJS from "crypto-js";
 import { Platform } from "react-native";
 import RNFS from "react-native-fs";
+import BackgroundService from "react-native-background-actions";
 import { documentProcessor } from "../ai/documentProcessor";
 import { documentStorage } from "../database/documentStorage";
 import { smartFilter, type AssetInfo, type SmartFilterOptions } from "./smartFilter";
@@ -240,19 +241,23 @@ export class GalleryScanner {
 	}
 
 	private async processBatch(assets: any[], options: ScanOptions) {
-		const promises = assets.map((asset) => this.processAsset(asset, options));
-
-		// Process with error handling for individual assets
-		const results = await Promise.allSettled(promises);
-
-		results.forEach((result, index) => {
-			if (result.status === "rejected") {
-				console.error(
-					`Failed to process asset ${assets[index].image.uri}:`,
-					result.reason,
-				);
+		// Process sequentially instead of in parallel to avoid overwhelming the system
+		for (const asset of assets) {
+			if (this.shouldStop) {
+				console.log("[GalleryScanner] Stop requested, breaking batch processing");
+				break;
 			}
-		});
+			
+			try {
+				await this.processAsset(asset, options);
+				
+				// Add a small delay between processing to avoid overwhelming the system
+				await new Promise(resolve => setTimeout(resolve, 100));
+			} catch (error) {
+				console.error(`Failed to process asset ${asset.image.uri}:`, error);
+				// Continue with next asset instead of failing the whole batch
+			}
+		}
 	}
 
 	private async processAsset(asset: any, options: ScanOptions): Promise<void> {
@@ -292,21 +297,36 @@ export class GalleryScanner {
 				return;
 			}
 
-			// Process the image
-			const result = await documentProcessor.processImage(
+			// Important: Check if we're in background and if the service is still running
+			if (BackgroundService.isRunning()) {
+				// Update notification
+				await BackgroundService.updateNotification({
+					taskDesc: `Processing: ${asset.image.filename || 'image'}...`,
+				});
+			}
+			
+			// Process the image with timeout
+			const processPromise = documentProcessor.processImage(
 				assetInfo.localUri || assetInfo.uri,
 			);
-
+			const timeoutPromise = new Promise<null>((_, reject) => 
+				setTimeout(() => reject(new Error('Processing timeout')), 30000) // 30 second timeout
+			);
+			
+			const result = await Promise.race([processPromise, timeoutPromise]);
+			
 			if (result && result.confidence > 0.8) {
 				// Save to database (documentProcessor already handles permanent storage)
 				await documentStorage.saveDocument(result);
-
+				
 				this.processedHashes.add(hash);
 				await this.saveProcessedHashes();
 				this.documentsFoundInScan++;
 				
 				// Remove from failed images if it was there
 				this.failedImages.delete(assetInfo.uri);
+				
+				console.log(`Successfully processed document: ${asset.image.filename}`);
 			}
 		} catch (error) {
 			console.error(`Error processing asset ${asset.image.uri}:`, error);
@@ -316,6 +336,8 @@ export class GalleryScanner {
 			if (retryCount < (options.maxRetries || DEFAULT_OPTIONS.maxRetries!)) {
 				this.failedImages.set(asset.image.uri, retryCount + 1);
 			}
+			
+			// Don't throw - just log and continue
 		}
 	}
 	

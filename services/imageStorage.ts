@@ -51,24 +51,49 @@ export class ImageStorageService {
 				return `file://${permanentUri}`;
 			}
 
-			// Check if source file exists
-			const sourceExists = await RNFS.exists(tempUri);
-			if (!sourceExists) {
-				console.error("Source file does not exist:", tempUri);
-				return tempUri;
+			// Handle content:// URIs differently
+			if (tempUri.startsWith('content://')) {
+				try {
+					// For content URIs, we need to read and write the file
+					// RNFS.copyFile doesn't work reliably with content URIs
+					const base64Data = await RNFS.readFile(tempUri, 'base64');
+					await RNFS.writeFile(permanentUri, base64Data, 'base64');
+					
+					console.log("Image successfully copied from content URI to:", permanentUri);
+					return `file://${permanentUri}`;
+				} catch (contentError) {
+					console.error("Failed to copy content URI, trying alternative method:", contentError);
+					
+					// Alternative: Try using fetch API for content URIs
+					try {
+						const response = await fetch(tempUri);
+						const blob = await response.blob();
+						const base64 = await this.blobToBase64(blob);
+						await RNFS.writeFile(permanentUri, base64, 'base64');
+						
+						console.log("Image successfully copied using fetch to:", permanentUri);
+						return `file://${permanentUri}`;
+					} catch (fetchError) {
+						console.error("Failed to copy using fetch:", fetchError);
+						throw fetchError;
+					}
+				}
+			} else {
+				// For file:// URIs, check if source exists first
+				const sourceExists = await RNFS.exists(tempUri);
+				if (!sourceExists) {
+					console.error("Source file does not exist:", tempUri);
+					throw new Error(`Source file does not exist: ${tempUri}`);
+				}
+				
+				// Copy the file to permanent storage
+				await RNFS.copyFile(tempUri, permanentUri);
+				console.log("Image successfully copied to:", permanentUri);
+				return `file://${permanentUri}`;
 			}
-
-			// Copy the file to permanent storage
-			await RNFS.copyFile(tempUri, permanentUri);
-
-			console.log("Image successfully copied to:", permanentUri);
-			// Return with file:// protocol
-			return `file://${permanentUri}`;
 		} catch (error) {
 			console.error("Error copying image to permanent storage:", error);
-			console.error("Error details:", JSON.stringify(error));
-			// Return original URI if copy fails
-			return tempUri;
+			throw error; // Throw instead of returning original URI
 		}
 	}
 
@@ -156,6 +181,20 @@ export class ImageStorageService {
 	private getFileExtension(uri: string): string {
 		const match = uri.match(/\.([^.]+)$/);
 		return match ? `.${match[1]}` : ".jpg"; // Default to .jpg if no extension found
+	}
+
+	private blobToBase64(blob: Blob): Promise<string> {
+		return new Promise((resolve, reject) => {
+			const reader = new FileReader();
+			reader.onloadend = () => {
+				const base64String = reader.result as string;
+				// Remove the data URL prefix
+				const base64 = base64String.split(',')[1];
+				resolve(base64);
+			};
+			reader.onerror = reject;
+			reader.readAsDataURL(blob);
+		});
 	}
 
 	async getStorageInfo(): Promise<{

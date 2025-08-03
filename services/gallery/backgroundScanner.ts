@@ -192,34 +192,57 @@ export class BackgroundScanner {
 		console.log("[BackgroundScanner] Background task started");
 		
 		try {
-			// Create a controlled loop instead of infinite Promise
-			while (BackgroundService.isRunning() && !this.shouldStop) {
-				const settings = settingsStore.getState().settings;
+			// Don't run heavy processing immediately
+			await this.sleep(5000); // 5 second initial delay
+			
+			let iterationCount = 0;
+			const maxIterations = 1000; // Prevent infinite loops
+			
+			while (BackgroundService.isRunning() && iterationCount < maxIterations) {
+				iterationCount++;
 				
-				// Check if we should run scan
-				if (await this.shouldRunScan()) {
-					await this.performBackgroundScan();
-				}
-				
-				// Sleep for the configured interval
-				const intervalMs = this.getIntervalMs(settings.scanFrequency);
-				if (intervalMs > 0) {
-					await this.sleep(intervalMs);
-				} else {
-					// If manual mode, just sleep for 1 hour
-					await this.sleep(60 * 60 * 1000);
-				}
-				
-				// Check if we should continue
-				if (!BackgroundService.isRunning() || this.shouldStop) {
-					break;
+				try {
+					const settings = settingsStore.getState().settings;
+					
+					// Check if we should run scan
+					if (await this.shouldRunScan()) {
+						console.log(`[BackgroundScanner] Starting scan iteration ${iterationCount}`);
+						await this.performBackgroundScan();
+					} else {
+						console.log("[BackgroundScanner] Skipping scan - conditions not met");
+					}
+					
+					// Sleep for the configured interval
+					const intervalMs = this.getIntervalMs(settings.scanFrequency);
+					const sleepTime = intervalMs > 0 ? intervalMs : 60 * 60 * 1000; // Default 1 hour
+					
+					console.log(`[BackgroundScanner] Sleeping for ${sleepTime / 1000} seconds`);
+					
+					// Break sleep into smaller chunks to check if service should stop
+					const chunkTime = 60000; // 1 minute chunks
+					const chunks = Math.ceil(sleepTime / chunkTime);
+					
+					for (let i = 0; i < chunks; i++) {
+						if (!BackgroundService.isRunning() || this.shouldStop) {
+							console.log("[BackgroundScanner] Service stopped, exiting task");
+							return;
+						}
+						
+						const sleepDuration = Math.min(chunkTime, sleepTime - (i * chunkTime));
+						await this.sleep(sleepDuration);
+					}
+					
+				} catch (error) {
+					console.error("[BackgroundScanner] Error in task iteration:", error);
+					// Wait before retrying
+					await this.sleep(60000); // 1 minute
 				}
 			}
+			
+			console.log("[BackgroundScanner] Background task ended");
 		} catch (error) {
-			console.error("[BackgroundScanner] Task error:", error);
+			console.error("[BackgroundScanner] Fatal task error:", error);
 		}
-		
-		console.log("[BackgroundScanner] Background task ended");
 	};
 
 	private sleep = (time: number) => 
@@ -229,13 +252,6 @@ export class BackgroundScanner {
 		const settings = settingsStore.getState().settings;
 		
 		try {
-			// Check if we should run the scan
-			const canRun = await this.shouldRunScan();
-			if (!canRun) {
-				console.log("[BackgroundScanner] Conditions not met for scan, skipping");
-				return;
-			}
-			
 			console.log("[BackgroundScanner] Starting background gallery scan");
 			
 			// Update notification
@@ -245,30 +261,33 @@ export class BackgroundScanner {
 				});
 			}
 			
-			// Run the scan with progress updates
-			await galleryScanner.startScan(
-				{
-					batchSize: settings.maxScanBatchSize || 10,
-					wifiOnly: settings.scanWifiOnly,
-					smartFilterEnabled: settings.smartFilterEnabled,
-					batterySaver: settings.batterySaver,
-				},
-				async (progress) => {
-					// Update background service notification with progress
+			// Create a special scanner instance for background processing
+			const scanOptions = {
+				batchSize: 5, // Smaller batches for background
+				wifiOnly: settings.scanWifiOnly,
+				smartFilterEnabled: settings.smartFilterEnabled,
+				batterySaver: settings.batterySaver,
+				isBackground: true, // Flag to indicate background processing
+			};
+			
+			// Run the scan with error handling
+			await galleryScanner.startScan(scanOptions, async (progress) => {
+				// Update progress less frequently in background
+				if (progress.processedImages % 10 === 0) {
 					const percentage = progress.totalImages > 0 
 						? Math.round((progress.processedImages / progress.totalImages) * 100)
 						: 0;
 					
 					if (BackgroundService.isRunning()) {
 						await BackgroundService.updateNotification({
-							taskDesc: `Scanning: ${progress.processedImages}/${progress.totalImages} images (${percentage}%)`,
+							taskDesc: `Scanning: ${progress.processedImages}/${progress.totalImages} (${percentage}%)`,
 						});
 					}
-					
-					// Update store
-					useScannerStore.getState().setScanProgress(progress);
-				},
-			);
+				}
+				
+				// Update store
+				useScannerStore.getState().setScanProgress(progress);
+			});
 			
 			// Update last scan time
 			this.lastScanTime = new Date();
