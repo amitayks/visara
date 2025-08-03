@@ -328,17 +328,26 @@ export class GalleryScanner {
 				);
 				
 				result = await Promise.race([processPromise, timeoutPromise]);
-			} catch (timeoutError) {
-				if (timeoutError instanceof Error && timeoutError.message === 'Processing timeout') {
-					console.log(`Processing timeout for ${asset.image.filename}, skipping...`);
-					// Track for potential retry later
-					this.failedImages.set(assetInfo.uri, 1);
-					return; // Skip this image, don't crash
+			} catch (error) {
+				if (error instanceof Error) {
+					if (error.message === 'Processing timeout') {
+						console.log(`Processing timeout for ${asset.image.filename}, skipping...`);
+						this.failedImages.set(assetInfo.uri, 1);
+						return;
+					} else if (error.message.includes('Failed to construct') || 
+					          error.message.includes('content://')) {
+						console.log(`Content URI error for ${asset.image.filename}, skipping...`);
+						this.failedImages.set(assetInfo.uri, 1);
+						return;
+					}
 				}
-				throw timeoutError; // Re-throw other errors
+				
+				console.error(`Error processing ${asset.image.filename}:`, error);
+				this.failedImages.set(assetInfo.uri, 1);
+				return;
 			}
 			
-			if (result && result.confidence > 0.63) {
+			if (result && result.confidence > 0.8) {
 				// Check for duplicate using the actual image hash from result
 				const existingDoc = await documentStorage.checkDuplicateByHash(result.imageHash);
 				if (existingDoc) {
@@ -348,16 +357,20 @@ export class GalleryScanner {
 				}
 				
 				// Save to database
-				const savedDoc = await documentStorage.saveDocument(result);
-				
-				console.log(`Successfully saved document: ${savedDoc.id} - ${asset.image.filename}`);
-				
-				this.processedHashes.add(result.imageHash);
-				await this.saveProcessedHashes();
-				this.documentsFoundInScan++;
-				
-				// Remove from failed images if it was there
-				this.failedImages.delete(assetInfo.uri);
+				try {
+					const savedDoc = await documentStorage.saveDocument(result);
+					console.log(`Successfully saved document: ${savedDoc.id} - ${asset.image.filename}`);
+					
+					this.processedHashes.add(result.imageHash);
+					await this.saveProcessedHashes();
+					this.documentsFoundInScan++;
+					
+					// Remove from failed images if it was there
+					this.failedImages.delete(assetInfo.uri);
+				} catch (saveError) {
+					console.error(`Failed to save document ${asset.image.filename}:`, saveError);
+					this.failedImages.set(assetInfo.uri, 1);
+				}
 			} else {
 				console.log(`Document confidence too low (${result?.confidence || 0}) for ${asset.image.filename}`);
 			}

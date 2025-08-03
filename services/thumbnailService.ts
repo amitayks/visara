@@ -93,17 +93,29 @@ export class ThumbnailService {
 
 	async calculateImageHash(imageUri: string): Promise<string> {
 		try {
-			// Read file as base64
-			const base64 = await RNFS.readFile(imageUri, "base64");
-
-			// Calculate SHA256 hash
-			const hash = CryptoJS.SHA256(base64).toString();
-
-			return hash;
+			// For content URIs, we need to handle them carefully
+			if (imageUri.startsWith('content://')) {
+				// Generate a hash based on the URI itself plus timestamp
+				// This ensures uniqueness even if we can't read the file content
+				const uniqueString = `${imageUri}_${Date.now()}_${Math.random()}`;
+				return CryptoJS.SHA256(uniqueString).toString();
+			}
+			
+			// For file URIs, try to read the actual content
+			try {
+				const base64 = await RNFS.readFile(imageUri, "base64");
+				const hash = CryptoJS.SHA256(base64).toString();
+				return hash;
+			} catch (readError) {
+				console.warn("Could not read file for hash, using URI-based hash:", readError);
+				// Fallback to URI-based hash
+				const uniqueString = `${imageUri}_${Date.now()}_${Math.random()}`;
+				return CryptoJS.SHA256(uniqueString).toString();
+			}
 		} catch (error) {
 			console.error("Error calculating image hash:", error);
-			// Fallback to timestamp-based hash
-			return CryptoJS.SHA256(`${imageUri}_${Date.now()}`).toString();
+			// Ultimate fallback
+			return CryptoJS.SHA256(`${imageUri}_${Date.now()}_${Math.random()}`).toString();
 		}
 	}
 
