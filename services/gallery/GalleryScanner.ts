@@ -4,7 +4,7 @@ import CryptoJS from "crypto-js";
 import { Platform } from "react-native";
 import RNFS from "react-native-fs";
 import BackgroundService from "react-native-background-actions";
-import { documentProcessor } from "../ai/documentProcessor";
+import { documentProcessor, type DocumentResult } from "../ai/documentProcessor";
 import { documentStorage } from "../database/documentStorage";
 import { smartFilter, type AssetInfo, type SmartFilterOptions } from "./smartFilter";
 import { deviceInfo } from "../../utils/deviceInfo";
@@ -282,21 +282,6 @@ export class GalleryScanner {
 				location: asset.location,
 			};
 
-			// Generate hash for duplicate detection
-			const hash = await this.generateAssetHash(assetInfo);
-
-			// Skip if already processed
-			if (this.processedHashes.has(hash)) {
-				return;
-			}
-
-			// Check if document already exists in database
-			const existingDoc = await documentStorage.checkDuplicateByHash(hash);
-			if (existingDoc) {
-				this.processedHashes.add(hash);
-				return;
-			}
-
 			// Important: Check if we're in background and if the service is still running
 			if (BackgroundService.isRunning()) {
 				// Update notification
@@ -306,27 +291,49 @@ export class GalleryScanner {
 			}
 			
 			// Process the image with timeout
-			const processPromise = documentProcessor.processImage(
-				assetInfo.localUri || assetInfo.uri,
-			);
-			const timeoutPromise = new Promise<null>((_, reject) => 
-				setTimeout(() => reject(new Error('Processing timeout')), 30000) // 30 second timeout
-			);
+			let result: DocumentResult | null = null;
 			
-			const result = await Promise.race([processPromise, timeoutPromise]);
-			
-			if (result && result.confidence > 0.8) {
-				// Save to database (documentProcessor already handles permanent storage)
-				await documentStorage.saveDocument(result);
+			try {
+				const processPromise = documentProcessor.processImage(
+					assetInfo.localUri || assetInfo.uri,
+				);
+				const timeoutPromise = new Promise<null>((_, reject) => 
+					setTimeout(() => reject(new Error('Processing timeout')), 30000) // 30 second timeout
+				);
 				
-				this.processedHashes.add(hash);
+				result = await Promise.race([processPromise, timeoutPromise]);
+			} catch (timeoutError) {
+				if (timeoutError instanceof Error && timeoutError.message === 'Processing timeout') {
+					console.log(`Processing timeout for ${asset.image.filename}, skipping...`);
+					// Track for potential retry later
+					this.failedImages.set(assetInfo.uri, 1);
+					return; // Skip this image, don't crash
+				}
+				throw timeoutError; // Re-throw other errors
+			}
+			
+			if (result && result.confidence > 0.63) {
+				// Check for duplicate using the actual image hash from result
+				const existingDoc = await documentStorage.checkDuplicateByHash(result.imageHash);
+				if (existingDoc) {
+					console.log(`Document already exists with hash: ${result.imageHash}`);
+					this.processedHashes.add(result.imageHash);
+					return;
+				}
+				
+				// Save to database
+				const savedDoc = await documentStorage.saveDocument(result);
+				
+				console.log(`Successfully saved document: ${savedDoc.id} - ${asset.image.filename}`);
+				
+				this.processedHashes.add(result.imageHash);
 				await this.saveProcessedHashes();
 				this.documentsFoundInScan++;
 				
 				// Remove from failed images if it was there
 				this.failedImages.delete(assetInfo.uri);
-				
-				console.log(`Successfully processed document: ${asset.image.filename}`);
+			} else {
+				console.log(`Document confidence too low (${result?.confidence || 0}) for ${asset.image.filename}`);
 			}
 		} catch (error) {
 			console.error(`Error processing asset ${asset.image.uri}:`, error);
@@ -455,9 +462,12 @@ export class GalleryScanner {
 	}
 
 	private async generateAssetHash(assetInfo: any): Promise<string> {
-		// Create a unique identifier based on asset properties
-		const identifier = `${assetInfo.id}-${assetInfo.creationTime}-${assetInfo.width}x${assetInfo.height}`;
-		return CryptoJS.SHA256(identifier).toString();
+		// IMPORTANT: Don't calculate hash from URI properties
+		// This should match the hash calculation in documentProcessor
+		// For now, return a unique ID that won't match anything
+		// The actual hash will be calculated during document processing
+		const uniqueId = `${assetInfo.id}-${assetInfo.creationTime}-${Math.random()}`;
+		return CryptoJS.SHA256(uniqueId).toString();
 	}
 
 	private async loadProgress() {

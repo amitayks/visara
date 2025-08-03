@@ -157,7 +157,7 @@ export class DocumentProcessor {
 				documentType,
 			);
 
-			return {
+			const result: DocumentResult = {
 				id: this.generateId(),
 				imageUri: permanentImageUri,
 				thumbnailUri: permanentThumbnailUri,
@@ -174,24 +174,23 @@ export class DocumentProcessor {
 				imageHeight: imageInfo.height,
 				imageSize: imageInfo.size,
 			};
+
+			const processingTime = Date.now() - startTime;
+			console.log(
+				`Document processed successfully in ${processingTime}ms - Type: ${documentType}, Confidence: ${(overallConfidence * 100).toFixed(1)}%`,
+			);
+			
+			// Log the URIs being saved
+			console.log(`Saving document with URIs:
+				Original: ${imageUri}
+				Permanent: ${permanentImageUri}
+				Thumbnail: ${permanentThumbnailUri || 'none'}
+			`);
+
+			return result;
 		} catch (error) {
-			console.error("Error processing image:", error);
-
-			// Still calculate hash for failed processing
-			const imageHash = await thumbnailService.calculateImageHash(imageUri);
-
-			return {
-				id: this.generateId(),
-				imageUri,
-				imageHash,
-				ocrText: "",
-				metadata: { confidence: 0 },
-				documentType: "unknown",
-				confidence: 0,
-				processedAt: new Date(),
-				keywords: [],
-				searchVector: [],
-			};
+			console.error("Error processing document:", error);
+			throw error; // Throw the error instead of returning a failed document
 		}
 	}
 

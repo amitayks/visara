@@ -192,6 +192,13 @@ export class BackgroundScanner {
 		console.log("[BackgroundScanner] Background task started");
 		
 		try {
+			// Add a global error handler for this task
+			const originalConsoleError = console.error;
+			console.error = (...args) => {
+				originalConsoleError("[BackgroundScanner Error]", ...args);
+				// Don't let errors crash the background task
+			};
+			
 			// Don't run heavy processing immediately
 			await this.sleep(5000); // 5 second initial delay
 			
@@ -207,7 +214,19 @@ export class BackgroundScanner {
 					// Check if we should run scan
 					if (await this.shouldRunScan()) {
 						console.log(`[BackgroundScanner] Starting scan iteration ${iterationCount}`);
-						await this.performBackgroundScan();
+						
+						// Wrap scan in try-catch to prevent crashes
+						try {
+							await this.performBackgroundScan();
+						} catch (scanError) {
+							console.error("[BackgroundScanner] Scan failed:", scanError);
+							// Update notification but don't crash
+							if (BackgroundService.isRunning()) {
+								await BackgroundService.updateNotification({
+									taskDesc: "Scan failed. Will retry later...",
+								});
+							}
+						}
 					} else {
 						console.log("[BackgroundScanner] Skipping scan - conditions not met");
 					}
@@ -239,9 +258,14 @@ export class BackgroundScanner {
 				}
 			}
 			
-			console.log("[BackgroundScanner] Background task ended");
+			console.log("[BackgroundScanner] Background task ended normally");
 		} catch (error) {
 			console.error("[BackgroundScanner] Fatal task error:", error);
+		} finally {
+			console.log("[BackgroundScanner] Background task cleanup");
+			// Ensure we update state even if task crashes
+			this.isRunning = false;
+			useScannerStore.getState().setBackgroundScanEnabled(false);
 		}
 	};
 

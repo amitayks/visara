@@ -8,6 +8,9 @@ import type Document from "./models/Document";
 
 export class DocumentStorage {
 	async saveDocument(result: DocumentResult): Promise<Document> {
+		console.log(`[DocumentStorage] Saving document with hash: ${result.imageHash}`);
+		console.log(`[DocumentStorage] Document type: ${result.documentType}, Confidence: ${(result.confidence * 100).toFixed(1)}%`);
+		
 		const documentsCollection = database.get<Document>("documents");
 
 		// Check for duplicate by image hash
@@ -16,11 +19,12 @@ export class DocumentStorage {
 			.fetch();
 
 		if (existingDocs.length > 0) {
-			console.log("Document already exists with hash:", result.imageHash);
+			console.log(`[DocumentStorage] Document already exists with hash: ${result.imageHash}`);
 			return existingDocs[0];
 		}
 
 		return await database.write(async () => {
+			console.log(`[DocumentStorage] Creating new document in database`);
 			const document = await documentsCollection.create((doc) => {
 				doc.imageUri = result.imageUri;
 				doc.thumbnailUri = result.thumbnailUri;
@@ -66,6 +70,7 @@ export class DocumentStorage {
 				}
 			});
 
+			console.log(`[DocumentStorage] Document saved successfully with ID: ${document.id}`);
 			return document;
 		});
 	}

@@ -59,22 +59,32 @@ export default function DocumentsScreen() {
 
 	const loadDocuments = async () => {
 		try {
+			console.log('[Documents] Loading documents...');
 			let docs: Document[];
 			if (selectedType && selectedType !== "all") {
 				docs = await documentStorage.getDocumentsByType(selectedType);
 			} else {
 				docs = await documentStorage.getAllDocuments();
 			}
+			console.log(`[Documents] Loaded ${docs.length} documents`);
+			
+			// Log first few documents for debugging
+			docs.slice(0, 3).forEach(doc => {
+				console.log(`Document ${doc.id}: ${doc.documentType} - ${doc.imageUri}`);
+			});
+			
 			setDocuments(docs);
 		} catch (error) {
-			console.error("Error loading documents:", error);
+			console.error('[Documents] Error loading documents:', error);
 		}
 	};
 
 	const onRefresh = useCallback(async () => {
+		console.log('[Documents] Refreshing documents list...');
 		setRefreshing(true);
 		await loadDocuments();
 		setRefreshing(false);
+		console.log('[Documents] Refresh complete');
 	}, [selectedType]);
 
 	// copyToClipboard is now imported from utils
