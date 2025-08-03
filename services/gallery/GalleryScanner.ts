@@ -5,6 +5,9 @@ import { Platform } from "react-native";
 import RNFS from "react-native-fs";
 import { documentProcessor } from "../ai/documentProcessor";
 import { documentStorage } from "../database/documentStorage";
+import { smartFilter, type AssetInfo, type SmartFilterOptions } from "./smartFilter";
+import { deviceInfo } from "../../utils/deviceInfo";
+import { galleryPermissions } from "../permissions/galleryPermissions";
 
 export interface ScanProgress {
 	totalImages: number;
@@ -17,19 +20,34 @@ export interface ScanProgress {
 export interface ScanOptions {
 	batchSize?: number;
 	minFileSize?: number; // in KB
+	maxFileSize?: number; // in KB
 	maxAspectRatio?: number;
 	wifiOnly?: boolean;
+	batterySaver?: boolean;
+	smartFilterEnabled?: boolean;
+	smartFilterOptions?: Partial<SmartFilterOptions>;
+	scanNewOnly?: boolean;
+	retryFailedImages?: boolean;
+	maxRetries?: number;
 }
 
 const DEFAULT_OPTIONS: ScanOptions = {
 	batchSize: 20,
 	minFileSize: 100, // 100KB minimum
+	maxFileSize: 50 * 1024, // 50MB maximum
 	maxAspectRatio: 3, // Skip panoramas
 	wifiOnly: false,
+	batterySaver: true,
+	smartFilterEnabled: true,
+	scanNewOnly: false,
+	retryFailedImages: true,
+	maxRetries: 3,
 };
 
 const SCAN_PROGRESS_KEY = "gallery_scan_progress";
 const PROCESSED_HASHES_KEY = "processed_image_hashes";
+const FAILED_IMAGES_KEY = "failed_image_uris";
+const SCAN_HISTORY_KEY = "scan_history";
 
 export class GalleryScanner {
 	private isScanning = false;
@@ -42,18 +60,36 @@ export class GalleryScanner {
 		isScanning: false,
 	};
 	private processedHashes = new Set<string>();
+	private failedImages = new Map<string, number>(); // uri -> retry count
+	private scanHistory: Array<{
+		date: Date;
+		imagesScanned: number;
+		documentsFound: number;
+		duration: number;
+	}> = [];
 	private onProgressCallback?: (progress: ScanProgress) => void;
+	private scanStartTime = 0;
+	private documentsFoundInScan = 0;
 
 	constructor() {
 		this.loadProgress();
 		this.loadProcessedHashes();
+		this.loadFailedImages();
+		this.loadScanHistory();
 	}
 
 	async requestPermissions(): Promise<boolean> {
-		// For CameraRoll, permissions are handled by the native platform
-		// On iOS, it will automatically prompt for permissions
-		// On Android, you need to request READ_EXTERNAL_STORAGE permission
-		return true; // Assuming permissions are handled at app level
+		return await galleryPermissions.ensurePermission();
+	}
+
+	async hasPermissions(): Promise<boolean> {
+		try {
+			const result = await galleryPermissions.checkPermission();
+			return result.status === "granted";
+		} catch (error) {
+			console.error("[GalleryScanner] Permission check failed:", error);
+			return false;
+		}
 	}
 
 	async startScan(
@@ -70,14 +106,42 @@ export class GalleryScanner {
 			throw new Error("Gallery permission denied");
 		}
 
+		// Check device conditions
+		const scanOptions = { ...DEFAULT_OPTIONS, ...options };
+		if (scanOptions.batterySaver || scanOptions.wifiOnly) {
+			const deviceCheck = await deviceInfo.canRunBackgroundTask({
+				wifiOnly: scanOptions.wifiOnly || false,
+				batterySaver: scanOptions.batterySaver || false,
+			});
+			
+			if (!deviceCheck.canRun) {
+				throw new Error(deviceCheck.reason || "Device conditions not met for scanning");
+			}
+		}
+
 		this.isScanning = true;
 		this.shouldStop = false;
 		this.onProgressCallback = onProgress;
+		this.scanStartTime = Date.now();
+		this.documentsFoundInScan = 0;
 
-		const scanOptions = { ...DEFAULT_OPTIONS, ...options };
+		// Configure smart filter if enabled
+		if (scanOptions.smartFilterEnabled && scanOptions.smartFilterOptions) {
+			smartFilter.updateOptions(scanOptions.smartFilterOptions);
+		}
 
 		try {
 			await this.performScan(scanOptions);
+			
+			// Save scan history
+			const scanDuration = Date.now() - this.scanStartTime;
+			this.scanHistory.push({
+				date: new Date(),
+				imagesScanned: this.progress.processedImages,
+				documentsFound: this.documentsFoundInScan,
+				duration: scanDuration,
+			});
+			await this.saveScanHistory();
 		} finally {
 			this.isScanning = false;
 			this.progress.isScanning = false;
@@ -124,8 +188,15 @@ export class GalleryScanner {
 		this.progress.processedImages = startIndex;
 		this.progress.isScanning = true;
 
-		// Process in batches
-		const batchSize = options.batchSize || DEFAULT_OPTIONS.batchSize!;
+		// Process in batches with dynamic sizing based on memory
+		let batchSize = options.batchSize || DEFAULT_OPTIONS.batchSize!;
+		
+		// Adjust batch size based on available memory
+		const memoryInfo = await deviceInfo.getMemoryInfo();
+		if (memoryInfo.isLowMemory) {
+			batchSize = Math.max(5, Math.floor(batchSize / 2));
+			console.log(`Low memory detected, reducing batch size to ${batchSize}`);
+		}
 
 		for (
 			let i = startIndex;
@@ -134,7 +205,13 @@ export class GalleryScanner {
 		) {
 			const batch = uniqueAssets.slice(i, i + batchSize);
 
-			await this.processBatch(batch, options);
+			// Apply smart filtering to prioritize assets
+			if (options.smartFilterEnabled) {
+				const prioritizedBatch = await this.prioritizeBatch(batch, options);
+				await this.processBatch(prioritizedBatch, options);
+			} else {
+				await this.processBatch(batch, options);
+			}
 
 			this.progress.processedImages = Math.min(
 				i + batchSize,
@@ -149,6 +226,12 @@ export class GalleryScanner {
 
 			if (this.onProgressCallback) {
 				this.onProgressCallback(this.progress);
+			}
+			
+			// Dynamic batch size adjustment based on processing time
+			if (i > startIndex && memoryInfo.availableMemory > 200) {
+				// If we have good memory, we can try increasing batch size
+				batchSize = Math.min(batchSize + 5, options.batchSize || DEFAULT_OPTIONS.batchSize!);
 			}
 		}
 
@@ -220,67 +303,133 @@ export class GalleryScanner {
 
 				this.processedHashes.add(hash);
 				await this.saveProcessedHashes();
+				this.documentsFoundInScan++;
+				
+				// Remove from failed images if it was there
+				this.failedImages.delete(assetInfo.uri);
 			}
 		} catch (error) {
 			console.error(`Error processing asset ${asset.image.uri}:`, error);
+			
+			// Track failed images for retry
+			const retryCount = this.failedImages.get(asset.image.uri) || 0;
+			if (retryCount < (options.maxRetries || DEFAULT_OPTIONS.maxRetries!)) {
+				this.failedImages.set(asset.image.uri, retryCount + 1);
+			}
 		}
+	}
+	
+	private async prioritizeBatch(assets: any[], options: ScanOptions): Promise<any[]> {
+		// Calculate priority for each asset
+		const assetsWithPriority = await Promise.all(
+			assets.map(async (asset) => {
+				const assetInfo: AssetInfo = {
+					uri: asset.image.uri,
+					filename: asset.image.filename,
+					width: asset.image.width,
+					height: asset.image.height,
+					timestamp: asset.timestamp,
+				};
+				
+				const filterResult = await smartFilter.shouldProcess(assetInfo);
+				return {
+					asset,
+					priority: filterResult.priority,
+					shouldProcess: filterResult.shouldProcess,
+				};
+			})
+		);
+		
+		// Sort by priority (highest first) and filter out assets that shouldn't be processed
+		return assetsWithPriority
+			.filter(item => item.shouldProcess)
+			.sort((a, b) => b.priority - a.priority)
+			.map(item => item.asset);
 	}
 
 	private async shouldProcessAsset(
 		asset: any,
 		options: ScanOptions,
 	): Promise<boolean> {
-		// Priority for filenames containing document keywords
-		const documentKeywords = [
-			"doc",
-			"receipt",
-			"scan",
-			"invoice",
-			"id",
-			"form",
-			"contract",
-			"pdf",
-		];
-		const filename = (asset.image.filename || "").toLowerCase();
-		const hasDocumentKeyword = documentKeywords.some((keyword) =>
-			filename.includes(keyword),
-		);
-
-		if (hasDocumentKeyword) {
-			return true; // Always process if filename suggests it's a document
-		}
-
-		// Check aspect ratio
-		if (options.maxAspectRatio && asset.image.width && asset.image.height) {
-			const aspectRatio =
-				Math.max(asset.image.width, asset.image.height) /
-				Math.min(asset.image.width, asset.image.height);
-			if (aspectRatio > options.maxAspectRatio) {
-				return false;
-			}
-		}
-
-		// For other checks, we need to get the file info
-		if (options.minFileSize && Platform.OS === "ios") {
-			// On iOS, we can check file size
-			try {
-				if (asset.image.uri) {
-					try {
-						const fileInfo = await RNFS.stat(asset.image.uri);
-						const sizeInKB = fileInfo.size / 1024;
-						if (sizeInKB < options.minFileSize) {
-							return false;
-						}
-					} catch (e) {
-						// If we can't get file size, process anyway
-					}
+		if (options.smartFilterEnabled) {
+			// Use smart filter for advanced filtering
+			const assetInfo: AssetInfo = {
+				uri: asset.image.uri,
+				filename: asset.image.filename,
+				width: asset.image.width,
+				height: asset.image.height,
+				timestamp: asset.timestamp,
+			};
+			
+			// Try to get file size if possible
+			if (Platform.OS === "ios" && asset.image.uri) {
+				try {
+					const fileInfo = await RNFS.stat(asset.image.uri);
+					assetInfo.fileSize = fileInfo.size;
+				} catch (e) {
+					// Ignore file size check if we can't get it
 				}
-			} catch (error) {
-				// If we can't get file size, process anyway
 			}
-		}
+			
+			const filterResult = await smartFilter.shouldProcess(assetInfo);
+			return filterResult.shouldProcess;
+		} else {
+			// Fallback to basic filtering
+			// Priority for filenames containing document keywords
+			const documentKeywords = [
+				"doc",
+				"receipt",
+				"scan",
+				"invoice",
+				"id",
+				"form",
+				"contract",
+				"pdf",
+			];
+			const filename = (asset.image.filename || "").toLowerCase();
+			const hasDocumentKeyword = documentKeywords.some((keyword) =>
+				filename.includes(keyword),
+			);
 
-		return true;
+			if (hasDocumentKeyword) {
+				return true; // Always process if filename suggests it's a document
+			}
+
+			// Check aspect ratio
+			if (options.maxAspectRatio && asset.image.width && asset.image.height) {
+				const aspectRatio =
+					Math.max(asset.image.width, asset.image.height) /
+					Math.min(asset.image.width, asset.image.height);
+				if (aspectRatio > options.maxAspectRatio) {
+					return false;
+				}
+			}
+
+			// For other checks, we need to get the file info
+			if (options.minFileSize && Platform.OS === "ios") {
+				// On iOS, we can check file size
+				try {
+					if (asset.image.uri) {
+						try {
+							const fileInfo = await RNFS.stat(asset.image.uri);
+							const sizeInKB = fileInfo.size / 1024;
+							if (sizeInKB < options.minFileSize) {
+								return false;
+							}
+							if (options.maxFileSize && sizeInKB > options.maxFileSize) {
+								return false;
+							}
+						} catch (e) {
+							// If we can't get file size, process anyway
+						}
+					}
+				} catch (error) {
+					// If we can't get file size, process anyway
+				}
+			}
+
+			return true;
+		}
 	}
 
 	private async generateAssetHash(assetInfo: any): Promise<string> {
@@ -352,9 +501,115 @@ export class GalleryScanner {
 			isScanning: false,
 		};
 		this.processedHashes.clear();
+		this.failedImages.clear();
+		this.scanHistory = [];
 
 		await AsyncStorage.removeItem(SCAN_PROGRESS_KEY);
 		await AsyncStorage.removeItem(PROCESSED_HASHES_KEY);
+		await AsyncStorage.removeItem(FAILED_IMAGES_KEY);
+		await AsyncStorage.removeItem(SCAN_HISTORY_KEY);
+	}
+	
+	private async loadFailedImages() {
+		try {
+			const saved = await AsyncStorage.getItem(FAILED_IMAGES_KEY);
+			if (saved) {
+				const entries = JSON.parse(saved);
+				this.failedImages = new Map(entries);
+			}
+		} catch (error) {
+			console.error("Failed to load failed images:", error);
+		}
+	}
+
+	private async saveFailedImages() {
+		try {
+			const entries = Array.from(this.failedImages.entries());
+			await AsyncStorage.setItem(FAILED_IMAGES_KEY, JSON.stringify(entries));
+		} catch (error) {
+			console.error("Failed to save failed images:", error);
+		}
+	}
+
+	private async loadScanHistory() {
+		try {
+			const saved = await AsyncStorage.getItem(SCAN_HISTORY_KEY);
+			if (saved) {
+				this.scanHistory = JSON.parse(saved, (key, value) => {
+					if (key === "date" && typeof value === "string") {
+						return new Date(value);
+					}
+					return value;
+				});
+			}
+		} catch (error) {
+			console.error("Failed to load scan history:", error);
+		}
+	}
+
+	private async saveScanHistory() {
+		try {
+			// Keep only last 50 scan entries
+			if (this.scanHistory.length > 50) {
+				this.scanHistory = this.scanHistory.slice(-50);
+			}
+			await AsyncStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(this.scanHistory));
+		} catch (error) {
+			console.error("Failed to save scan history:", error);
+		}
+	}
+
+	getScanHistory() {
+		return [...this.scanHistory];
+	}
+
+	async retryFailedImages(options: ScanOptions = {}) {
+		const failedUris = Array.from(this.failedImages.keys());
+		if (failedUris.length === 0) {
+			console.log("No failed images to retry");
+			return;
+		}
+
+		console.log(`Retrying ${failedUris.length} failed images`);
+		
+		// Clear failed images and try processing them again
+		const tempFailedImages = new Map(this.failedImages);
+		this.failedImages.clear();
+		
+		for (const uri of failedUris) {
+			// Create a minimal asset structure for reprocessing
+			const asset = {
+				image: { uri },
+			};
+			
+			try {
+				await this.processAsset(asset, options);
+			} catch (error) {
+				// If it fails again, it will be re-added to failedImages
+				console.error(`Retry failed for ${uri}:`, error);
+			}
+		}
+		
+		await this.saveFailedImages();
+	}
+	
+	getStatistics() {
+		const totalScans = this.scanHistory.length;
+		const totalImagesScanned = this.scanHistory.reduce((sum, scan) => sum + scan.imagesScanned, 0);
+		const totalDocumentsFound = this.scanHistory.reduce((sum, scan) => sum + scan.documentsFound, 0);
+		const averageScanDuration = totalScans > 0
+			? this.scanHistory.reduce((sum, scan) => sum + scan.duration, 0) / totalScans
+			: 0;
+		
+		return {
+			totalScans,
+			totalImagesScanned,
+			totalDocumentsFound,
+			averageScanDuration,
+			lastScanDate: this.progress.lastScanDate,
+			processedHashes: this.processedHashes.size,
+			failedImages: this.failedImages.size,
+		};
 	}
 }
 

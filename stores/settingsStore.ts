@@ -13,6 +13,10 @@ interface AppSettings {
 	storageLimit: number; // in GB
 	scanFrequency: "hourly" | "daily" | "weekly" | "manual";
 	scanWifiOnly: boolean;
+	batterySaver: boolean;
+	scanNewOnly: boolean;
+	smartFilterEnabled: boolean;
+	maxScanBatchSize: number;
 }
 
 interface SettingsStore {
@@ -40,6 +44,10 @@ const defaultSettings: AppSettings = {
 	storageLimit: 5,
 	scanFrequency: "daily",
 	scanWifiOnly: true,
+	batterySaver: true,
+	scanNewOnly: false,
+	smartFilterEnabled: true,
+	maxScanBatchSize: 20,
 };
 
 // Custom storage using React Native Keychain

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
 	Alert,
 	ScrollView,
@@ -7,12 +7,15 @@ import {
 	Text,
 	TouchableOpacity,
 	View,
+	AppState,
+	AppStateStatus,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
 import { backgroundScanner } from "../../services/gallery/backgroundScanner";
 import { galleryScanner } from "../../services/gallery/GalleryScanner";
-import { useScannerStore } from "../../stores/scannerStore";
+import { galleryPermissions } from "../../services/permissions/galleryPermissions";
+import { useScannerStore, scannerStoreHelpers } from "../../stores/scannerStore";
 import { useSettingsStore } from "../../stores/settingsStore";
 import { checkDocumentStorage } from "../../utils/documentMigration";
 
@@ -32,27 +35,142 @@ export default function SettingsScreen() {
 	const updateSetting = useSettingsStore((state) => state.updateSetting);
 	const { scanProgress, setBackgroundScanEnabled, isBackgroundScanEnabled } =
 		useScannerStore();
+	
+	// State to track initialization
+	const [isInitialized, setIsInitialized] = useState(false);
+	const [hasPermissions, setHasPermissions] = useState(false);
+	const [isStartingBackgroundScan, setIsStartingBackgroundScan] = useState(false);
+	const appState = useRef(AppState.currentState);
+	const backgroundStartTimeout = useRef<NodeJS.Timeout | null>(null);
 
+	// Check permissions on mount without requesting
 	useEffect(() => {
-		// Start or stop periodic scanning when auto-scan is toggled
-		if (settings.autoScan) {
-			backgroundScanner.startPeriodicScan();
-			setBackgroundScanEnabled(true);
-		} else {
-			backgroundScanner.stopPeriodicScan();
-			setBackgroundScanEnabled(false);
+		console.log('[Settings] Component mounting');
+		checkPermissionsOnly();
+		
+		// Listen to app state changes
+		const subscription = AppState.addEventListener('change', handleAppStateChange);
+		
+		return () => {
+			// Cleanup
+			if (backgroundStartTimeout.current) {
+				clearTimeout(backgroundStartTimeout.current);
+			}
+			subscription.remove();
+		};
+	}, []);
+
+	// Handle background service initialization separately
+	useEffect(() => {
+		if (isInitialized && appState.current === 'active') {
+			console.log('[Settings] Initialized, checking if should start background scan');
+			
+			// Clear any existing timeout
+			if (backgroundStartTimeout.current) {
+				clearTimeout(backgroundStartTimeout.current);
+			}
+			
+			if (settings.autoScan && hasPermissions && !isStartingBackgroundScan) {
+				// Delay starting background service to ensure UI is stable
+				console.log('[Settings] Scheduling background scan start');
+				backgroundStartTimeout.current = setTimeout(() => {
+					startBackgroundScanning();
+				}, 2000); // 2 second delay
+			} else if (!settings.autoScan && isBackgroundScanEnabled) {
+				// Stop background scanning if disabled
+				stopBackgroundScanning();
+			}
 		}
-	}, [settings.autoScan, settings.scanFrequency, setBackgroundScanEnabled]);
+	}, [isInitialized, hasPermissions, settings.autoScan, isBackgroundScanEnabled]);
+
+	const handleAppStateChange = (nextAppState: AppStateStatus) => {
+		appState.current = nextAppState;
+	};
+
+	const checkPermissionsOnly = async () => {
+		try {
+			console.log('[Settings] Checking permissions');
+			const result = await galleryPermissions.checkPermission();
+			setHasPermissions(result.status === 'granted');
+			console.log('[Settings] Permissions check result:', result.status);
+		} catch (error) {
+			console.error('[Settings] Permission check error:', error);
+			setHasPermissions(false);
+		} finally {
+			setIsInitialized(true);
+		}
+	};
+
+	const startBackgroundScanning = async () => {
+		if (isStartingBackgroundScan) {
+			console.log('[Settings] Already starting background scan, skipping');
+			return;
+		}
+		
+		setIsStartingBackgroundScan(true);
+		
+		try {
+			console.log('[Settings] Starting background scanning');
+			
+			// First stop any existing background service
+			await backgroundScanner.stopPeriodicScan();
+			
+			// Small delay to ensure cleanup
+			await new Promise(resolve => setTimeout(resolve, 500));
+			
+			// Now start the service
+			await backgroundScanner.startPeriodicScan();
+			setBackgroundScanEnabled(true);
+			
+			console.log('[Settings] Background scanning started successfully');
+		} catch (error) {
+			console.error('[Settings] Failed to start background scanning:', error);
+			// Don't crash the app, just log the error
+			Alert.alert(
+				'Background Scan Error',
+				'Failed to start background scanning. You can still use manual scan.',
+				[{ text: 'OK' }]
+			);
+		} finally {
+			setIsStartingBackgroundScan(false);
+		}
+	};
+
+	const stopBackgroundScanning = async () => {
+		try {
+			console.log('[Settings] Stopping background scanning');
+			await backgroundScanner.stopPeriodicScan();
+			setBackgroundScanEnabled(false);
+		} catch (error) {
+			console.error('[Settings] Failed to stop background scanning:', error);
+		}
+	};
 
 	const handleManualScan = async () => {
+		if (scanProgress.isScanning) {
+			Alert.alert(
+				"Scan in Progress",
+				"A scan is already running. Please wait for it to complete.",
+			);
+			return;
+		}
+		
 		try {
-			const hasPermission = await galleryScanner.requestPermissions();
+			// First check if we have permissions
+			let hasPermission = await galleryScanner.hasPermissions();
+			
 			if (!hasPermission) {
-				Alert.alert(
-					"Permission Required",
-					"Please grant access to your photo library to scan for documents.",
-				);
-				return;
+				// Request permissions if we don't have them
+				hasPermission = await galleryScanner.requestPermissions();
+				if (!hasPermission) {
+					Alert.alert(
+						"Permission Required",
+						"Please grant access to your photo library to scan for documents.",
+					);
+					return;
+				}
+				// Update local state
+				setHasPermissions(true);
 			}
 
 			Alert.alert(
@@ -62,20 +180,38 @@ export default function SettingsScreen() {
 					{ text: "Cancel", style: "cancel" },
 					{
 						text: "Start Scan",
-						onPress: () => {
-							galleryScanner.startScan({}, (progress) => {
-								useScannerStore.getState().setScanProgress(progress);
-							});
-							Alert.alert(
-								"Scan Started",
-								"The scan is running in the background. You can check progress in the app.",
-							);
+						onPress: async () => {
+							try {
+								// Start scan with error handling
+								await galleryScanner.startScan(
+									{
+										batchSize: settings.maxScanBatchSize || 20,
+										wifiOnly: settings.scanWifiOnly,
+										smartFilterEnabled: settings.smartFilterEnabled,
+										batterySaver: settings.batterySaver,
+									},
+									(progress) => {
+										useScannerStore.getState().setScanProgress(progress);
+									}
+								);
+								Alert.alert(
+									"Scan Started",
+									"The scan is running. You can check progress in the app.",
+								);
+							} catch (error) {
+								console.error('[Settings] Manual scan error:', error);
+								Alert.alert(
+									"Scan Error",
+									error instanceof Error ? error.message : "Failed to start scan.",
+								);
+							}
 						},
 					},
 				],
 			);
 		} catch (error) {
-			Alert.alert("Error", "Failed to start scan. Please try again.");
+			console.error('[Settings] Manual scan setup error:', error);
+			Alert.alert("Error", "Failed to check permissions. Please try again.");
 		}
 	};
 
@@ -108,6 +244,42 @@ export default function SettingsScreen() {
 		} catch (error) {
 			Alert.alert("Error", "Failed to check storage");
 		}
+	};
+
+	const handleViewStatistics = () => {
+		const stats = galleryScanner.getStatistics();
+		const successRate = scannerStoreHelpers.getScanSuccessRate();
+		
+		Alert.alert(
+			"Scan Statistics",
+			`Total Scans: ${stats.totalScans}\n` +
+			`Images Scanned: ${stats.totalImagesScanned}\n` +
+			`Documents Found: ${stats.totalDocumentsFound}\n` +
+			`Success Rate: ${successRate.toFixed(1)}%\n` +
+			`Failed Images: ${stats.failedImages}\n` +
+			`Average Scan Time: ${(stats.averageScanDuration / 1000).toFixed(1)}s`,
+			[
+				{
+					text: "Retry Failed",
+					onPress: async () => {
+						if (stats.failedImages > 0) {
+							Alert.alert(
+								"Retry Failed Images",
+								`Retry ${stats.failedImages} failed images?`,
+								[
+									{ text: "Cancel", style: "cancel" },
+									{
+										text: "Retry",
+										onPress: () => galleryScanner.retryFailedImages(),
+									},
+								],
+							);
+						}
+					},
+				},
+				{ text: "OK", style: "default" },
+			],
+		);
 	};
 
 	const getScanFrequencySubtitle = () => {
@@ -145,6 +317,51 @@ export default function SettingsScreen() {
 		);
 	};
 
+	const handleScanQualityPress = () => {
+		const options = [
+			{ label: "Low (Fast, saves battery)", value: "low" },
+			{ label: "Medium (Balanced)", value: "medium" },
+			{ label: "High (Best accuracy)", value: "high" },
+		];
+
+		Alert.alert(
+			"Scan Quality",
+			"Choose the scanning quality. Higher quality uses more battery.",
+			[
+				...options.map((option) => ({
+					text: option.label,
+					onPress: () =>
+						updateSetting(
+							"scanQuality",
+							option.value as "low" | "medium" | "high",
+						),
+				})),
+				{ text: "Cancel", style: "cancel" },
+			],
+		);
+	};
+
+	const handleBatchSizePress = () => {
+		const options = [
+			{ label: "10 images", value: 10 },
+			{ label: "20 images (Default)", value: 20 },
+			{ label: "50 images", value: 50 },
+			{ label: "100 images", value: 100 },
+		];
+
+		Alert.alert(
+			"Batch Size",
+			"How many images to process at once? Larger batches are faster but use more memory.",
+			[
+				...options.map((option) => ({
+					text: option.label,
+					onPress: () => updateSetting("maxScanBatchSize", option.value),
+				})),
+				{ text: "Cancel", style: "cancel" },
+			],
+		);
+	};
+
 	const settingSections = [
 		{
 			title: "Document Processing",
@@ -156,7 +373,18 @@ export default function SettingsScreen() {
 					icon: "scan-outline",
 					type: "toggle" as const,
 					value: settings.autoScan,
-					onValueChange: (value: boolean) => updateSetting("autoScan", value),
+					onValueChange: async (value: boolean) => {
+						// If enabling auto-scan, check permissions first
+						if (value && !hasPermissions) {
+							const result = await galleryPermissions.requestPermission();
+							if (result.status !== 'granted') {
+								await galleryPermissions.handlePermissionDenied(result);
+								return; // Don't enable if permissions denied
+							}
+							setHasPermissions(true);
+						}
+						updateSetting("autoScan", value);
+					},
 				},
 				{
 					id: "scan-frequency",
@@ -177,6 +405,36 @@ export default function SettingsScreen() {
 						updateSetting("scanWifiOnly", value),
 				},
 				{
+					id: "battery-saver",
+					title: "Battery Saver",
+					subtitle: "Pause scanning when battery is below 20%",
+					icon: "battery-charging-outline",
+					type: "toggle" as const,
+					value: settings.batterySaver,
+					onValueChange: (value: boolean) =>
+						updateSetting("batterySaver", value),
+				},
+				{
+					id: "scan-new-only",
+					title: "Scan New Only",
+					subtitle: "Only scan images added after last scan",
+					icon: "add-circle-outline",
+					type: "toggle" as const,
+					value: settings.scanNewOnly,
+					onValueChange: (value: boolean) =>
+						updateSetting("scanNewOnly", value),
+				},
+				{
+					id: "smart-filter",
+					title: "Smart Filter",
+					subtitle: "Use AI to prioritize document-like images",
+					icon: "flash-outline",
+					type: "toggle" as const,
+					value: settings.smartFilterEnabled,
+					onValueChange: (value: boolean) =>
+						updateSetting("smartFilterEnabled", value),
+				},
+				{
 					id: "scan-quality",
 					title: "Scan Quality",
 					subtitle:
@@ -187,6 +445,15 @@ export default function SettingsScreen() {
 								: "Low quality (saves battery)",
 					icon: "options-outline",
 					type: "link" as const,
+					onPress: handleScanQualityPress,
+				},
+				{
+					id: "batch-size",
+					title: "Batch Size",
+					subtitle: `Process ${settings.maxScanBatchSize} images at a time`,
+					icon: "layers-outline",
+					type: "link" as const,
+					onPress: handleBatchSizePress,
 				},
 				{
 					id: "manual-scan",
@@ -281,18 +548,34 @@ export default function SettingsScreen() {
 				{
 					id: "last-scan",
 					title: "Last Scan",
-					subtitle: scanProgress.lastScanDate
-						? new Date(scanProgress.lastScanDate).toLocaleString()
-						: "Never scanned",
+					subtitle: (() => {
+						try {
+							if (scanProgress.lastScanDate) {
+								const date = new Date(scanProgress.lastScanDate);
+								return isNaN(date.getTime()) ? "Invalid date" : date.toLocaleString();
+							}
+							return "Never scanned";
+						} catch (error) {
+							return "Never scanned";
+						}
+					})(),
 					icon: "calendar-outline",
 					type: "info" as const,
 				},
 				{
 					id: "processed",
 					title: "Images Processed",
-					subtitle: `${scanProgress.processedImages} of ${scanProgress.totalImages}`,
+					subtitle: `${scanProgress.processedImages || 0} of ${scanProgress.totalImages || 0}`,
 					icon: "images-outline",
 					type: "info" as const,
+				},
+				{
+					id: "scan-stats",
+					title: "Scan Statistics",
+					subtitle: "View detailed scanning statistics",
+					icon: "stats-chart-outline",
+					type: "link" as const,
+					onPress: handleViewStatistics,
 				},
 			],
 		},
