@@ -5,39 +5,43 @@
  * @format
  */
 
-const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
+const { getDefaultConfig } = require("@react-native/metro-config");
+const path = require("path");
 
 const defaultConfig = getDefaultConfig(__dirname);
 
-const config = {
-	transformer: {
-		getTransformOptions: async () => ({
-			transform: {
-				experimentalImportSupport: false,
-				inlineRequires: true,
-			},
-		}),
-	},
-	resolver: {
-		assetExts: [
-			...defaultConfig.resolver.assetExts,
-			"png",
-			"jpg",
-			"jpeg",
-			"svg",
-			"gif",
-			"bmp",
-			"webp",
-		],
-		sourceExts: [
-			...defaultConfig.resolver.sourceExts,
-			"js",
-			"jsx",
-			"ts",
-			"tsx",
-			"json",
-		],
-	},
+module.exports = {
+  ...defaultConfig,
+  transformer: {
+    ...defaultConfig.transformer,
+    getTransformOptions: async () => ({
+      transform: {
+        experimentalImportSupport: false,
+        inlineRequires: true,
+      },
+    }),
+  },
+  resolver: {
+    ...defaultConfig.resolver,
+    assetExts: [
+      ...defaultConfig.resolver.assetExts,
+      "png",
+      "jpg",
+      "jpeg",
+      "svg", 
+      "gif",
+      "bmp",
+      "webp",
+    ],
+    sourceExts: [
+      ...defaultConfig.resolver.sourceExts,
+      "js",
+      "jsx", 
+      "ts",
+      "tsx",
+      "json",
+    ],
+    resolverMainFields: ['react-native', 'browser', 'main'],
+    platforms: ['ios', 'android', 'native', 'web'],
+  },
 };
-
-module.exports = mergeConfig(defaultConfig, config);

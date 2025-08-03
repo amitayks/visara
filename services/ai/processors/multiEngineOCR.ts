@@ -1,4 +1,5 @@
 import { MLKitEngine } from '../engines/MLKitEngine';
+import { TesseractEngine } from '../engines/TesseractEngine';
 import { ImagePreprocessor } from './imagePreprocessor';
 import type { 
   OCRResult, 
@@ -26,6 +27,7 @@ export class MultiEngineOCR {
     
     // Register available engines - English only
     this.registerEngine(new MLKitEngine());
+    this.registerEngine(new TesseractEngine());
   }
 
   private registerEngine(engine: LocalOCREngine): void {
@@ -216,9 +218,16 @@ export class MultiEngineOCR {
 
   // Public utility methods
   getAvailableEngines(): LocalOCREngine[] {
-    return Array.from(this.engines.values()).filter(engine => 
+    const engines = Array.from(this.engines.values()).filter(engine => 
       engine.isInitialized && engine.isInitialized()
     );
+    
+    // Prioritize Tesseract engine
+    return engines.sort((a, b) => {
+      if (a.name === 'tesseract') return -1;
+      if (b.name === 'tesseract') return 1;
+      return 0;
+    });
   }
 
   hasAvailableEngines(): boolean {

@@ -1,4 +1,4 @@
-export type OCREngineName = "mlkit" | "vision-camera" | "mock";
+export type OCREngineName = "mlkit" | "vision-camera" | "tesseract" | "mock";
 
 export interface OCRBoundingBox {
 	text: string;

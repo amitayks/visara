@@ -37,11 +37,11 @@ export class HybridDocumentProcessor implements HybridDocumentProcessorInterface
     maxProcessingTime: 30000, // 30 seconds
     qualityThreshold: 0.7,
     enablePreprocessing: true,
-    ocrEngines: ['mlkit'] // Use ML Kit engine only
+    ocrEngines: ['tesseract'] // Use Tesseract engine
   };
 
   private config = {
-    ocrEngines: ['mlkit']
+    ocrEngines: ['tesseract']
   };
 
   constructor() {

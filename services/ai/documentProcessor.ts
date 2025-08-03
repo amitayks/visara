@@ -68,7 +68,7 @@ export class DocumentProcessor {
 		preprocessImage: true,
 		extractStructuredData: true,
 		confidenceThreshold: 0.7,
-		ocrEngine: "mlkit",
+		ocrEngine: "tesseract",
 	};
 
 	async processImage(

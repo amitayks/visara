@@ -1,5 +1,6 @@
 import { MLKitEngine } from "./engines/MLKitEngine";
 import { VisionCameraEngine } from "./engines/VisionCameraEngine";
+import { TesseractEngine } from "./engines/TesseractEngine";
 import type {
 	LocalOCREngine,
 	OCRComparison,
@@ -15,6 +16,7 @@ export class OCREngineManager {
 		// Register all engines
 		this.registerEngine(new MLKitEngine());
 		this.registerEngine(new VisionCameraEngine());
+		this.registerEngine(new TesseractEngine());
 	}
 
 	private registerEngine(engine: LocalOCREngine): void {
