@@ -29,6 +29,7 @@ export class BackgroundScanner {
 	private appStateSubscription: any = null;
 	private lastScanTime: Date | null = null;
 	private currentTaskId: string | null = null;
+	private shouldStop = false;
 
 	// Singleton pattern to prevent multiple instances
 	static getInstance(): BackgroundScanner {
@@ -115,6 +116,9 @@ export class BackgroundScanner {
 
 			console.log("[BackgroundScanner] Starting background service");
 			
+			// Reset stop flag
+			this.shouldStop = false;
+			
 			// Start the background service
 			await BackgroundService.start(this.backgroundTask, options);
 			
@@ -144,6 +148,10 @@ export class BackgroundScanner {
 
 		try {
 			console.log("[BackgroundScanner] Stopping background service");
+			
+			// Signal the background task to stop
+			this.shouldStop = true;
+			
 			await BackgroundService.stop();
 			
 			this.isRunning = false;
@@ -183,38 +191,39 @@ export class BackgroundScanner {
 	private backgroundTask = async (taskData: any) => {
 		console.log("[BackgroundScanner] Background task started");
 		
-		// Ensure this runs in background context only
-		if (!BackgroundService.isRunning()) {
-			console.log("[BackgroundScanner] Background service not running, exiting task");
-			return;
+		try {
+			// Create a controlled loop instead of infinite Promise
+			while (BackgroundService.isRunning() && !this.shouldStop) {
+				const settings = settingsStore.getState().settings;
+				
+				// Check if we should run scan
+				if (await this.shouldRunScan()) {
+					await this.performBackgroundScan();
+				}
+				
+				// Sleep for the configured interval
+				const intervalMs = this.getIntervalMs(settings.scanFrequency);
+				if (intervalMs > 0) {
+					await this.sleep(intervalMs);
+				} else {
+					// If manual mode, just sleep for 1 hour
+					await this.sleep(60 * 60 * 1000);
+				}
+				
+				// Check if we should continue
+				if (!BackgroundService.isRunning() || this.shouldStop) {
+					break;
+				}
+			}
+		} catch (error) {
+			console.error("[BackgroundScanner] Task error:", error);
 		}
 		
-		// Keep the task running with periodic scans
-		await new Promise(async (resolve) => {
-			const settings = settingsStore.getState().settings;
-			
-			// Set up interval based on scan frequency
-			const intervalMs = this.getIntervalMs(settings.scanFrequency);
-			
-			if (intervalMs > 0) {
-				// Run initial scan after a delay
-				setTimeout(() => {
-					this.performBackgroundScan();
-				}, 5000); // 5 second initial delay
-				
-				// Set up periodic scanning
-				this.scanInterval = setInterval(async () => {
-					if (await this.shouldRunScan()) {
-						await this.performBackgroundScan();
-					}
-				}, intervalMs);
-			}
-			
-			// Keep the task running indefinitely
-			// In production, you might want to implement a more sophisticated
-			// background task that can be stopped and started based on conditions
-		});
+		console.log("[BackgroundScanner] Background task ended");
 	};
+
+	private sleep = (time: number) => 
+		new Promise<void>((resolve) => setTimeout(resolve, time));
 
 	private async performBackgroundScan() {
 		const settings = settingsStore.getState().settings;

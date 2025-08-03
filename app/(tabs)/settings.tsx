@@ -110,13 +110,27 @@ export default function SettingsScreen() {
 		setIsStartingBackgroundScan(true);
 		
 		try {
-			console.log('[Settings] Starting background scanning');
+			console.log('[Settings] Starting background scanning safely');
+			
+			// Check if app is in correct state
+			if (AppState.currentState !== 'active') {
+				console.log('[Settings] App not active, postponing background scan');
+				return;
+			}
+			
+			// Check permissions again before starting
+			const permStatus = await galleryPermissions.checkPermission();
+			if (permStatus.status !== 'granted') {
+				console.log('[Settings] Permissions not granted');
+				setHasPermissions(false);
+				return;
+			}
 			
 			// First stop any existing background service
 			await backgroundScanner.stopPeriodicScan();
 			
-			// Small delay to ensure cleanup
-			await new Promise(resolve => setTimeout(resolve, 500));
+			// Wait a bit for cleanup
+			await new Promise(resolve => setTimeout(resolve, 2000));
 			
 			// Now start the service
 			await backgroundScanner.startPeriodicScan();
@@ -128,7 +142,7 @@ export default function SettingsScreen() {
 			// Don't crash the app, just log the error
 			Alert.alert(
 				'Background Scan Error',
-				'Failed to start background scanning. You can still use manual scan.',
+				'Failed to start background scanning. Please try again.',
 				[{ text: 'OK' }]
 			);
 		} finally {
