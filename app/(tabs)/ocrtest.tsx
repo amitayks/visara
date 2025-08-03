@@ -18,15 +18,40 @@ import {
 } from "react-native-image-picker";
 import Icon from "react-native-vector-icons/Ionicons";
 import { hybridDocumentProcessor } from "../../services/ai/hybridDocumentProcessor";
-import type {
-	HybridProcessingResult,
-	QualityMetrics,
+import {
+	type HybridProcessingResult,
+	type QualityMetrics,
+	DocumentType,
 } from "../../services/ai/types/hybridTypes";
 import { documentProcessor } from "../../services/ai/documentProcessor";
 import { documentStorage } from "../../services/database/documentStorage";
 import type { RootStackParamList } from "../../types/navigation";
 
 const { width: screenWidth } = Dimensions.get("window");
+
+// Helper function to map DocumentType enum to string literal
+function mapDocumentType(docType: DocumentType): "receipt" | "invoice" | "id" | "letter" | "form" | "screenshot" | "unknown" {
+	switch (docType) {
+		case DocumentType.RECEIPT:
+			return "receipt";
+		case DocumentType.INVOICE:
+			return "invoice";
+		case DocumentType.ID_CARD:
+		case DocumentType.PASSPORT:
+		case DocumentType.DRIVERS_LICENSE:
+		case DocumentType.INSURANCE_CARD:
+			return "id";
+		case DocumentType.LETTER:
+			return "letter";
+		case DocumentType.FORM:
+			return "form";
+		case DocumentType.TICKET:
+			return "receipt"; // Treat tickets as receipts
+		case DocumentType.UNKNOWN:
+		default:
+			return "unknown";
+	}
+}
 
 export default function OCRTestScreen() {
 	const navigation =
@@ -157,7 +182,8 @@ export default function OCRTestScreen() {
 
 			// Update the result with hybrid processing data
 			result.ocrText = hybridResult.ocrResult.text;
-			result.documentType = hybridResult.contextualResult.documentType;
+			// Convert DocumentType enum to string literal
+			result.documentType = mapDocumentType(hybridResult.contextualResult.documentType);
 			result.confidence = hybridResult.contextualResult.confidence;
 			result.metadata = metadata;
 
@@ -188,32 +214,32 @@ export default function OCRTestScreen() {
 					<View style={styles.metricItem}>
 						<Text style={styles.metricLabel}>OCR Quality</Text>
 						<Text style={styles.metricValue}>
-							{(metrics.overall.ocrQuality * 100).toFixed(1)}%
+							{(metrics.ocrQuality * 100).toFixed(1)}%
 						</Text>
 					</View>
 					<View style={styles.metricItem}>
 						<Text style={styles.metricLabel}>Completeness</Text>
 						<Text style={styles.metricValue}>
-							{(metrics.overall.completeness * 100).toFixed(1)}%
+							{(metrics.completeness * 100).toFixed(1)}%
 						</Text>
 					</View>
 					<View style={styles.metricItem}>
 						<Text style={styles.metricLabel}>Consistency</Text>
 						<Text style={styles.metricValue}>
-							{(metrics.overall.consistency * 100).toFixed(1)}%
+							{(metrics.consistency * 100).toFixed(1)}%
 						</Text>
 					</View>
 					<View style={styles.metricItem}>
 						<Text style={styles.metricLabel}>Total Score</Text>
 						<Text style={[styles.metricValue, styles.totalScore]}>
-							{(metrics.overall.totalScore * 100).toFixed(1)}%
+							{(metrics.confidence * 100).toFixed(1)}%
 						</Text>
 					</View>
 				</View>
-				{metrics.overall.warnings.length > 0 && (
+				{metrics.warnings && metrics.warnings.length > 0 && (
 					<View style={styles.warningsContainer}>
 						<Text style={styles.warningsTitle}>Warnings:</Text>
-						{metrics.overall.warnings.map((warning, index) => (
+						{metrics.warnings.map((warning: string, index: number) => (
 							<Text key={index} style={styles.warningText}>• {warning}</Text>
 						))}
 					</View>
@@ -269,7 +295,11 @@ export default function OCRTestScreen() {
 					</View>
 
 					{/* Quality Metrics */}
-					{renderQualityMetrics(hybridResult.qualityMetrics)}
+					{hybridResult.qualityMetrics && renderQualityMetrics(
+						'overall' in hybridResult.qualityMetrics 
+							? (hybridResult.qualityMetrics as any).overall 
+							: hybridResult.qualityMetrics
+					)}
 
 					{/* Structured Data */}
 					{hybridResult.structuredData && (
@@ -292,15 +322,18 @@ export default function OCRTestScreen() {
 								}
 								
 								// Handle total amount - could be direct or in totals object
-								if ('totalAmount' in data && data.totalAmount !== undefined && 'currency' in data) {
-									rows.push(
-										<View key="total" style={styles.dataRow}>
-											<Text style={styles.dataLabel}>Total:</Text>
-											<Text style={styles.dataValue}>
-												{data.currency} {data.totalAmount.toFixed(2)}
-											</Text>
-										</View>
-									);
+								if ('totalAmount' in data && data.totalAmount !== undefined && data.totalAmount !== null && 'currency' in data) {
+									const amount = typeof data.totalAmount === 'number' ? data.totalAmount : parseFloat(String(data.totalAmount));
+									if (!isNaN(amount)) {
+										rows.push(
+											<View key="total" style={styles.dataRow}>
+												<Text style={styles.dataLabel}>Total:</Text>
+												<Text style={styles.dataValue}>
+													{String(data.currency)} {amount.toFixed(2)}
+												</Text>
+											</View>
+										);
+									}
 								} else if ('totals' in data && data.totals && typeof data.totals === 'object' && 'total' in data.totals) {
 									const totals = data.totals as any;
 									rows.push(

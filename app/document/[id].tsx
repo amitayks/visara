@@ -423,32 +423,33 @@ export default function DocumentDetailScreen() {
 									<View style={styles.metricItem}>
 										<Text style={styles.metricLabel}>OCR Quality</Text>
 										<Text style={styles.metricValue}>
-											{(document.metadata.hybridResult.qualityMetrics.overall.ocrQuality * 100).toFixed(1)}%
+											{(document.metadata.hybridResult.qualityMetrics.ocrQuality * 100).toFixed(1)}%
 										</Text>
 									</View>
 									<View style={styles.metricItem}>
 										<Text style={styles.metricLabel}>Completeness</Text>
 										<Text style={styles.metricValue}>
-											{(document.metadata.hybridResult.qualityMetrics.overall.completeness * 100).toFixed(1)}%
+											{(document.metadata.hybridResult.qualityMetrics.completeness * 100).toFixed(1)}%
 										</Text>
 									</View>
 									<View style={styles.metricItem}>
 										<Text style={styles.metricLabel}>Consistency</Text>
 										<Text style={styles.metricValue}>
-											{(document.metadata.hybridResult.qualityMetrics.overall.consistency * 100).toFixed(1)}%
+											{(document.metadata.hybridResult.qualityMetrics.consistency * 100).toFixed(1)}%
 										</Text>
 									</View>
 									<View style={styles.metricItem}>
 										<Text style={styles.metricLabel}>Total Score</Text>
 										<Text style={[styles.metricValue, styles.totalScore]}>
-											{(document.metadata.hybridResult.qualityMetrics.overall.totalScore * 100).toFixed(1)}%
+											{(document.metadata.hybridResult.qualityMetrics.confidence * 100).toFixed(1)}%
 										</Text>
 									</View>
 								</View>
-								{document.metadata.hybridResult.qualityMetrics.overall.warnings.length > 0 && (
+								{document.metadata.hybridResult.qualityMetrics.warnings && 
+								 document.metadata.hybridResult.qualityMetrics.warnings.length > 0 && (
 									<View style={styles.warningsContainer}>
 										<Text style={styles.warningsTitle}>Warnings:</Text>
-										{document.metadata.hybridResult.qualityMetrics.overall.warnings.map((warning, index) => (
+										{document.metadata.hybridResult.qualityMetrics.warnings.map((warning: string, index: number) => (
 											<Text key={index} style={styles.warningText}>• {warning}</Text>
 										))}
 									</View>

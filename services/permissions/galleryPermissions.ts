@@ -33,9 +33,10 @@ class GalleryPermissions {
 	private async checkAndroidPermission(): Promise<PermissionResult> {
 		try {
 			// Android 13+ uses READ_MEDIA_IMAGES
-			if (Platform.Version >= 33) {
+			const androidVersion = typeof Platform.Version === 'string' ? parseInt(Platform.Version, 10) : Platform.Version;
+			if (androidVersion >= 33) {
 				const granted = await PermissionsAndroid.check(
-					PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
+					PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES as any,
 				);
 				
 				return {
@@ -46,7 +47,7 @@ class GalleryPermissions {
 			
 			// Older Android versions use READ_EXTERNAL_STORAGE
 			const granted = await PermissionsAndroid.check(
-				PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+				PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE as any,
 			);
 			
 			return {
@@ -93,12 +94,13 @@ class GalleryPermissions {
 
 	private async requestAndroidPermission(): Promise<PermissionResult> {
 		try {
-			let permission: string;
+			let permission: any;
 			let rationaleTitle: string;
 			let rationaleMessage: string;
 
 			// Android 13+ uses READ_MEDIA_IMAGES
-			if (Platform.Version >= 33) {
+			const androidVersion = typeof Platform.Version === 'string' ? parseInt(Platform.Version, 10) : Platform.Version;
+			if (androidVersion >= 33) {
 				permission = PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES;
 				rationaleTitle = "Photo Access Required";
 				rationaleMessage = "Visara needs access to your photos to scan for documents. This allows the app to identify and organize your receipts, invoices, and other documents.";
