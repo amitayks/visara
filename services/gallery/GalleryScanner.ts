@@ -62,6 +62,7 @@ export class GalleryScanner {
 	};
 	private processedHashes = new Set<string>();
 	private failedImages = new Map<string, number>(); // uri -> retry count
+	private memoryCheckInterval: NodeJS.Timeout | null = null;
 	private scanHistory: Array<{
 		date: Date;
 		imagesScanned: number;
@@ -130,6 +131,9 @@ export class GalleryScanner {
 		if (scanOptions.smartFilterEnabled && scanOptions.smartFilterOptions) {
 			smartFilter.updateOptions(scanOptions.smartFilterOptions);
 		}
+		
+		// Start memory monitoring
+		this.startMemoryMonitoring();
 
 		try {
 			await this.performScan(scanOptions);
@@ -144,6 +148,7 @@ export class GalleryScanner {
 			});
 			await this.saveScanHistory();
 		} finally {
+			this.stopMemoryMonitoring();
 			this.isScanning = false;
 			this.progress.isScanning = false;
 			await this.saveProgress();
@@ -241,21 +246,42 @@ export class GalleryScanner {
 	}
 
 	private async processBatch(assets: any[], options: ScanOptions) {
-		// Process sequentially instead of in parallel to avoid overwhelming the system
-		for (const asset of assets) {
+		// Check memory before processing batch
+		const memoryInfo = await deviceInfo.getMemoryInfo();
+		if (memoryInfo.availableMemory < 100 * 1024 * 1024) { // Less than 100MB
+			console.log("[GalleryScanner] Low memory, pausing scan");
+			await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+		}
+		
+		// Process sequentially with memory breaks
+		for (let i = 0; i < assets.length; i++) {
 			if (this.shouldStop) {
 				console.log("[GalleryScanner] Stop requested, breaking batch processing");
 				break;
 			}
 			
 			try {
-				await this.processAsset(asset, options);
+				await this.processAsset(assets[i], options);
 				
-				// Add a small delay between processing to avoid overwhelming the system
-				await new Promise(resolve => setTimeout(resolve, 100));
+				// Every 5 images, pause to let UI breathe
+				if ((i + 1) % 5 === 0) {
+					await new Promise(resolve => setTimeout(resolve, 500));
+				}
+				
+				// Check memory periodically
+				if ((i + 1) % 10 === 0) {
+					const currentMemory = await deviceInfo.getMemoryInfo();
+					if (currentMemory.availableMemory < 50 * 1024 * 1024) { // Less than 50MB
+						console.log("[GalleryScanner] Critical memory, pausing longer");
+						await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+					}
+				}
+				
 			} catch (error) {
-				console.error(`Failed to process asset ${asset.image.uri}:`, error);
-				// Continue with next asset instead of failing the whole batch
+				console.error(`Failed to process asset ${assets[i].image.uri}:`, error);
+				
+				// On error, give system time to recover
+				await new Promise(resolve => setTimeout(resolve, 1000));
 			}
 		}
 	}
@@ -642,6 +668,23 @@ export class GalleryScanner {
 			processedHashes: this.processedHashes.size,
 			failedImages: this.failedImages.size,
 		};
+	}
+	
+	private startMemoryMonitoring() {
+		this.memoryCheckInterval = setInterval(async () => {
+			const memoryInfo = await deviceInfo.getMemoryInfo();
+			if (memoryInfo.availableMemory < 30 * 1024 * 1024) { // Less than 30MB
+				console.log("[GalleryScanner] Critical memory detected, stopping scan");
+				this.shouldStop = true;
+			}
+		}, 5000); // Check every 5 seconds
+	}
+	
+	private stopMemoryMonitoring() {
+		if (this.memoryCheckInterval) {
+			clearInterval(this.memoryCheckInterval);
+			this.memoryCheckInterval = null;
+		}
 	}
 }
 

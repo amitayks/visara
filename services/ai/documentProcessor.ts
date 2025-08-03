@@ -1,4 +1,5 @@
 import ImageResizer from "@bam.tech/react-native-image-resizer";
+import { Image } from 'react-native';
 import RNFS from "react-native-fs";
 import { imageStorage } from "../imageStorage";
 import { thumbnailService } from "../thumbnailService";
@@ -64,6 +65,9 @@ export interface ProcessingOptions {
 }
 
 export class DocumentProcessor {
+	private activeProcessingCount = 0;
+	private readonly MAX_CONCURRENT_PROCESSING = 2; // Limit concurrent processing
+	
 	private defaultOptions: ProcessingOptions = {
 		preprocessImage: true,
 		extractStructuredData: true,
@@ -75,35 +79,56 @@ export class DocumentProcessor {
 		imageUri: string,
 		options: ProcessingOptions = {},
 	): Promise<DocumentResult> {
-		const opts = { ...this.defaultOptions, ...options };
-		const startTime = Date.now();
-
+		// Wait if too many images are being processed
+		while (this.activeProcessingCount >= this.MAX_CONCURRENT_PROCESSING) {
+			await new Promise(resolve => setTimeout(resolve, 100));
+		}
+		
+		this.activeProcessingCount++;
+		
 		try {
+			const opts = { ...this.defaultOptions, ...options };
+			const startTime = Date.now();
+			
+			// Force garbage collection hint
+			if (global.gc) {
+				global.gc();
+			}
+			
 			// Calculate image hash first for deduplication
 			const imageHash = await thumbnailService.calculateImageHash(imageUri);
 
 			// Get image info
 			const imageInfo = await thumbnailService.getImageInfo(imageUri);
 
-			// Copy original image to permanent storage
-			const permanentImageUri = await imageStorage.copyImageToPermanentStorage(
-				imageUri,
-				imageHash,
-			);
+			// Copy to permanent storage with memory cleanup
+			let permanentImageUri: string;
+			try {
+				permanentImageUri = await imageStorage.copyImageToPermanentStorage(
+					imageUri,
+					imageHash,
+				);
+			} catch (error) {
+				console.error("Failed to copy image to permanent storage:", error);
+				throw error;
+			}
 
-			// Create thumbnail
-			let thumbnailUri: string | undefined;
+			// Create thumbnail with memory management
 			let permanentThumbnailUri: string | undefined;
 			try {
-				const thumbnailResult =
-					await thumbnailService.createThumbnail(imageUri);
-				thumbnailUri = thumbnailResult.thumbnailUri;
-				// Copy thumbnail to permanent storage
-				permanentThumbnailUri =
-					await imageStorage.copyThumbnailToPermanentStorage(
-						thumbnailUri,
-						imageHash,
-					);
+				const thumbnailResult = await thumbnailService.createThumbnail(imageUri);
+				permanentThumbnailUri = await imageStorage.copyThumbnailToPermanentStorage(
+					thumbnailResult.thumbnailUri,
+					imageHash,
+				);
+				
+				// Clean up temporary thumbnail
+				try {
+					await RNFS.unlink(thumbnailResult.thumbnailUri);
+				} catch (e) {
+					// Ignore cleanup errors
+				}
+				
 				console.log(
 					`Thumbnail created with ${(thumbnailResult.compressionRatio * 100).toFixed(1)}% size reduction`,
 				);
@@ -111,51 +136,43 @@ export class DocumentProcessor {
 				console.error("Failed to create thumbnail:", error);
 			}
 
+			// Preprocess for OCR if needed
 			let processedImageUri = imageUri;
-
-			// Skip preprocessing for ML Kit as it can handle original images better
-			// and has issues with cached file paths
 			if (opts.preprocessImage && opts.ocrEngine !== "mlkit") {
-				processedImageUri = await this.preprocessImage(imageUri);
+				processedImageUri = await this.preprocessImage(permanentImageUri);
 			}
-
-			const ocrResult = await this.performOCR(
+			
+			// Perform OCR with memory management
+			const ocrResult = await this.performOCRWithMemoryCleanup(
 				processedImageUri,
 				opts.ocrEngine,
 			);
+			
+			// Clean up processed image if different from original
+			if (processedImageUri !== imageUri && processedImageUri !== permanentImageUri) {
+				try {
+					await RNFS.unlink(processedImageUri);
+				} catch (e) {
+					// Ignore cleanup errors
+				}
+			}
 
 			const documentType = this.detectDocumentType(ocrResult.text);
 
 			let metadata: ExtractedMetadata = { confidence: 0 };
 
 			if (opts.extractStructuredData) {
-				switch (documentType) {
-					case "receipt":
-						metadata = await this.extractReceiptMetadata(ocrResult.text);
-						break;
-					case "invoice":
-						metadata = await this.extractInvoiceMetadata(ocrResult.text);
-						break;
-					default:
-						metadata = await this.extractGenericMetadata(ocrResult.text);
-				}
+				metadata = await this.extractMetadata(ocrResult.text, documentType);
 			}
 
-			// Extract keywords and document date
-			const keywords = keywordExtractor.extractKeywords(ocrResult.text);
-			const documentDate = keywordExtractor.extractDocumentDate(ocrResult.text);
-
-			// Generate search vector
-			const searchVector = keywordExtractor.generateSearchVector(
-				ocrResult.text,
-				keywords,
-			);
-
-			const overallConfidence = this.calculateOverallConfidence(
+			const confidence = this.calculateOverallConfidence(
 				ocrResult.confidence,
 				metadata.confidence,
 				documentType,
 			);
+			
+			const keywords = await this.extractKeywords(ocrResult.text);
+			const searchVector = await this.generateSearchVector(ocrResult.text);
 
 			const result: DocumentResult = {
 				id: this.generateId(),
@@ -165,32 +182,28 @@ export class DocumentProcessor {
 				ocrText: ocrResult.text,
 				metadata,
 				documentType,
-				confidence: overallConfidence,
+				confidence,
 				processedAt: new Date(),
-				imageTakenDate: imageInfo.takenDate,
 				keywords,
 				searchVector,
 				imageWidth: imageInfo.width,
 				imageHeight: imageInfo.height,
 				imageSize: imageInfo.size,
+				imageTakenDate: imageInfo.takenDate,
 			};
 
 			const processingTime = Date.now() - startTime;
 			console.log(
-				`Document processed successfully in ${processingTime}ms - Type: ${documentType}, Confidence: ${(overallConfidence * 100).toFixed(1)}%`,
+				`Document processed in ${processingTime}ms - Type: ${documentType}, Confidence: ${(confidence * 100).toFixed(1)}%`,
 			);
 			
-			// Log the URIs being saved
-			console.log(`Saving document with URIs:
-				Original: ${imageUri}
-				Permanent: ${permanentImageUri}
-				Thumbnail: ${permanentThumbnailUri || 'none'}
-			`);
-
 			return result;
+			
 		} catch (error) {
 			console.error("Error processing document:", error);
-			throw error; // Throw the error instead of returning a failed document
+			throw error;
+		} finally {
+			this.activeProcessingCount--;
 		}
 	}
 
@@ -215,25 +228,57 @@ export class DocumentProcessor {
 		}
 	}
 
-	async performOCR(
+	private async performOCRWithMemoryCleanup(
 		imageUri: string,
 		engineName: OCREngineName = "mlkit",
 	): Promise<{ text: string; confidence: number }> {
 		try {
+			// For very large images, resize before OCR
+			const imageInfo = await this.getImageSize(imageUri);
+			let processUri = imageUri;
+			
+			if (imageInfo.width > 2000 || imageInfo.height > 2000) {
+				console.log(`Resizing large image for OCR: ${imageInfo.width}x${imageInfo.height}`);
+				const resized = await ImageResizer.createResizedImage(
+					imageUri,
+					Math.min(2000, imageInfo.width),
+					Math.min(2000, imageInfo.height),
+					'JPEG',
+					85,
+					0,
+				);
+				processUri = resized.uri;
+			}
+			
 			// Initialize engine manager if needed
 			await ocrEngineManager.initialize();
-
-			// Process with selected engine
-			const result = await ocrEngineManager.processImage(imageUri, engineName);
-
-			return {
-				text: result.text,
-				confidence: result.confidence,
-			};
+			
+			const result = await ocrEngineManager.processImage(processUri, engineName);
+			
+			// Clean up resized image
+			if (processUri !== imageUri) {
+				try {
+					await RNFS.unlink(processUri);
+				} catch (e) {
+					// Ignore cleanup errors
+				}
+			}
+			
+			return result;
 		} catch (error) {
 			console.error("Error performing OCR:", error);
 			return { text: "", confidence: 0 };
 		}
+	}
+	
+	private async getImageSize(uri: string): Promise<{ width: number; height: number }> {
+		return new Promise((resolve, reject) => {
+			Image.getSize(
+				uri,
+				(width, height) => resolve({ width, height }),
+				reject
+			);
+		});
 	}
 
 	private detectDocumentType(text: string): DocumentResult["documentType"] {
@@ -298,6 +343,26 @@ export class DocumentProcessor {
 		if (text.split("\n").length > 10) return "letter";
 
 		return "unknown";
+	}
+	
+	private async extractMetadata(text: string, documentType: DocumentResult["documentType"]): Promise<ExtractedMetadata> {
+		switch (documentType) {
+			case "receipt":
+				return await this.extractReceiptMetadata(text);
+			case "invoice":
+				return await this.extractInvoiceMetadata(text);
+			default:
+				return await this.extractGenericMetadata(text);
+		}
+	}
+	
+	private async extractKeywords(text: string): Promise<string[]> {
+		return keywordExtractor.extractKeywords(text);
+	}
+	
+	private async generateSearchVector(text: string): Promise<number[]> {
+		const keywords = await this.extractKeywords(text);
+		return keywordExtractor.generateSearchVector(text, keywords);
 	}
 
 	async extractReceiptMetadata(text: string): Promise<ExtractedMetadata> {

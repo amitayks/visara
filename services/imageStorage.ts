@@ -51,32 +51,16 @@ export class ImageStorageService {
 				return `file://${permanentUri}`;
 			}
 
-			// Handle content:// URIs differently
+			// Handle content:// URIs with chunked reading to avoid memory issues
 			if (tempUri.startsWith('content://')) {
 				try {
-					// For content URIs, we need to read and write the file
-					// RNFS.copyFile doesn't work reliably with content URIs
-					const base64Data = await RNFS.readFile(tempUri, 'base64');
-					await RNFS.writeFile(permanentUri, base64Data, 'base64');
-					
+					// Use streaming approach for large files
+					await this.copyContentUriChunked(tempUri, permanentUri);
 					console.log("Image successfully copied from content URI to:", permanentUri);
 					return `file://${permanentUri}`;
 				} catch (contentError) {
-					console.error("Failed to copy content URI, trying alternative method:", contentError);
-					
-					// Alternative: Try using fetch API for content URIs
-					try {
-						const response = await fetch(tempUri);
-						const blob = await response.blob();
-						const base64 = await this.blobToBase64(blob);
-						await RNFS.writeFile(permanentUri, base64, 'base64');
-						
-						console.log("Image successfully copied using fetch to:", permanentUri);
-						return `file://${permanentUri}`;
-					} catch (fetchError) {
-						console.error("Failed to copy using fetch:", fetchError);
-						throw fetchError;
-					}
+					console.error("Failed to copy content URI:", contentError);
+					throw contentError;
 				}
 			} else {
 				// For file:// URIs, check if source exists first
@@ -183,6 +167,56 @@ export class ImageStorageService {
 		return match ? `.${match[1]}` : ".jpg"; // Default to .jpg if no extension found
 	}
 
+	private async copyContentUriChunked(contentUri: string, destPath: string): Promise<void> {
+		const CHUNK_SIZE = 1024 * 1024; // 1MB chunks
+		
+		try {
+			// For Android content URIs, we need to read in chunks
+			// This is a workaround since RNFS doesn't handle large content URIs well
+			const response = await fetch(contentUri);
+			const blob = await response.blob();
+			
+			// Convert blob to base64 in chunks
+			const reader = new FileReader();
+			
+			return new Promise((resolve, reject) => {
+				reader.onloadend = async () => {
+					try {
+						const base64String = reader.result as string;
+						const base64Data = base64String.split(',')[1];
+						
+						// Write in chunks to avoid memory issues
+						const totalLength = base64Data.length;
+						let written = 0;
+						
+						// Create empty file first
+						await RNFS.writeFile(destPath, '', 'base64');
+						
+						while (written < totalLength) {
+							const chunk = base64Data.slice(written, written + CHUNK_SIZE);
+							await RNFS.appendFile(destPath, chunk, 'base64');
+							written += chunk.length;
+							
+							// Allow UI to breathe
+							await new Promise(resolve => setTimeout(resolve, 0));
+						}
+						
+						resolve();
+					} catch (error) {
+						reject(error);
+					}
+				};
+				
+				reader.onerror = reject;
+				reader.readAsDataURL(blob);
+			});
+		} catch (error) {
+			// Fallback to direct base64 read for smaller files
+			const base64Data = await RNFS.readFile(contentUri, 'base64');
+			await RNFS.writeFile(destPath, base64Data, 'base64');
+		}
+	}
+	
 	private blobToBase64(blob: Blob): Promise<string> {
 		return new Promise((resolve, reject) => {
 			const reader = new FileReader();

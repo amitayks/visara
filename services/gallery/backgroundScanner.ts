@@ -4,7 +4,7 @@ import { useScannerStore } from "../../stores/scannerStore";
 import { galleryScanner } from "./GalleryScanner";
 import { galleryPermissions } from "../permissions/galleryPermissions";
 import { deviceInfo } from "../../utils/deviceInfo";
-import { AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus, InteractionManager } from "react-native";
 
 interface BackgroundTaskOptions {
 	taskName: string;
@@ -278,6 +278,13 @@ export class BackgroundScanner {
 		try {
 			console.log("[BackgroundScanner] Starting background gallery scan");
 			
+			// Run scan on lower priority
+			await new Promise(resolve => {
+				InteractionManager.runAfterInteractions(() => {
+					resolve(null);
+				});
+			});
+			
 			// Update notification
 			if (BackgroundService.isRunning()) {
 				await BackgroundService.updateNotification({
@@ -285,32 +292,35 @@ export class BackgroundScanner {
 				});
 			}
 			
-			// Create a special scanner instance for background processing
+			// Create special options for background processing
 			const scanOptions = {
-				batchSize: 5, // Smaller batches for background
+				batchSize: 3, // Even smaller batches for background
 				wifiOnly: settings.scanWifiOnly,
 				smartFilterEnabled: settings.smartFilterEnabled,
 				batterySaver: settings.batterySaver,
-				isBackground: true, // Flag to indicate background processing
+				isBackground: true,
+				maxConcurrentProcessing: 1, // Only process one image at a time in background
 			};
 			
-			// Run the scan with error handling
+			// Run scan with lower priority
 			await galleryScanner.startScan(scanOptions, async (progress) => {
-				// Update progress less frequently in background
-				if (progress.processedImages % 10 === 0) {
+				// Update progress less frequently
+				if (progress.processedImages % 20 === 0) {
 					const percentage = progress.totalImages > 0 
 						? Math.round((progress.processedImages / progress.totalImages) * 100)
 						: 0;
 					
 					if (BackgroundService.isRunning()) {
 						await BackgroundService.updateNotification({
-							taskDesc: `Scanning: ${progress.processedImages}/${progress.totalImages} (${percentage}%)`,
+							taskDesc: `Scanning: ${percentage}% complete`,
 						});
 					}
 				}
 				
-				// Update store
-				useScannerStore.getState().setScanProgress(progress);
+				// Update store less frequently
+				if (progress.processedImages % 10 === 0) {
+					useScannerStore.getState().setScanProgress(progress);
+				}
 			});
 			
 			// Update last scan time

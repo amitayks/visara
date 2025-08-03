@@ -45,17 +45,51 @@ class DeviceInfo {
 	}
 
 	async getMemoryInfo(): Promise<{
+		totalMemory: number;
 		availableMemory: number;
+		usedMemory: number;
+		memoryPercentage: number;
 		isLowMemory: boolean;
 	}> {
-		// Similarly, memory info would require native module
-		// TODO: Implement native module for memory info
-		
-		const availableMemory = 500; // Mock value in MB
-		return {
-			availableMemory,
-			isLowMemory: availableMemory < this.memoryThreshold,
-		};
+		try {
+			if (Platform.OS === 'android') {
+				// Use Android's ActivityManager for memory info
+				const { DeviceInfo } = NativeModules;
+				if (DeviceInfo && DeviceInfo.getMemoryInfo) {
+					const memInfo = await DeviceInfo.getMemoryInfo();
+					return {
+						...memInfo,
+						isLowMemory: memInfo.availableMemory < this.memoryThreshold * 1024 * 1024,
+					};
+				}
+			}
+			
+			// Fallback - estimate based on app memory usage if available
+			const { heapSize, heapUsed } = (global as any).performance?.memory || {};
+			
+			const totalMemory = heapSize || 512 * 1024 * 1024; // Default 512MB
+			const usedMemory = heapUsed || 256 * 1024 * 1024;
+			const availableMemory = totalMemory - usedMemory;
+			const memoryPercentage = heapUsed && heapSize ? (heapUsed / heapSize) * 100 : 50;
+			
+			return {
+				totalMemory,
+				availableMemory,
+				usedMemory,
+				memoryPercentage,
+				isLowMemory: availableMemory < this.memoryThreshold * 1024 * 1024,
+			};
+		} catch (error) {
+			console.error("Error getting memory info:", error);
+			// Return safe defaults
+			return {
+				totalMemory: 512 * 1024 * 1024,
+				availableMemory: 256 * 1024 * 1024,
+				usedMemory: 256 * 1024 * 1024,
+				memoryPercentage: 50,
+				isLowMemory: false,
+			};
+		}
 	}
 
 	async getNetworkInfo(): Promise<{
