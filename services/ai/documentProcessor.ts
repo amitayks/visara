@@ -1,6 +1,8 @@
 import ImageResizer from "@bam.tech/react-native-image-resizer";
 import { Image } from 'react-native';
 import RNFS from "react-native-fs";
+import nlp from 'compromise';
+import { embeddingService } from "../search/simpleEmbeddingService";
 import { imageStorage } from "../imageStorage";
 import { thumbnailService } from "../thumbnailService";
 import { keywordExtractor } from "./keywordExtractor";
@@ -357,12 +359,40 @@ export class DocumentProcessor {
 	}
 	
 	private async extractKeywords(text: string): Promise<string[]> {
-		return keywordExtractor.extractKeywords(text);
+		const doc = nlp(text);
+		const keywords: Set<string> = new Set();
+		
+		// Extract nouns and proper nouns
+		doc.nouns().out('array').forEach((noun: string) => {
+			if (noun.length > 2) keywords.add(noun.toLowerCase());
+		});
+		
+		// Extract organizations and people
+		doc.organizations().out('array').forEach((org: string) => keywords.add(org.toLowerCase()));
+		doc.people().out('array').forEach((person: string) => keywords.add(person.toLowerCase()));
+		
+		// Extract money values
+		doc.money().out('array').forEach((money: string) => keywords.add(money));
+		
+		// Add document type
+		keywords.add(this.detectDocumentType(text));
+		
+		// Add vendor if detected
+		const vendorMatch = text.match(/^([A-Z][A-Za-z\s&'.-]+)(?:\n|$)/m);
+		if (vendorMatch) {
+			keywords.add(vendorMatch[1].trim().toLowerCase());
+		}
+		
+		// Also get keywords from keywordExtractor for additional coverage
+		const extractedKeywords = keywordExtractor.extractKeywords(text);
+		extractedKeywords.forEach(kw => keywords.add(kw.toLowerCase()));
+		
+		return Array.from(keywords).slice(0, 20); // Limit to 20 keywords
 	}
 	
 	private async generateSearchVector(text: string): Promise<number[]> {
-		const keywords = await this.extractKeywords(text);
-		return keywordExtractor.generateSearchVector(text, keywords);
+		// Generate embedding for the document using the new embedding service
+		return await embeddingService.generateEmbedding(text);
 	}
 
 	async extractReceiptMetadata(text: string): Promise<ExtractedMetadata> {

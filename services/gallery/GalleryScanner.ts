@@ -9,6 +9,7 @@ import { documentStorage } from "../database/documentStorage";
 import { smartFilter, type AssetInfo, type SmartFilterOptions } from "./smartFilter";
 import { deviceInfo } from "../../utils/deviceInfo";
 import { galleryPermissions } from "../permissions/galleryPermissions";
+import { enhancedSearchService } from "../search/enhancedSearchService";
 
 export interface ScanProgress {
 	totalImages: number;
@@ -360,6 +361,14 @@ export class GalleryScanner {
 				try {
 					const savedDoc = await documentStorage.saveDocument(result);
 					console.log(`Successfully saved document: ${savedDoc.id} - ${asset.image.filename}`);
+					
+					// Update search index with new document
+					try {
+						await enhancedSearchService.onDocumentAdded(savedDoc);
+					} catch (searchError) {
+						console.error("Failed to update search index:", searchError);
+						// Don't fail the whole process if search indexing fails
+					}
 					
 					this.processedHashes.add(result.imageHash);
 					await this.saveProcessedHashes();

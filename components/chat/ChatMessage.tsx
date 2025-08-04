@@ -18,6 +18,7 @@ export interface Message {
 	timestamp: Date;
 	documents?: Document[];
 	isRTL?: boolean;
+	searchHighlights?: Record<string, string[]>;
 }
 
 interface ChatMessageProps {
