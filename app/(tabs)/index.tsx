@@ -2,7 +2,7 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { CompositeNavigationProp } from "@react-navigation/native";
 import { useNavigation } from "@react-navigation/native";
 import type { StackNavigationProp } from "@react-navigation/stack";
-import React, { useCallback, useRef, useState, useEffect } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	FlatList,
@@ -20,7 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
 import { ChatMessage, type Message } from "../../components/chat/ChatMessage";
 import type Document from "../../services/database/models/Document";
-import { enhancedSearchService } from "../../services/search/enhancedSearchService";
+import { searchService } from "../../services/search/simpleSearchService";
 import type { RootStackParamList, TabParamList } from "../../types/navigation";
 
 type NavigationProp = CompositeNavigationProp<
@@ -40,23 +40,7 @@ export default function ChatScreen() {
 	]);
 	const [inputText, setInputText] = useState("");
 	const [isSearching, setIsSearching] = useState(false);
-	const [searchInitialized, setSearchInitialized] = useState(false);
 	const flatListRef = useRef<FlatList>(null);
-	
-	// Initialize search service
-	useEffect(() => {
-		const initializeSearch = async () => {
-			try {
-				await enhancedSearchService.initialize();
-				setSearchInitialized(true);
-				console.log('Enhanced search service initialized');
-			} catch (error) {
-				console.error('Failed to initialize search:', error);
-			}
-		};
-		
-		initializeSearch();
-	}, []);
 
 	const detectRTL = (text: string): boolean => {
 		return /[\u0590-\u05FF]/.test(text);
@@ -70,7 +54,7 @@ export default function ChatScreen() {
 	);
 
 	const sendMessage = async () => {
-		if (!inputText.trim() || isSearching || !searchInitialized) return;
+		if (!inputText.trim() || isSearching) return;
 
 		const isRTL = detectRTL(inputText);
 		const userMessage: Message = {
@@ -86,30 +70,18 @@ export default function ChatScreen() {
 		setIsSearching(true);
 
 		try {
-			// Use enhanced search
-			const results = await enhancedSearchService.search(inputText, {
-				useSemanticSearch: true,
-				useFuzzySearch: true,
-				usePhoneticSearch: true,
-				maxResults: 10,
-			});
+			// Perform search
+			const searchResult = await searchService.search(inputText);
 
 			// Generate response
-			const responseText = enhancedSearchService.generateSearchResponse(results);
-			const documents = results.map(r => r.document);
+			const responseText = searchService.generateResponse(searchResult);
 
 			const aiResponse: Message = {
 				id: (Date.now() + 1).toString(),
 				text: responseText,
 				user: false,
 				timestamp: new Date(),
-				documents,
-				searchHighlights: results.reduce((acc, r) => {
-					if (r.highlights && r.highlights.length > 0) {
-						acc[r.document.id] = r.highlights;
-					}
-					return acc;
-				}, {} as Record<string, string[]>),
+				documents: searchResult.documents.slice(0, 10), // Limit to 10 results
 			};
 
 			setMessages((prev) => [...prev, aiResponse]);

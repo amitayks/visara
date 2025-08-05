@@ -68,6 +68,16 @@ export class DocumentStorage {
 					// Use the first date found
 					doc.date = result.metadata.dates[0].date.getTime();
 				}
+				
+				// Log what we're saving
+				console.log(`[DocumentStorage] Setting document fields:`, {
+					id: doc.id,
+					documentType: doc.documentType,
+					vendor: doc.vendor,
+					date: doc.date,
+					processedAt: doc.processedAt,
+					createdAt: doc.createdAt
+				});
 			});
 
 			console.log(`[DocumentStorage] Document saved successfully with ID: ${document.id}`);

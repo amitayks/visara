@@ -2,10 +2,9 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import React, { useEffect } from "react";
+import React from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/MaterialIcons";
-import { enhancedSearchService } from "./services/search/enhancedSearchService";
 
 // Load icon font
 Icon.loadFont();
@@ -57,21 +56,6 @@ function TabNavigator() {
 }
 
 export default function App() {
-	// Initialize search service on app start
-	useEffect(() => {
-		const initializeSearchService = async () => {
-			try {
-				console.log('Initializing enhanced search service...');
-				await enhancedSearchService.initialize();
-				console.log('Enhanced search service initialized successfully');
-			} catch (error) {
-				console.error('Failed to initialize enhanced search service:', error);
-			}
-		};
-		
-		initializeSearchService();
-	}, []);
-	
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
 			<QueryClientProvider client={queryClient}>
