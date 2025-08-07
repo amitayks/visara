@@ -11,7 +11,7 @@ import { AnimatedDocumentCard } from "./AnimatedDocumentCard";
 
 interface MasonryGridProps {
   documents: Document[];
-  onDocumentPress: (document: Document) => void;
+  onDocumentPress: (documentId: string) => void;
   refreshControl?: React.ReactElement<any>;
   isLoading?: boolean;
 }

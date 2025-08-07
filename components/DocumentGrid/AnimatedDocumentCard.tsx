@@ -21,7 +21,7 @@ const COLUMN_WIDTH = (screenWidth - 24) / 2; // 24 = padding (16 left + 16 right
 interface AnimatedDocumentCardProps {
   document: Document;
   index: number;
-  onPress: (document: Document) => void;
+  onPress: (documentId: string) => void;
 }
 
 const AnimatedTouchableOpacity = Animated.createAnimatedComponent(TouchableOpacity);
@@ -50,18 +50,21 @@ export function AnimatedDocumentCard({
     translateY.value = withDelay(delay, withSpring(0, { damping: 15, stiffness: 200 }));
   }, [index, opacity, translateY]);
 
+  // Extract document ID outside of animations to avoid Reanimated serialization issues
+  const documentId = document?.id || '';
+  
   // Handle press
   const handlePress = useCallback(() => {
-    console.log('Opening modal with document:', document);
-    console.log('Document ID:', document?.id);
-    console.log('Document properties:', Object.keys(document || {}));
+    // Log outside of the animation context
+    console.log('Document ID being pressed:', documentId);
     
     // Scale animation
     pressScale.value = withTiming(0.95, { duration: 100 }, () => {
       pressScale.value = withSpring(1, { damping: 15, stiffness: 300 });
-      runOnJS(onPress)(document);
+      // Pass just the document ID to avoid serialization issues
+      runOnJS(onPress)(documentId);
     });
-  }, [document, onPress, pressScale]);
+  }, [documentId, onPress, pressScale]);
 
   // Animated styles
   const cardAnimatedStyle = useAnimatedStyle(() => ({

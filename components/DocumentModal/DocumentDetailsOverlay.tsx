@@ -95,39 +95,71 @@ export function DocumentDetailsOverlay({
   if (!document) return null;
 
   // Extract data from the WatermelonDB document
-  // Access both direct properties and _raw data for compatibility
   console.log('Document in overlay:', document);
-  console.log('Document _raw:', (document as any)._raw);
+  console.log('Document has _raw?:', !!(document as any)?._raw);
   
-  const documentData = (document as any)._raw || {};
+  // Access the raw data directly since WatermelonDB model properties might not be accessible
+  const rawData = (document as any)?._raw || {};
+  console.log('Raw data:', rawData);
   
+  // Display ALL raw data fields for now
   const displayData = {
-    type: document.documentType || documentData.document_type || 'Unknown',
-    vendor: document.vendor || documentData.vendor || 'Unknown Vendor',
-    totalAmount: document.totalAmount || documentData.total_amount,
-    currency: document.currency || documentData.currency || '$',
-    date: document.date || document.processedAt || documentData.date || documentData.processed_at,
-    ocrText: document.ocrText || documentData.ocr_text || '',
-    confidence: document.confidence || documentData.confidence,
-    id: document.id || documentData.id,
-    imageUri: document.imageUri || documentData.image_uri,
+    // Core fields
+    id: rawData.id || document.id || 'Unknown ID',
+    type: rawData.document_type || 'Unknown',
+    vendor: rawData.vendor || 'Unknown Vendor',
+    totalAmount: rawData.total_amount,
+    currency: rawData.currency || '$',
+    date: rawData.date || rawData.processed_at,
+    ocrText: rawData.ocr_text || '',
+    confidence: rawData.confidence,
+    imageUri: rawData.image_uri || '',
+    
+    // Additional fields from raw data
+    imageHash: rawData.image_hash,
+    imageHeight: rawData.image_height,
+    imageWidth: rawData.image_width,
+    imageSize: rawData.image_size,
+    imageTakenDate: rawData.image_taken_date,
+    processedAt: rawData.processed_at,
+    createdAt: rawData.created_at,
+    updatedAt: rawData.updated_at,
+    keywords: rawData.keywords,
+    searchVector: rawData.search_vector,
+    metadata: rawData.metadata,
+    _status: rawData._status,
+    _changed: rawData._changed,
   };
 
-  console.log('Display data extracted:', displayData);
+  console.log('All display data extracted:', displayData);
 
-  // Parse metadata
+  // Parse metadata - it's stored as JSON string in raw data
+  let parsedMetadata: any = {};
   let items: any[] = [];
   try {
-    const metadataRaw = document.metadata || documentData.metadata;
-    if (typeof metadataRaw === 'string') {
-      const metadata = JSON.parse(metadataRaw);
-      items = metadata.items || [];
-    } else if (typeof metadataRaw === 'object' && metadataRaw) {
-      items = metadataRaw.items || [];
+    if (displayData.metadata) {
+      parsedMetadata = typeof displayData.metadata === 'string' 
+        ? JSON.parse(displayData.metadata) 
+        : displayData.metadata;
+      items = parsedMetadata.items || [];
+      console.log('Parsed metadata:', parsedMetadata);
+      console.log('Metadata items:', items);
     }
-    console.log('Parsed items:', items);
   } catch (e) {
     console.error('Failed to parse metadata:', e);
+  }
+
+  // Parse keywords if they're stored as JSON string
+  let keywords: string[] = [];
+  try {
+    if (displayData.keywords) {
+      keywords = typeof displayData.keywords === 'string'
+        ? JSON.parse(displayData.keywords)
+        : displayData.keywords;
+      console.log('Parsed keywords:', keywords);
+    }
+  } catch (e) {
+    console.error('Failed to parse keywords:', e);
   }
 
   // Action Handlers
@@ -142,7 +174,9 @@ export function DocumentDetailsOverlay({
     }
 
     if (displayData.date) {
-      textParts.push(`Date: ${new Date(displayData.date).toLocaleDateString()}`);
+      // Handle both Date objects and numeric timestamps
+      const dateValue = displayData.date instanceof Date ? displayData.date : new Date(displayData.date);
+      textParts.push(`Date: ${dateValue.toLocaleDateString()}`);
     }
 
     if (displayData.ocrText) {
@@ -244,7 +278,7 @@ export function DocumentDetailsOverlay({
               )}
               <InfoRow 
                 label="Time Processed" 
-                value={displayData.date ? new Date(displayData.date).toLocaleDateString() : 'Unknown'} 
+                value={displayData.date ? (displayData.date instanceof Date ? displayData.date : new Date(displayData.date)).toLocaleDateString() : 'Unknown'} 
               />
               {displayData.confidence && (
                 <InfoRow 
@@ -252,6 +286,14 @@ export function DocumentDetailsOverlay({
                   value={`${Math.round(displayData.confidence * 100)}%`} 
                 />
               )}
+            </View>
+
+            {/* DEBUG: Show ALL raw data */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>DEBUG: All Raw Data</Text>
+              <View style={styles.textContainer}>
+                <Text style={styles.ocrText}>{JSON.stringify(rawData, null, 2)}</Text>
+              </View>
             </View>
 
             {/* Extracted Items */}

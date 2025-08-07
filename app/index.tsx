@@ -108,10 +108,25 @@ export default function HomeScreen() {
     }
   }, [searchQueries, documents]);
 
-  const handleDocumentPress = useCallback((document: Document) => {
-    setSelectedDocument(document);
-    setIsModalVisible(true);
-  }, []);
+  const handleDocumentPress = useCallback((documentId: string) => {
+    console.log('HomeScreen - Received document ID:', documentId);
+    
+    // Find the full document object from our state
+    // Check both documents and filteredDocuments arrays
+    const document = documents.find(doc => doc.id === documentId) || 
+                    filteredDocuments.find(doc => doc.id === documentId);
+    
+    if (document) {
+      console.log('HomeScreen - Found document:', document);
+      console.log('HomeScreen - Document _raw:', (document as any)?._raw);
+      
+      // Store the full document object with its _raw data
+      setSelectedDocument(document);
+      setIsModalVisible(true);
+    } else {
+      console.error('Document not found:', documentId);
+    }
+  }, [documents, filteredDocuments]);
 
   const handleModalClose = useCallback(() => {
     setIsModalVisible(false);
@@ -181,6 +196,19 @@ export default function HomeScreen() {
   useEffect(() => {
     loadDocuments();
   }, [loadDocuments]);
+
+  // Debug effect to monitor selectedDocument
+  useEffect(() => {
+    console.log('HomeScreen - selectedDocument changed:', selectedDocument);
+    if (selectedDocument) {
+      console.log('HomeScreen - selectedDocument details:', {
+        id: selectedDocument.id,
+        documentType: selectedDocument.documentType,
+        vendor: selectedDocument.vendor,
+        hasRaw: !!(selectedDocument as any)._raw,
+      });
+    }
+  }, [selectedDocument]);
 
   const renderHeader = () => (
     <View style={styles.header}>
