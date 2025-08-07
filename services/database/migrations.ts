@@ -24,5 +24,13 @@ export default schemaMigrations({
 				}),
 			],
 		},
+		{
+			toVersion: 3,
+			steps: [
+				// Remove thumbnail_uri column as we no longer generate thumbnails
+				// Note: WatermelonDB doesn't support dropping columns directly,
+				// so we'll handle this in the model by ignoring the column
+			],
+		},
 	],
 });

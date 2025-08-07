@@ -1,10 +1,9 @@
-import ImageResizer from "@bam.tech/react-native-image-resizer";
 import { Image } from 'react-native';
 import RNFS from "react-native-fs";
+import CryptoJS from "crypto-js";
 import nlp from 'compromise';
+import ImageResizer from '@bam.tech/react-native-image-resizer';
 import { embeddingService } from "../search/simpleEmbeddingService";
-import { imageStorage } from "../imageStorage";
-import { thumbnailService } from "../thumbnailService";
 import { keywordExtractor } from "./keywordExtractor";
 import { ocrEngineManager } from "./OCREngineManager";
 import type { OCREngineName } from "./ocrTypes";
@@ -12,7 +11,6 @@ import type { OCREngineName } from "./ocrTypes";
 export interface DocumentResult {
 	id: string;
 	imageUri: string;
-	thumbnailUri?: string;
 	imageHash: string;
 	ocrText: string;
 	metadata: ExtractedMetadata;
@@ -97,67 +95,17 @@ export class DocumentProcessor {
 				global.gc();
 			}
 			
-			// Calculate image hash first for deduplication
-			const imageHash = await thumbnailService.calculateImageHash(imageUri);
+			// Calculate image hash for deduplication using URI and basic properties
+			const imageHash = await this.calculateImageHash(imageUri);
 
-			// Get image info
-			const imageInfo = await thumbnailService.getImageInfo(imageUri);
+			// Get basic image info
+			const imageInfo = await this.getImageInfo(imageUri);
 
-			// Copy to permanent storage with memory cleanup
-			let permanentImageUri: string;
-			try {
-				permanentImageUri = await imageStorage.copyImageToPermanentStorage(
-					imageUri,
-					imageHash,
-				);
-			} catch (error) {
-				console.error("Failed to copy image to permanent storage:", error);
-				throw error;
-			}
-
-			// Create thumbnail with memory management
-			let permanentThumbnailUri: string | undefined;
-			try {
-				const thumbnailResult = await thumbnailService.createThumbnail(imageUri);
-				permanentThumbnailUri = await imageStorage.copyThumbnailToPermanentStorage(
-					thumbnailResult.thumbnailUri,
-					imageHash,
-				);
-				
-				// Clean up temporary thumbnail
-				try {
-					await RNFS.unlink(thumbnailResult.thumbnailUri);
-				} catch (e) {
-					// Ignore cleanup errors
-				}
-				
-				console.log(
-					`Thumbnail created with ${(thumbnailResult.compressionRatio * 100).toFixed(1)}% size reduction`,
-				);
-			} catch (error) {
-				console.error("Failed to create thumbnail:", error);
-			}
-
-			// Preprocess for OCR if needed
-			let processedImageUri = imageUri;
-			if (opts.preprocessImage && opts.ocrEngine !== "mlkit") {
-				processedImageUri = await this.preprocessImage(permanentImageUri);
-			}
-			
-			// Perform OCR with memory management
+			// Perform OCR directly on the device URI
 			const ocrResult = await this.performOCRWithMemoryCleanup(
-				processedImageUri,
+				imageUri,
 				opts.ocrEngine,
 			);
-			
-			// Clean up processed image if different from original
-			if (processedImageUri !== imageUri && processedImageUri !== permanentImageUri) {
-				try {
-					await RNFS.unlink(processedImageUri);
-				} catch (e) {
-					// Ignore cleanup errors
-				}
-			}
 
 			const documentType = this.detectDocumentType(ocrResult.text);
 
@@ -178,8 +126,7 @@ export class DocumentProcessor {
 
 			const result: DocumentResult = {
 				id: this.generateId(),
-				imageUri: permanentImageUri,
-				thumbnailUri: permanentThumbnailUri,
+				imageUri, // Store original device URI directly
 				imageHash,
 				ocrText: ocrResult.text,
 				metadata,
@@ -209,6 +156,73 @@ export class DocumentProcessor {
 		}
 	}
 
+	// Calculate image hash for deduplication using URI and file properties
+	private async calculateImageHash(imageUri: string): Promise<string> {
+		try {
+			// For content:// URIs, create hash from URI itself (stable identifier)
+			if (imageUri.startsWith('content://')) {
+				return CryptoJS.SHA256(imageUri).toString();
+			}
+			
+			// For file:// URIs, try to get file stats for more unique hash
+			try {
+				const stats = await RNFS.stat(imageUri);
+				const hashInput = `${imageUri}-${stats.size}-${stats.mtime}`;
+				return CryptoJS.SHA256(hashInput).toString();
+			} catch (error) {
+				// Fallback to URI-based hash
+				return CryptoJS.SHA256(imageUri).toString();
+			}
+		} catch (error) {
+			console.error('Error calculating image hash:', error);
+			// Ultimate fallback
+			return CryptoJS.SHA256(imageUri).toString();
+		}
+	}
+
+	// Get basic image information
+	private async getImageInfo(imageUri: string): Promise<{
+		width?: number;
+		height?: number;
+		size?: number;
+		takenDate?: Date;
+	}> {
+		try {
+			// Get image dimensions using React Native Image
+			const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
+				Image.getSize(
+					imageUri,
+					(width, height) => resolve({ width, height }),
+					(error) => reject(error)
+				);
+			});
+
+			let size: number | undefined;
+			let takenDate: Date | undefined;
+
+			// Try to get file size for file:// URIs
+			if (imageUri.startsWith('file://')) {
+				try {
+					const stats = await RNFS.stat(imageUri);
+					size = stats.size;
+					takenDate = new Date(stats.mtime);
+				} catch (error) {
+					// Ignore stat errors for content URIs
+				}
+			}
+
+			return {
+				width: dimensions.width,
+				height: dimensions.height,
+				size,
+				takenDate,
+			};
+		} catch (error) {
+			console.error('Error getting image info:', error);
+			return {};
+		}
+	}
+
 	private async preprocessImage(imageUri: string): Promise<string> {
 		try {
 			const manipulatedImage = await ImageResizer.createResizedImage(
@@ -235,21 +249,31 @@ export class DocumentProcessor {
 		engineName: OCREngineName = "mlkit",
 	): Promise<{ text: string; confidence: number }> {
 		try {
-			// For very large images, resize before OCR
-			const imageInfo = await this.getImageSize(imageUri);
 			let processUri = imageUri;
+			let needsCleanup = false;
 			
-			if (imageInfo.width > 2000 || imageInfo.height > 2000) {
-				console.log(`Resizing large image for OCR: ${imageInfo.width}x${imageInfo.height}`);
-				const resized = await ImageResizer.createResizedImage(
-					imageUri,
-					Math.min(2000, imageInfo.width),
-					Math.min(2000, imageInfo.height),
-					'JPEG',
-					85,
-					0,
-				);
-				processUri = resized.uri;
+			// Always preprocess content:// URIs as they can't be read directly by OCR engines
+			if (imageUri.startsWith('content://')) {
+				console.log('Preprocessing content URI for OCR');
+				processUri = await this.preprocessImage(imageUri);
+				needsCleanup = true;
+			} else {
+				// For file URIs, resize if too large
+				const imageInfo = await this.getImageSize(imageUri);
+				
+				if (imageInfo.width > 2000 || imageInfo.height > 2000) {
+					console.log(`Resizing large image for OCR: ${imageInfo.width}x${imageInfo.height}`);
+					const resized = await ImageResizer.createResizedImage(
+						imageUri,
+						Math.min(2000, imageInfo.width),
+						Math.min(2000, imageInfo.height),
+						'JPEG',
+						85,
+						0,
+					);
+					processUri = resized.uri;
+					needsCleanup = true;
+				}
 			}
 			
 			// Initialize engine manager if needed
@@ -257,12 +281,13 @@ export class DocumentProcessor {
 			
 			const result = await ocrEngineManager.processImage(processUri, engineName);
 			
-			// Clean up resized image
-			if (processUri !== imageUri) {
+			// Clean up processed image if it was created during preprocessing
+			if (needsCleanup && processUri !== imageUri) {
 				try {
 					await RNFS.unlink(processUri);
 				} catch (e) {
 					// Ignore cleanup errors
+					console.log('Note: Could not clean up temporary file:', e instanceof Error ? e.message : String(e));
 				}
 			}
 			
@@ -674,9 +699,7 @@ export class DocumentProcessor {
 				console.error(`Error processing image ${i + 1}/${total}:`, error);
 
 				// Calculate hash even for failed images
-				const imageHash = await thumbnailService.calculateImageHash(
-					imageUris[i],
-				);
+				const imageHash = await this.calculateImageHash(imageUris[i]);
 
 				results.push({
 					id: this.generateId(),

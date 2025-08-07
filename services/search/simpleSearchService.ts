@@ -61,7 +61,7 @@ export class SimpleSearchService {
         
         return parsedQuery.amounts.some((amount: any) => {
           const tolerance = amount.value * 0.2; // 20% tolerance
-          return Math.abs(doc.totalAmount - amount.value) <= tolerance;
+          return Math.abs((doc.totalAmount || 0) - amount.value) <= tolerance;
         });
       });
     }

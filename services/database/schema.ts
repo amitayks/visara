@@ -1,13 +1,12 @@
 import { appSchema, tableSchema } from "@nozbe/watermelondb";
 
 export const schema = appSchema({
-	version: 2,
+	version: 3,
 	tables: [
 		tableSchema({
 			name: "documents",
 			columns: [
 				{ name: "image_uri", type: "string" },
-				{ name: "thumbnail_uri", type: "string", isOptional: true },
 				{ name: "image_hash", type: "string", isIndexed: true },
 				{ name: "ocr_text", type: "string" },
 				{ name: "document_type", type: "string" },

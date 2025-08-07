@@ -48,7 +48,6 @@ export default function DocumentDetailScreen() {
 				console.log("Document loaded:", {
 					id: doc.id,
 					imageUri: doc.imageUri,
-					thumbnailUri: doc.thumbnailUri,
 					documentType: doc.documentType,
 				});
 
@@ -261,16 +260,14 @@ export default function DocumentDetailScreen() {
 							<Text style={styles.imagePlaceholderText}>
 								Image not available
 							</Text>
-							{document.thumbnailUri && (
-								<TouchableOpacity
-									style={styles.showThumbnailButton}
-									onPress={() => setImageError(false)}
-								>
-									<Text style={styles.showThumbnailButtonText}>
-										Try loading again
-									</Text>
-								</TouchableOpacity>
-							)}
+							<TouchableOpacity
+								style={styles.showThumbnailButton}
+								onPress={() => setImageError(false)}
+							>
+								<Text style={styles.showThumbnailButtonText}>
+									Try loading again
+								</Text>
+							</TouchableOpacity>
 						</View>
 					)}
 					<View style={styles.confidenceBadge}>

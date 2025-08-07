@@ -27,7 +27,6 @@ export class DocumentStorage {
 			console.log(`[DocumentStorage] Creating new document in database`);
 			const document = await documentsCollection.create((doc) => {
 				doc.imageUri = result.imageUri;
-				doc.thumbnailUri = result.thumbnailUri;
 				doc.imageHash = result.imageHash;
 				doc.ocrText = result.ocrText;
 				doc.documentType = result.documentType;

@@ -6,7 +6,6 @@ export default class Document extends Model {
 	static table = "documents";
 
 	@field("image_uri") imageUri!: string;
-	@field("thumbnail_uri") thumbnailUri?: string;
 	@field("image_hash") imageHash!: string;
 	@field("ocr_text") ocrText!: string;
 	@field("document_type") documentType!: string;

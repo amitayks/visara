@@ -42,14 +42,14 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 			activeOpacity={0.8}
 		>
 			<Image
-				source={{ uri: doc.thumbnailUri || doc.imageUri }}
+				source={{ uri: doc.imageUri }}
 				style={styles.documentThumbnail}
 				resizeMode="cover"
 			/>
 			<View style={styles.documentInfo}>
 				<View style={styles.documentHeader}>
 					<Text style={styles.documentType}>
-						{doc.documentType.toUpperCase()}
+						{doc.documentType ? doc.documentType.toUpperCase() : 'UNKNOWN'}
 					</Text>
 					{doc.confidence && (
 						<Text style={styles.documentConfidence}>
