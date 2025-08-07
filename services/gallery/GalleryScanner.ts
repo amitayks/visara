@@ -347,7 +347,7 @@ export class GalleryScanner {
 				return;
 			}
 			
-			if (result && result.confidence > 0.6) {
+			if (result && result.confidence > 0.62) {
 				// Check for duplicate using the actual image hash from result
 				const existingDoc = await documentStorage.checkDuplicateByHash(result.imageHash);
 				if (existingDoc) {

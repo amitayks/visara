@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
 import { MasonryGrid } from "../components/DocumentGrid/MasonryGrid";
 import { BottomSearchBar } from "../components/Search/BottomSearchBar";
-import { DocumentDetailsModal } from "../components/DocumentModal/DocumentDetailsModal";
+import { DocumentDetailsOverlay } from "../components/DocumentModal/DocumentDetailsOverlay";
 import { ScanProgressBar } from "../components/Progress/ScanProgressBar";
 import type Document from "../services/database/models/Document";
 import { documentStorage } from "../services/database/documentStorage";
@@ -289,11 +289,14 @@ export default function HomeScreen() {
         onRemoveQuery={handleRemoveQuery}
       />
 
-        <DocumentDetailsModal
-          isVisible={isModalVisible}
+        <DocumentDetailsOverlay
+          visible={isModalVisible}
           document={selectedDocument}
           onClose={handleModalClose}
-          onDocumentDeleted={handleDocumentDeleted}
+          onDelete={async (documentId: string) => {
+            await documentStorage.deleteDocument(documentId);
+            handleDocumentDeleted(documentId);
+          }}
         />
       </SafeAreaView>
     </View>
