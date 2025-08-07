@@ -56,17 +56,20 @@ export function DocumentDetailsModal({
   const backdropOpacity = useSharedValue(0);
   const contentScale = useSharedValue(0.9);
 
-  // Debug logs
+  // Debug logs for WatermelonDB model
   useEffect(() => {
     if (isVisible && document) {
-      console.log('Document received in modal:', document);
-      console.log('Document ID:', document?.id);
-      console.log('Document properties:', Object.keys(document || {}));
-      console.log('Document type:', document.documentType);
-      console.log('Document vendor:', document.vendor);
-      console.log('Document totalAmount:', document.totalAmount);
-      console.log('Document date:', document.date);
-      console.log('Document processedAt:', document.processedAt);
+      console.log('Document model:', document);
+      console.log('Document ID:', document.id);
+      console.log('Document type value:', document.documentType);
+      console.log('Document vendor value:', document.vendor);
+      console.log('Document totalAmount value:', document.totalAmount);
+      console.log('Document currency value:', document.currency);
+      console.log('Document date value:', document.date);
+      console.log('Document processedAt value:', document.processedAt);
+      console.log('Document ocrText:', document.ocrText);
+      console.log('Document metadata:', document.metadata);
+      console.log('Document confidence:', document.confidence);
     }
   }, [isVisible, document]);
 
@@ -82,8 +85,9 @@ export function DocumentDetailsModal({
 
   // Format document type for display
   const formatDocumentType = useCallback((documentType?: string) => {
-    if (!documentType) return "Unknown";
-    const formatted = documentType.replace("_", " ");
+    console.log('Formatting document type:', documentType);
+    if (!documentType || documentType === '') return "Unknown";
+    const formatted = documentType.replace(/_/g, " ");
     return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   }, []);
 
@@ -199,18 +203,21 @@ export function DocumentDetailsModal({
     if (!document) return;
 
     try {
-      // Create formatted text with all document data
-      const textToCopy = `
-Type: ${formatDocumentType(document.documentType)}
-Vendor: ${document.vendor || 'Unknown'}
-${document.totalAmount ? `Amount: ${document.currency || '$'}${document.totalAmount.toFixed(2)}` : ''}
-Date: ${document.processedAt 
-  ? new Date(document.processedAt).toLocaleDateString() 
-  : (document.date 
-    ? new Date(document.date).toLocaleDateString() 
-    : 'Unknown')}
-
-${document.ocrText || 'No extracted text available'}`.trim();
+      // Build text array and filter out empty strings
+      const textToCopy = [
+        `Type: ${formatDocumentType(document.documentType)}`,
+        document.vendor ? `Vendor: ${document.vendor}` : '',
+        (document.totalAmount !== null && document.totalAmount !== undefined && document.totalAmount > 0) 
+          ? `Amount: ${document.currency || '$'}${document.totalAmount.toFixed(2)}` : '',
+        `Date: ${document.date 
+          ? new Date(document.date).toLocaleDateString() 
+          : (document.processedAt 
+            ? new Date(document.processedAt).toLocaleDateString() 
+            : 'Unknown')}`,
+        '',
+        'Extracted Text:',
+        document.ocrText || 'No text extracted'
+      ].filter(Boolean).join('\n');
       
       await Clipboard.setString(textToCopy);
       showToast("info copy successfully");
@@ -223,12 +230,13 @@ ${document.ocrText || 'No extracted text available'}`.trim();
   const handleDelete = useCallback(() => {
     if (!document) return;
 
-    console.log('Attempting to delete document:', document);
-    console.log('Document ID for deletion:', document?.id);
+    console.log('Attempting to delete document model:', document);
+    console.log('Document ID for deletion:', document.id);
+    console.log('Document ID type:', typeof document.id);
     
-    // Check if document has an ID
+    // Check if WatermelonDB document has an ID
     if (!document.id) {
-      console.error('Document has no ID property');
+      console.error('Document missing ID');
       Alert.alert("Error", "Cannot delete document: No ID found");
       return;
     }
@@ -272,18 +280,27 @@ ${document.ocrText || 'No extracted text available'}`.trim();
     });
   }, []);
 
-  // Extract items from OCR text (simple implementation)
-  const extractItems = useCallback((ocrText: string) => {
-    if (!ocrText) return [];
+  // Extract items from metadata or OCR text
+  const extractItems = useCallback((document: Document) => {
+    // Try to get items from metadata first
+    if (document.metadata && document.metadata.items) {
+      console.log('Using items from metadata:', document.metadata.items);
+      return document.metadata.items;
+    }
     
-    // Simple line-based extraction
-    const lines = ocrText.split("\n").filter(line => line.trim().length > 3);
-    return lines.slice(0, 10); // Limit to first 10 lines
+    // Fallback to OCR text parsing
+    if (document.ocrText) {
+      console.log('Parsing items from OCR text');
+      const lines = document.ocrText.split("\n").filter(line => line.trim().length > 3);
+      return lines.slice(0, 10); // Limit to first 10 lines
+    }
+    
+    return [];
   }, []);
 
   if (!document) return null;
 
-  const items = extractItems(document.ocrText);
+  const items = extractItems(document);
 
   return (
     <Modal
@@ -338,7 +355,7 @@ ${document.ocrText || 'No extracted text available'}`.trim();
                 <Text style={styles.detailValue}>{document.vendor || 'Unknown Vendor'}</Text>
               </View>
               
-              {document.totalAmount && (
+              {(document.totalAmount !== null && document.totalAmount !== undefined && document.totalAmount > 0) && (
                 <View style={styles.detailRow}>
                   <Text style={styles.detailLabel}>Total Amount:</Text>
                   <Text style={styles.detailValue}>
@@ -366,7 +383,14 @@ ${document.ocrText || 'No extracted text available'}`.trim();
                 <View style={styles.itemsList}>
                   <Text style={styles.itemsLabel}>Items:</Text>
                   {items.map((item, index) => (
-                    <Text key={index} style={styles.itemText}>{item}</Text>
+                    <Text key={index} style={styles.itemText}>
+                      {typeof item === 'string' 
+                        ? item 
+                        : (typeof item === 'object' && item.name 
+                          ? `${item.name}${item.price ? ` - $${item.price.toFixed(2)}` : ''}${item.quantity ? ` (x${item.quantity})` : ''}` 
+                          : JSON.stringify(item))
+                      }
+                    </Text>
                   ))}
                 </View>
               </View>
