@@ -1,6 +1,7 @@
 import { Model } from "@nozbe/watermelondb";
 import { date, field, json } from "@nozbe/watermelondb/decorators";
 import type { ExtractedMetadata } from "../../ai/documentProcessor";
+import type { MoondreamOutput } from "../../ai/moondreamOCR";
 
 export default class Document extends Model {
 	static table = "documents";
@@ -21,6 +22,8 @@ export default class Document extends Model {
 	@field("image_height") imageHeight?: number;
 	@field("image_size") imageSize?: number;
 	@json("metadata", (obj) => obj) metadata!: ExtractedMetadata;
+	@json("structured_data", (obj) => obj || {}) structuredData?: MoondreamOutput;
+	@field("processing_version") processingVersion?: string;
 	@date("processed_at") processedAt!: Date;
 	@date("created_at") createdAt!: Date;
 	@date("updated_at") updatedAt!: Date;

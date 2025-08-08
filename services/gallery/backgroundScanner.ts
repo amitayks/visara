@@ -5,6 +5,7 @@ import { galleryScanner } from "./GalleryScanner";
 import { galleryPermissions } from "../permissions/galleryPermissions";
 import { deviceInfo } from "../../utils/deviceInfo";
 import { AppState, AppStateStatus, InteractionManager } from "react-native";
+import { memoryAwareBatchProcessor } from "./memoryAwareBatchProcessor";
 
 interface BackgroundTaskOptions {
 	taskName: string;
@@ -276,7 +277,7 @@ export class BackgroundScanner {
 		const settings = settingsStore.getState().settings;
 		
 		try {
-			console.log("[BackgroundScanner] Starting background gallery scan");
+			console.log("[BackgroundScanner] Starting background gallery scan with memory management");
 			
 			// Run scan on lower priority
 			await new Promise(resolve => {
@@ -292,36 +293,46 @@ export class BackgroundScanner {
 				});
 			}
 			
-			// Create special options for background processing
-			const scanOptions = {
-				batchSize: 3, // Even smaller batches for background
-				wifiOnly: settings.scanWifiOnly,
-				smartFilterEnabled: settings.smartFilterEnabled,
-				batterySaver: settings.batterySaver,
-				isBackground: true,
-				maxConcurrentProcessing: 1, // Only process one image at a time in background
-			};
+			// Get unprocessed images from gallery scanner
+			const images = await galleryScanner.getUnprocessedImages();
 			
-			// Run scan with lower priority
-			await galleryScanner.startScan(scanOptions, async (progress) => {
-				// Update progress less frequently
-				if (progress.processedImages % 20 === 0) {
-					const percentage = progress.totalImages > 0 
-						? Math.round((progress.processedImages / progress.totalImages) * 100)
-						: 0;
+			if (images.length === 0) {
+				console.log("[BackgroundScanner] No new images to process");
+				if (BackgroundService.isRunning()) {
+					await BackgroundService.updateNotification({
+						taskDesc: "No new documents found. Waiting for next scan...",
+					});
+				}
+				return;
+			}
+			
+			console.log(`[BackgroundScanner] Found ${images.length} unprocessed images`);
+			
+			// Use memory-aware batch processor for processing
+			await memoryAwareBatchProcessor.processBatchWithMemoryManagement(
+				images,
+				async (current, total) => {
+					// Update progress
+					const progress = {
+						processedImages: current,
+						totalImages: total,
+						isScanning: true,
+					};
 					
-					if (BackgroundService.isRunning()) {
-						await BackgroundService.updateNotification({
-							taskDesc: `Scanning: ${percentage}% complete`,
-						});
+					useScannerStore.getState().setScanProgress(progress);
+					
+					// Update notification less frequently
+					if (current % 5 === 0 || current === total) {
+						const percentage = Math.round((current / total) * 100);
+						
+						if (BackgroundService.isRunning()) {
+							await BackgroundService.updateNotification({
+								taskDesc: `Processing: ${current}/${total} (${percentage}%)`,
+							});
+						}
 					}
 				}
-				
-				// Update store less frequently
-				if (progress.processedImages % 10 === 0) {
-					useScannerStore.getState().setScanProgress(progress);
-				}
-			});
+			);
 			
 			// Update last scan time
 			this.lastScanTime = new Date();
@@ -329,19 +340,33 @@ export class BackgroundScanner {
 			// Update notification to show completion
 			if (BackgroundService.isRunning()) {
 				await BackgroundService.updateNotification({
-					taskDesc: "Scan complete. Waiting for next scan...",
+					taskDesc: "Processing complete. Waiting for next scan...",
 				});
 			}
 			
-			console.log("[BackgroundScanner] Background gallery scan completed");
+			// Clear scanning state
+			useScannerStore.getState().setScanProgress({
+				processedImages: 0,
+				totalImages: 0,
+				isScanning: false,
+			});
+			
+			console.log("[BackgroundScanner] Background processing completed with memory management");
 		} catch (error) {
 			console.error("[BackgroundScanner] Background scan failed:", error);
 			
 			if (BackgroundService.isRunning()) {
 				await BackgroundService.updateNotification({
-					taskDesc: "Scan failed. Will retry later...",
+					taskDesc: "Processing failed. Will retry later...",
 				});
 			}
+			
+			// Clear scanning state on error
+			useScannerStore.getState().setScanProgress({
+				processedImages: 0,
+				totalImages: 0,
+				isScanning: false,
+			});
 		}
 	}
 
@@ -402,7 +427,8 @@ export class BackgroundScanner {
 	}
 
 	async isScanning(): Promise<boolean> {
-		return galleryScanner.getProgress().isScanning || this.isRunning;
+		const batchProcessorProgress = memoryAwareBatchProcessor.getProgress();
+		return galleryScanner.getProgress().isScanning || this.isRunning || batchProcessorProgress.isProcessing;
 	}
 
 	isBackgroundServiceRunning(): boolean {
@@ -428,6 +454,9 @@ export class BackgroundScanner {
 		
 		// Stop any running scans
 		this.stopPeriodicScan();
+		
+		// Stop memory-aware processor
+		memoryAwareBatchProcessor.stopProcessing();
 	}
 }
 

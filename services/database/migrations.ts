@@ -32,5 +32,17 @@ export default schemaMigrations({
 				// so we'll handle this in the model by ignoring the column
 			],
 		},
+		{
+			toVersion: 4,
+			steps: [
+				addColumns({
+					table: "documents",
+					columns: [
+						{ name: "structured_data", type: "string", isOptional: true },
+						{ name: "processing_version", type: "string", isOptional: true },
+					],
+				}),
+			],
+		},
 	],
 });

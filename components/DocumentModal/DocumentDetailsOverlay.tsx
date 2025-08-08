@@ -95,58 +95,64 @@ export function DocumentDetailsOverlay({
   if (!document) return null;
 
   // Extract data from the WatermelonDB document
-  console.log('Document in overlay:', document);
-  console.log('Document has _raw?:', !!(document as any)?._raw);
-  
-  // Access the raw data directly since WatermelonDB model properties might not be accessible
   const rawData = (document as any)?._raw || {};
-  console.log('Raw data:', rawData);
   
-  // Display ALL raw data fields for now
+  // Parse structured data from Moondream if available
+  let structuredData: any = null;
+  if (rawData.structured_data) {
+    try {
+      structuredData = typeof rawData.structured_data === 'string' 
+        ? JSON.parse(rawData.structured_data)
+        : rawData.structured_data;
+    } catch (e) {
+      console.error('Failed to parse structured data:', e);
+    }
+  }
+  
+  // Use structured data from Moondream if available, otherwise fall back to regular fields
   const displayData = {
-    // Core fields
+    // Core fields - prioritize Moondream data
     id: rawData.id || document.id || 'Unknown ID',
-    type: rawData.document_type || 'Unknown',
-    vendor: rawData.vendor || 'Unknown Vendor',
-    totalAmount: rawData.total_amount,
-    currency: rawData.currency || '$',
-    date: rawData.date || rawData.processed_at,
-    ocrText: rawData.ocr_text || '',
-    confidence: rawData.confidence,
+    type: structuredData?.document_type || rawData.document_type || 'Unknown',
+    vendor: structuredData?.vendor || rawData.vendor || 'Unknown Vendor',
+    totalAmount: structuredData?.total_amount || rawData.total_amount,
+    currency: structuredData?.currency || rawData.currency || '$',
+    date: structuredData?.date || rawData.date || rawData.processed_at,
+    ocrText: structuredData?.raw_text || rawData.ocr_text || '',
+    confidence: structuredData?.confidence || rawData.confidence,
     imageUri: rawData.image_uri || '',
+    processingVersion: rawData.processing_version || 'traditional-ocr',
     
     // Additional fields from raw data
-    imageHash: rawData.image_hash,
     imageHeight: rawData.image_height,
     imageWidth: rawData.image_width,
     imageSize: rawData.image_size,
     imageTakenDate: rawData.image_taken_date,
     processedAt: rawData.processed_at,
-    createdAt: rawData.created_at,
-    updatedAt: rawData.updated_at,
     keywords: rawData.keywords,
-    searchVector: rawData.search_vector,
     metadata: rawData.metadata,
-    _status: rawData._status,
-    _changed: rawData._changed,
+    structuredData: structuredData,
   };
 
-  console.log('All display data extracted:', displayData);
-
-  // Parse metadata - it's stored as JSON string in raw data
+  // Parse metadata and extract items - prioritize Moondream structured data
   let parsedMetadata: any = {};
   let items: any[] = [];
-  try {
-    if (displayData.metadata) {
-      parsedMetadata = typeof displayData.metadata === 'string' 
-        ? JSON.parse(displayData.metadata) 
-        : displayData.metadata;
-      items = parsedMetadata.items || [];
-      console.log('Parsed metadata:', parsedMetadata);
-      console.log('Metadata items:', items);
+  
+  // First try to get items from Moondream structured data
+  if (displayData.structuredData?.items && displayData.structuredData.items.length > 0) {
+    items = displayData.structuredData.items;
+  } else {
+    // Fall back to regular metadata
+    try {
+      if (displayData.metadata) {
+        parsedMetadata = typeof displayData.metadata === 'string' 
+          ? JSON.parse(displayData.metadata) 
+          : displayData.metadata;
+        items = parsedMetadata.items || [];
+      }
+    } catch (e) {
+      console.error('Failed to parse metadata:', e);
     }
-  } catch (e) {
-    console.error('Failed to parse metadata:', e);
   }
 
   // Parse keywords if they're stored as JSON string
@@ -156,7 +162,6 @@ export function DocumentDetailsOverlay({
       keywords = typeof displayData.keywords === 'string'
         ? JSON.parse(displayData.keywords)
         : displayData.keywords;
-      console.log('Parsed keywords:', keywords);
     }
   } catch (e) {
     console.error('Failed to parse keywords:', e);
@@ -277,8 +282,8 @@ export function DocumentDetailsOverlay({
                 />
               )}
               <InfoRow 
-                label="Time Processed" 
-                value={displayData.date ? (displayData.date instanceof Date ? displayData.date : new Date(displayData.date)).toLocaleDateString() : 'Unknown'} 
+                label="Date" 
+                value={displayData.date ? (typeof displayData.date === 'string' ? displayData.date : displayData.date instanceof Date ? displayData.date.toLocaleDateString() : new Date(displayData.date).toLocaleDateString()) : 'Unknown'} 
               />
               {displayData.confidence && (
                 <InfoRow 
@@ -286,29 +291,51 @@ export function DocumentDetailsOverlay({
                   value={`${Math.round(displayData.confidence * 100)}%`} 
                 />
               )}
+              <InfoRow 
+                label="Processing" 
+                value={displayData.processingVersion === 'moondream-0.5b' ? 'Moondream AI' : 'Traditional OCR'} 
+              />
             </View>
 
-            {/* DEBUG: Show ALL raw data */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>DEBUG: All Raw Data</Text>
-              <View style={styles.textContainer}>
-                <Text style={styles.ocrText}>{JSON.stringify(rawData, null, 2)}</Text>
+            {/* Moondream Structured Data (if available) */}
+            {displayData.structuredData && (
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>AI-Extracted Data</Text>
+                <View style={styles.structuredDataContainer}>
+                  {displayData.structuredData.vendor && (
+                    <InfoRow label="Vendor" value={displayData.structuredData.vendor} />
+                  )}
+                  {displayData.structuredData.date && (
+                    <InfoRow label="Transaction Date" value={displayData.structuredData.date} />
+                  )}
+                  {displayData.structuredData.total_amount && (
+                    <InfoRow 
+                      label="Total" 
+                      value={`${displayData.structuredData.currency || '$'}${displayData.structuredData.total_amount.toFixed(2)}`} 
+                    />
+                  )}
+                  {displayData.structuredData.document_type && (
+                    <InfoRow label="Type" value={formatDocumentType(displayData.structuredData.document_type)} />
+                  )}
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Extracted Items */}
             {items.length > 0 && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Extracted Information</Text>
+                <Text style={styles.sectionTitle}>Line Items</Text>
                 <View style={styles.itemsContainer}>
-                  <Text style={styles.itemsLabel}>Items:</Text>
                   {items.map((item: any, index: number) => (
-                    <Text key={index} style={styles.itemText}>
-                      {typeof item === 'string' 
-                        ? item
-                        : `${item.name || 'Item'} ${item.quantity ? `- ${item.quantity} x` : ''} ${item.price ? `$${item.price.toFixed(2)}` : ''}`
-                      }
-                    </Text>
+                    <View key={index} style={styles.itemRow}>
+                      <Text style={styles.itemName}>
+                        {item.name || 'Item'}
+                      </Text>
+                      <Text style={styles.itemDetails}>
+                        {item.quantity && item.quantity > 1 ? `${item.quantity} × ` : ''}
+                        {item.price ? `$${typeof item.price === 'number' ? item.price.toFixed(2) : item.price}` : ''}
+                      </Text>
+                    </View>
                   ))}
                 </View>
               </View>
@@ -412,15 +439,27 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 8,
   },
-  itemsLabel: {
-    fontWeight: '600',
-    marginBottom: 6,
-    color: '#333',
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
   },
-  itemText: {
+  itemName: {
+    flex: 1,
     fontSize: 13,
-    marginVertical: 2,
     color: '#555',
+  },
+  itemDetails: {
+    fontSize: 13,
+    color: '#333',
+    fontWeight: '500',
+  },
+  structuredDataContainer: {
+    backgroundColor: '#f0f8ff',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e8ff',
   },
   textContainer: {
     backgroundColor: '#f8f8f8',

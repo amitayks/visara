@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from "@nozbe/watermelondb";
 
 export const schema = appSchema({
-	version: 3,
+	version: 4,
 	tables: [
 		tableSchema({
 			name: "documents",
@@ -22,6 +22,8 @@ export const schema = appSchema({
 				{ name: "image_height", type: "number", isOptional: true },
 				{ name: "image_size", type: "number", isOptional: true }, // in bytes
 				{ name: "metadata", type: "string" }, // JSON string
+				{ name: "structured_data", type: "string", isOptional: true }, // JSON from Moondream
+				{ name: "processing_version", type: "string", isOptional: true }, // Track OCR version
 				{ name: "processed_at", type: "number" },
 				{ name: "created_at", type: "number" },
 				{ name: "updated_at", type: "number" },

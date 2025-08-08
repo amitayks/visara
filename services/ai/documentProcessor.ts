@@ -7,6 +7,7 @@ import { embeddingService } from "../search/simpleEmbeddingService";
 import { keywordExtractor } from "./keywordExtractor";
 import { ocrEngineManager } from "./OCREngineManager";
 import type { OCREngineName } from "./ocrTypes";
+import { moondreamOCR, type MoondreamOutput } from './moondreamOCR';
 
 export interface DocumentResult {
 	id: string;
@@ -30,6 +31,8 @@ export interface DocumentResult {
 	imageWidth?: number;
 	imageHeight?: number;
 	imageSize?: number;
+	structuredData?: MoondreamOutput;
+	processingVersion?: string;
 }
 
 export interface ExtractedMetadata {
@@ -62,6 +65,9 @@ export interface ProcessingOptions {
 	extractStructuredData?: boolean;
 	confidenceThreshold?: number;
 	ocrEngine?: OCREngineName;
+	useMoondream?: boolean;
+	skipDuplicateCheck?: boolean;
+	generateThumbnail?: boolean;
 }
 
 export class DocumentProcessor {
@@ -73,6 +79,9 @@ export class DocumentProcessor {
 		extractStructuredData: true,
 		confidenceThreshold: 0.7,
 		ocrEngine: "tesseract",
+		useMoondream: true,
+		skipDuplicateCheck: false,
+		generateThumbnail: true,
 	};
 
 	async processImage(
@@ -101,18 +110,55 @@ export class DocumentProcessor {
 			// Get basic image info
 			const imageInfo = await this.getImageInfo(imageUri);
 
-			// Perform OCR directly on the device URI
-			const ocrResult = await this.performOCRWithMemoryCleanup(
-				imageUri,
-				opts.ocrEngine,
-			);
-
-			const documentType = this.detectDocumentType(ocrResult.text);
-
+			let ocrResult: { text: string; confidence: number };
+			let moondreamResult: MoondreamOutput | undefined;
 			let metadata: ExtractedMetadata = { confidence: 0 };
+			let documentType: DocumentResult['documentType'];
 
-			if (opts.extractStructuredData) {
-				metadata = await this.extractMetadata(ocrResult.text, documentType);
+			if (opts.useMoondream) {
+				// Use Moondream for advanced OCR and structured data extraction
+				console.log('[DocumentProcessor] Using Moondream for extraction');
+				try {
+					moondreamResult = await moondreamOCR.processDocument(imageUri);
+					
+					ocrResult = {
+						text: moondreamResult.raw_text || '',
+						confidence: moondreamResult.confidence || 0.5
+					};
+					
+					// Convert Moondream output to metadata format
+					metadata = {
+						vendor: moondreamResult.vendor,
+						amounts: moondreamResult.total_amount ? [{
+							value: moondreamResult.total_amount,
+							currency: moondreamResult.currency || '$',
+							isTotal: true
+						}] : [],
+						items: moondreamResult.items || [],
+						dates: moondreamResult.date ? [{
+							date: new Date(moondreamResult.date),
+							type: 'transaction' as const
+						}] : [],
+						confidence: moondreamResult.confidence || 0.5,
+					};
+					
+					documentType = moondreamResult.document_type as DocumentResult['documentType'] || 'unknown';
+				} catch (error) {
+					console.error('[DocumentProcessor] Moondream failed, falling back to traditional OCR:', error);
+					// Fall back to traditional OCR
+					ocrResult = await this.performOCRWithMemoryCleanup(imageUri, opts.ocrEngine);
+					documentType = this.detectDocumentType(ocrResult.text);
+					if (opts.extractStructuredData) {
+						metadata = await this.extractMetadata(ocrResult.text, documentType);
+					}
+				}
+			} else {
+				// Use traditional OCR
+				ocrResult = await this.performOCRWithMemoryCleanup(imageUri, opts.ocrEngine);
+				documentType = this.detectDocumentType(ocrResult.text);
+				if (opts.extractStructuredData) {
+					metadata = await this.extractMetadata(ocrResult.text, documentType);
+				}
 			}
 
 			const confidence = this.calculateOverallConfidence(
@@ -121,7 +167,9 @@ export class DocumentProcessor {
 				documentType,
 			);
 			
-			const keywords = await this.extractKeywords(ocrResult.text);
+			const keywords = moondreamResult 
+				? this.extractKeywordsFromMoondream(moondreamResult)
+				: await this.extractKeywords(ocrResult.text);
 			const searchVector = await this.generateSearchVector(ocrResult.text);
 
 			const result: DocumentResult = {
@@ -139,6 +187,8 @@ export class DocumentProcessor {
 				imageHeight: imageInfo.height,
 				imageSize: imageInfo.size,
 				imageTakenDate: imageInfo.takenDate,
+				structuredData: moondreamResult,
+				processingVersion: opts.useMoondream ? 'moondream-0.5b' : 'traditional-ocr',
 			};
 
 			const processingTime = Date.now() - startTime;
@@ -741,6 +791,34 @@ export class DocumentProcessor {
 
 	private generateId(): string {
 		return `doc_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+	}
+
+	private extractKeywordsFromMoondream(result: MoondreamOutput): string[] {
+		const keywords = new Set<string>();
+		
+		if (result.vendor) {
+			keywords.add(result.vendor.toLowerCase());
+		}
+		
+		result.items?.forEach(item => {
+			if (item.name) {
+				keywords.add(item.name.toLowerCase());
+			}
+		});
+		
+		if (result.document_type) {
+			keywords.add(result.document_type);
+		}
+		
+		if (result.date) {
+			keywords.add(new Date(result.date).toLocaleDateString());
+		}
+		
+		if (result.total_amount) {
+			keywords.add(`${result.currency || '$'}${result.total_amount}`);
+		}
+		
+		return Array.from(keywords).slice(0, 20);
 	}
 }
 

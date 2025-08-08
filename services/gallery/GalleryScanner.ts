@@ -699,6 +699,54 @@ export class GalleryScanner {
 			this.memoryCheckInterval = null;
 		}
 	}
+	
+	async getUnprocessedImages(): Promise<string[]> {
+		try {
+			// Get all images from gallery
+			const photos = await CameraRoll.getPhotos({
+				first: 1000,
+				assetType: 'Photos',
+				include: ['fileSize', 'filename', 'imageSize', 'location', 'playableDuration'],
+			});
+			
+			const unprocessedImages: string[] = [];
+			
+			for (const asset of photos.edges) {
+				const uri = asset.node.image.uri;
+				
+				// Calculate hash for the image URI
+				const hash = CryptoJS.SHA256(uri).toString();
+				
+				// Check if already processed
+				if (!this.processedHashes.has(hash)) {
+					// Apply smart filter if enabled
+					if (DEFAULT_OPTIONS.smartFilterEnabled) {
+						const assetInfo: AssetInfo = {
+							uri,
+							fileSize: asset.node.image.fileSize || 0,
+							width: asset.node.image.width,
+							height: asset.node.image.height,
+							type: asset.node.type,
+							timestamp: asset.node.timestamp,
+						};
+						
+						if (smartFilter.shouldProcessImage(assetInfo)) {
+							unprocessedImages.push(uri);
+						}
+					} else {
+						unprocessedImages.push(uri);
+					}
+				}
+			}
+			
+			console.log(`[GalleryScanner] Found ${unprocessedImages.length} unprocessed images`);
+			return unprocessedImages;
+			
+		} catch (error) {
+			console.error('[GalleryScanner] Failed to get unprocessed images:', error);
+			return [];
+		}
+	}
 }
 
 export const galleryScanner = new GalleryScanner();
