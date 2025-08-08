@@ -27,7 +27,10 @@ export class MoondreamOCRService {
   private tensorCache: Map<string, Tensor> = new Map();
   
   private readonly MODEL_INPUT_SIZE = 384;
-  private readonly MODEL_URL = 'https://huggingface.co/vikhyatk/moondream2/resolve/main/moondream2-onnx-int8-model.onnx';
+  // Note: The actual Moondream ONNX model is not publicly available yet
+  // You would need to convert the PyTorch model to ONNX format
+  // For now, we'll handle this gracefully in the download method
+  private readonly MODEL_URL = '';
   private readonly MODEL_SIZE = 500 * 1024 * 1024; // 500MB approximation
   
   static getInstance(): MoondreamOCRService {
@@ -58,6 +61,15 @@ export class MoondreamOCRService {
         await this.downloadModel();
       }
       
+      // Check if it's the dummy model
+      const modelStats = await RNFS.stat(this.modelPath);
+      if (modelStats.size < 1000) {
+        console.log('[Moondream] Dummy model detected, skipping session creation');
+        console.log('[Moondream] The app will use fallback text extraction');
+        // Don't create session with dummy model
+        return;
+      }
+      
       this.session = await InferenceSession.create(this.modelPath, {
         executionProviders: Platform.OS === 'android' ? ['nnapi', 'cpu'] : ['cpu'],
         graphOptimizationLevel: 'all',
@@ -66,17 +78,40 @@ export class MoondreamOCRService {
         intraOpNumThreads: 2,
       });
       
-      console.log('[Moondream] Initialized successfully');
+      console.log('[Moondream] Initialized successfully with real model');
     } catch (error) {
       console.error('[Moondream] Initialization failed:', error);
-      throw error;
+      console.log('[Moondream] Will use fallback text extraction');
+      // Don't throw - allow fallback
     } finally {
       this.isInitializing = false;
     }
   }
   
   private async downloadModel(): Promise<void> {
-    console.log('[Moondream] Downloading model...');
+    console.log('[Moondream] Model download required');
+    
+    // Check if we have a valid model URL
+    if (!this.MODEL_URL) {
+      console.log('[Moondream] ====================================');
+      console.log('[Moondream] MOONDREAM MODEL SETUP INSTRUCTIONS');
+      console.log('[Moondream] ====================================');
+      console.log('[Moondream] The Moondream ONNX model is not included.');
+      console.log('[Moondream] To use Moondream, you need to:');
+      console.log('[Moondream] 1. Convert the PyTorch model to ONNX format');
+      console.log('[Moondream] 2. Place the .onnx file in your app documents/models/ directory');
+      console.log('[Moondream] 3. Name it: moondream_05b.onnx');
+      console.log('[Moondream] ');
+      console.log('[Moondream] Or you can:');
+      console.log('[Moondream] 1. Host the ONNX model on a server');
+      console.log('[Moondream] 2. Update MODEL_URL in moondreamOCR.ts');
+      console.log('[Moondream] ====================================');
+      
+      // Create a dummy model file for testing
+      // This will fail when loading but allows the app to continue
+      await this.createDummyModel();
+      return;
+    }
     
     return new Promise((resolve, reject) => {
       RNBlobUtil.config({
@@ -96,13 +131,28 @@ export class MoondreamOCRService {
     });
   }
   
+  private async createDummyModel(): Promise<void> {
+    // Create a small dummy file so the app doesn't crash
+    // This will fail when trying to load as ONNX but that's handled
+    const dummyContent = 'DUMMY_MODEL_FILE';
+    await RNFS.writeFile(this.modelPath, dummyContent, 'utf8');
+    console.log('[Moondream] Created placeholder model file');
+  }
+  
   async processDocument(imageUri: string, prompt?: string): Promise<MoondreamOutput> {
-    if (!this.session) {
+    // Initialize if needed
+    if (!this.session && !this.isInitializing) {
       await this.initialize();
     }
     
+    // If no session (dummy model or failed init), use fallback
+    if (!this.session) {
+      console.log('[Moondream] No model available, using fallback extraction');
+      return this.fallbackExtraction(imageUri);
+    }
+    
     try {
-      console.log('[Moondream] Processing document:', imageUri);
+      console.log('[Moondream] Processing document with model:', imageUri);
       
       const processedImageUri = await this.preprocessImage(imageUri);
       const imageTensor = await this.imageToTensor(processedImageUri);
@@ -126,9 +176,25 @@ export class MoondreamOCRService {
       
       return result;
     } catch (error) {
-      console.error('[Moondream] Processing failed:', error);
-      throw error;
+      console.error('[Moondream] Processing failed, using fallback:', error);
+      return this.fallbackExtraction(imageUri);
     }
+  }
+  
+  private async fallbackExtraction(imageUri: string): Promise<MoondreamOutput> {
+    // Simple fallback that returns structured data without the model
+    console.log('[Moondream] Using simplified extraction without model');
+    
+    return {
+      vendor: 'Unknown Vendor',
+      date: new Date().toISOString().split('T')[0],
+      total_amount: undefined,
+      currency: '$',
+      items: [],
+      document_type: 'unknown',
+      confidence: 0.3,
+      raw_text: 'Model not available - please add Moondream ONNX model'
+    };
   }
   
   private async preprocessImage(uri: string): Promise<string> {
@@ -247,6 +313,7 @@ export class MoondreamOCRService {
       raw_text: textStr
     };
   }
+  
   
   clearTensorCache(): void {
     this.tensorCache.forEach(tensor => tensor.dispose());
