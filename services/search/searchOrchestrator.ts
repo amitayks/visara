@@ -1,6 +1,6 @@
 import { Database } from '@nozbe/watermelondb';
 import { Q } from '@nozbe/watermelondb';
-import type { Document } from '../database/models/Document';
+import type Document from '../database/models/Document';
 import { 
   SearchResult, 
   SearchOptions, 
@@ -21,7 +21,6 @@ export class SearchOrchestrator {
   private queryParser: AdvancedQueryParser;
   private rankingEngine: RankingEngine;
   private embeddingService: SimpleEmbeddingService;
-  private phoneticMatcher: PhoneticMatcher;
   private cache: Map<string, SearchCache>;
   private queryStack: QueryStack | null = null;
   private database: Database;
@@ -32,7 +31,6 @@ export class SearchOrchestrator {
     this.queryParser = new AdvancedQueryParser();
     this.rankingEngine = new RankingEngine();
     this.embeddingService = new SimpleEmbeddingService();
-    this.phoneticMatcher = new PhoneticMatcher();
     this.cache = new Map();
     
     // Try to initialize ONNX semantic search
@@ -254,7 +252,7 @@ export class SearchOrchestrator {
     
     // Apply sorting if needed
     if (shouldSortByDate) {
-      queryBuilder = queryBuilder.sortBy('date', Q.desc);
+      queryBuilder = queryBuilder.extend(Q.sortBy('date', Q.desc));
     }
 
     let documents = await queryBuilder.fetch();
@@ -293,7 +291,7 @@ export class SearchOrchestrator {
           
           // Phonetic match if enabled
           if (options.usePhoneticMatching !== false) {
-            return this.phoneticMatcher.isPhoneticMatch(docVendor, vendorLower);
+            return PhoneticMatcher.compare(docVendor, vendorLower);
           }
           
           return false;
@@ -401,7 +399,7 @@ export class SearchOrchestrator {
     
     // Apply minimum confidence filter
     if (options.minConfidence) {
-      processed = processed.filter(doc => doc.confidence >= options.minConfidence);
+      processed = processed.filter(doc => doc.confidence >= options.minConfidence!);
     }
     
     // Boost recent documents if no specific date filter

@@ -1,4 +1,4 @@
-import type { Document } from '../../database/models/Document';
+import type Document from '../../database/models/Document';
 
 export type QueryIntent = 
   | 'search'      // Find documents

@@ -7,6 +7,9 @@ import { embeddingService } from "../search/simpleEmbeddingService";
 import { keywordExtractor } from "./keywordExtractor";
 import { ocrEngineManager } from "./OCREngineManager";
 import type { OCREngineName } from "./ocrTypes";
+import { TempFileTracker } from '../memory/cleanupRegistry';
+import { memoryManager } from '../memory/memoryManager';
+import { unifiedImageCache } from '../cache/unifiedImageCache';
 
 export interface DocumentResult {
 	id: string;
@@ -86,13 +89,19 @@ export class DocumentProcessor {
 		
 		this.activeProcessingCount++;
 		
+		// Create temp file tracker for this processing session
+		const tempTracker = new TempFileTracker('documentProcessor');
+		
 		try {
 			const opts = { ...this.defaultOptions, ...options };
 			const startTime = Date.now();
 			
-			// Force garbage collection hint
-			if (global.gc) {
-				global.gc();
+			// Check memory before processing
+			const memStatus = memoryManager.getMemoryStatus();
+			if (memStatus.isCriticalMemory) {
+				console.warn('[DocumentProcessor] Critical memory, triggering cleanup');
+				await memoryManager.emergencyCleanup();
+				await new Promise(resolve => setTimeout(resolve, 2000));
 			}
 			
 			// Calculate image hash for deduplication using URI and basic properties
@@ -152,7 +161,14 @@ export class DocumentProcessor {
 			console.error("Error processing document:", error);
 			throw error;
 		} finally {
+			// ALWAYS cleanup temp files, even on error
+			await tempTracker.cleanupAll();
 			this.activeProcessingCount--;
+			
+			// Trigger GC hint after processing
+			if (global.gc) {
+				global.gc();
+			}
 		}
 	}
 
@@ -223,8 +239,16 @@ export class DocumentProcessor {
 		}
 	}
 
-	private async preprocessImage(imageUri: string): Promise<string> {
+	private async preprocessImage(imageUri: string, tempTracker?: TempFileTracker): Promise<string> {
 		try {
+			// Check cache first
+			const cacheKey = `preprocessed_${await this.calculateImageHash(imageUri)}`;
+			const cached = await unifiedImageCache.get(cacheKey);
+			if (cached) {
+				console.log('[DocumentProcessor] Using cached preprocessed image');
+				return cached;
+			}
+			
 			const manipulatedImage = await ImageResizer.createResizedImage(
 				imageUri,
 				1500, // maxWidth
@@ -236,7 +260,18 @@ export class DocumentProcessor {
 				false, // keepMeta
 			);
 
-			// Return the resized image directly
+			// Track the temp file for cleanup
+			if (tempTracker) {
+				tempTracker.add(manipulatedImage.uri);
+			} else {
+				// Register with memory manager if no tracker provided
+				memoryManager.registerTempFile(manipulatedImage.uri, 'preprocessImage');
+			}
+			
+			// Cache the preprocessed image
+			await unifiedImageCache.set(cacheKey, manipulatedImage.uri, manipulatedImage.size, 'preprocess');
+
+			// Return the resized image
 			return manipulatedImage.uri;
 		} catch (error) {
 			console.error("Error preprocessing image:", error);

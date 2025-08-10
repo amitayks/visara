@@ -29,7 +29,7 @@ try {
  * Recommended model: all-MiniLM-L6-v2 quantized to ~25MB
  */
 export class SemanticSearchService implements EmbeddingModel {
-  private session: InferenceSession | null = null;
+  private session: any | null = null; // InferenceSession type when available
   private tokenizer: any = null;
   public modelPath: string;
   public inputSize: number = 128; // Max sequence length

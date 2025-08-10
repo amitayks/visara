@@ -9,6 +9,9 @@ import { documentStorage } from "../database/documentStorage";
 import { smartFilter, type AssetInfo, type SmartFilterOptions } from "./smartFilter";
 import { deviceInfo } from "../../utils/deviceInfo";
 import { galleryPermissions } from "../permissions/galleryPermissions";
+import { memoryManager } from '../memory/memoryManager';
+import { TempFileTracker } from '../memory/cleanupRegistry';
+import { getHeapStatus } from '../../utils/heapMonitor';
 
 export interface ScanProgress {
 	totalImages: number;
@@ -246,43 +249,71 @@ export class GalleryScanner {
 	}
 
 	private async processBatch(assets: any[], options: ScanOptions) {
-		// Check memory before processing batch
-		const memoryInfo = await deviceInfo.getMemoryInfo();
-		if (memoryInfo.availableMemory < 100 * 1024 * 1024) { // Less than 100MB
-			console.log("[GalleryScanner] Low memory, pausing scan");
-			await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
-		}
-		
-		// Process sequentially with memory breaks
+		// Process sequentially with comprehensive memory monitoring
 		for (let i = 0; i < assets.length; i++) {
 			if (this.shouldStop) {
 				console.log("[GalleryScanner] Stop requested, breaking batch processing");
 				break;
 			}
 			
-			try {
-				await this.processAsset(assets[i], options);
-				
-				// Every 5 images, pause to let UI breathe
-				if ((i + 1) % 5 === 0) {
-					await new Promise(resolve => setTimeout(resolve, 500));
-				}
-				
-				// Check memory periodically
-				if ((i + 1) % 10 === 0) {
-					const currentMemory = await deviceInfo.getMemoryInfo();
-					if (currentMemory.availableMemory < 50 * 1024 * 1024) { // Less than 50MB
-						console.log("[GalleryScanner] Critical memory, pausing longer");
-						await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
-					}
-				}
-				
-			} catch (error) {
-				console.error(`Failed to process asset ${assets[i].image.uri}:`, error);
-				
-				// On error, give system time to recover
-				await new Promise(resolve => setTimeout(resolve, 1000));
+			// Check BOTH system and heap memory before each image
+			const memStatus = memoryManager.getMemoryStatus();
+			const heapStatus = getHeapStatus();
+			
+			if (memStatus.isCriticalMemory) {
+				console.warn("[GalleryScanner] Critical memory state, emergency cleanup");
+				await memoryManager.emergencyCleanup();
+				await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+			} else if (memStatus.isLowMemory) {
+				console.log("[GalleryScanner] Low memory detected, triggering cleanup");
+				await memoryManager.emergencyCleanup();
+				await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
 			}
+			
+			// Check heap usage
+			if (heapStatus.heapUsagePercent > 0.7) {
+				console.log(`[GalleryScanner] High heap usage: ${(heapStatus.heapUsagePercent * 100).toFixed(1)}%`);
+				await memoryManager.emergencyCleanup();
+				
+				// Try to trigger GC
+				if (global.gc) {
+					global.gc();
+				}
+				
+				await new Promise(resolve => setTimeout(resolve, 5000));
+			}
+			
+			// Process with guaranteed cleanup
+			await this.processAssetWithCleanup(assets[i], options);
+			
+			// Every 5 images, pause to let UI breathe
+			if ((i + 1) % 5 === 0) {
+				await new Promise(resolve => setTimeout(resolve, 500));
+			}
+			
+			// Every 10 images, do a more thorough check
+			if ((i + 1) % 10 === 0) {
+				const tempStats = memoryManager.getTempFileStats();
+				console.log(`[GalleryScanner] Temp files: ${tempStats.count}, Size: ${tempStats.totalSize}`);
+				
+				// Clean old temp files
+				await memoryManager.cleanOldTempFiles(60000); // Clean files older than 1 minute
+			}
+		}
+	}
+	
+	private async processAssetWithCleanup(asset: any, options: ScanOptions): Promise<void> {
+		const tempTracker = new TempFileTracker('galleryScanner');
+		
+		try {
+			await this.processAsset(asset, options);
+		} catch (error) {
+			console.error(`Failed to process asset ${asset.image.uri}:`, error);
+			// Give system time to recover on error
+			await new Promise(resolve => setTimeout(resolve, 1000));
+		} finally {
+			// ALWAYS cleanup temp files
+			await tempTracker.cleanupAll();
 		}
 	}
 
@@ -684,20 +715,37 @@ export class GalleryScanner {
 	}
 	
 	private startMemoryMonitoring() {
+		// Start the centralized memory manager monitoring
+		memoryManager.startMonitoring(10000); // Check every 10 seconds
+		
+		// Also do our own checks more frequently
 		this.memoryCheckInterval = setInterval(async () => {
-			const memoryInfo = await deviceInfo.getMemoryInfo();
-			if (memoryInfo.availableMemory < 30 * 1024 * 1024) { // Less than 30MB
-				console.log("[GalleryScanner] Critical memory detected, stopping scan");
+			const memStatus = memoryManager.getMemoryStatus();
+			
+			if (memStatus.isCriticalMemory) {
+				console.error("[GalleryScanner] Critical memory detected, stopping scan");
 				this.shouldStop = true;
+				await memoryManager.emergencyCleanup();
+			} else if (memStatus.heapUsagePercent > 0.8) {
+				console.warn("[GalleryScanner] High heap usage, triggering cleanup");
+				await memoryManager.emergencyCleanup();
 			}
 		}, 5000); // Check every 5 seconds
 	}
 	
 	private stopMemoryMonitoring() {
+		// Stop centralized monitoring
+		memoryManager.stopMonitoring();
+		
 		if (this.memoryCheckInterval) {
 			clearInterval(this.memoryCheckInterval);
 			this.memoryCheckInterval = null;
 		}
+		
+		// Final cleanup
+		memoryManager.emergencyCleanup().catch(err => 
+			console.error('[GalleryScanner] Error during final cleanup:', err)
+		);
 	}
 }
 

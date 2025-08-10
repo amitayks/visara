@@ -40,7 +40,7 @@ export class EntityExtractor {
     
     // Pattern 1: Quoted strings (e.g., "Walmart", 'Amazon')
     const quotedPattern = /["']([^"']+)["']/g;
-    let match;
+    let match: RegExpExecArray | null;
     while ((match = quotedPattern.exec(text)) !== null) {
       entities.push({
         type: 'vendor',
@@ -102,7 +102,7 @@ export class EntityExtractor {
     while ((match = capitalizedPattern.exec(originalText)) !== null) {
       // Check if it's not already identified and not a common word
       const alreadyFound = entities.some(e => 
-        e.type === 'vendor' && e.value === match[1]
+        e.type === 'vendor' && e.value === match![1]
       );
       
       if (!alreadyFound && !this.isDocumentType(match[1].toLowerCase()) && 
@@ -130,7 +130,7 @@ export class EntityExtractor {
     ];
 
     for (const pattern of amountPatterns) {
-      let match;
+      let match: RegExpExecArray | null;
       while ((match = pattern.exec(text)) !== null) {
         const amount = this.parseAmount(match[1], match[2]);
         if (amount) {
@@ -152,7 +152,7 @@ export class EntityExtractor {
     ];
 
     for (const pattern of operatorPatterns) {
-      let match;
+      let match: RegExpExecArray | null;
       while ((match = pattern.exec(text)) !== null) {
         entities.push({
           type: 'amount',
