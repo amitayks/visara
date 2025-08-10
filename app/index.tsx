@@ -20,14 +20,18 @@ import { ScanProgressBar } from "../components/Progress/ScanProgressBar";
 import type Document from "../services/database/models/Document";
 import { documentStorage } from "../services/database/documentStorage";
 import { galleryScanner, type ScanProgress } from "../services/gallery/GalleryScanner";
-import { searchService } from "../services/search/simpleSearchService";
+import { SearchOrchestrator } from "../services/search/searchOrchestrator";
+import { SearchQueryChips } from "../components/SearchQueryChips";
+import type { SearchFilter, ScoredDocument } from "../services/search/advancedSearch/searchTypes";
+import { database } from "../services/database";
 import type { RootStackParamList } from "../types/navigation";
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 export default function HomeScreen() {
   const navigation = useNavigation<NavigationProp>();
-  const [documents, setDocuments] = useState<Document[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);  
+  const [searchOrchestrator] = useState(() => new SearchOrchestrator(database));
   const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -35,6 +39,9 @@ export default function HomeScreen() {
   const [isSearching, setIsSearching] = useState(false);
   const [searchQueries, setSearchQueries] = useState<string[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
+  const [searchFilters, setSearchFilters] = useState<SearchFilter>({});
+  const [searchSuggestions, setSearchSuggestions] = useState<string[]>([]);
+  const [baseQuery, setBaseQuery] = useState<string>("");
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
@@ -65,7 +72,7 @@ export default function HomeScreen() {
     loadDocuments();
   }, [loadDocuments]);
 
-  // Search functionality
+  // Search functionality with advanced NLP
   const handleSearch = useCallback(async (query: string) => {
     if (!query.trim()) return;
 
@@ -73,21 +80,60 @@ export default function HomeScreen() {
     setHasSearched(true);
 
     try {
-      const searchResult = await searchService.search(query);
-      setFilteredDocuments(searchResult.documents);
+      // Check if this is a refinement query (starts with +)
+      const isRefinement = query.startsWith("+");
+      let searchResult;
+      
+      if (isRefinement && baseQuery) {
+        // Remove the + and search with refinement
+        const refinementQuery = query.substring(1).trim();
+        searchResult = await searchOrchestrator.searchWithRefinement(
+          baseQuery,
+          refinementQuery,
+          { useSemanticSearch: true, usePhoneticMatching: true }
+        );
+      } else {
+        // Regular search
+        searchResult = await searchOrchestrator.search(query, {
+          useSemanticSearch: true,
+          usePhoneticMatching: true,
+          useFuzzyMatching: true,
+          maxResults: 50
+        });
+        setBaseQuery(query);
+        searchOrchestrator.clearQueryStack();
+      }
+      
+      // Extract documents from scored results
+      const docs = searchResult.documents.map((scored: ScoredDocument) => scored.document);
+      setFilteredDocuments(docs);
+      setSearchFilters(searchResult.filters);
+      setSearchSuggestions(searchResult.suggestions || []);
       
       // Add query to the list if it's not already there
       setSearchQueries(prev => {
         const newQueries = prev.filter(q => q !== query);
         return [query, ...newQueries].slice(0, 5); // Keep only last 5 queries
       });
+      
+      // Show aggregated data if it's a count query
+      if (searchResult.query.intent.includes('count')) {
+        const aggregatedData = await searchOrchestrator.getAggregatedData(searchResult.query);
+        if (aggregatedData?.count !== undefined) {
+          Alert.alert(
+            "Search Results",
+            `Found ${aggregatedData.count} ${searchResult.query.documentTypes?.[0] || 'documents'}`,
+            [{ text: "OK" }]
+          );
+        }
+      }
     } catch (error) {
       console.error("Search error:", error);
       Alert.alert("Search Error", "Failed to search documents. Please try again.");
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [searchOrchestrator, baseQuery]);
 
   const handleQueryChange = useCallback((query: string) => {
     // If query is empty and we have searched before, reset to all documents
@@ -95,8 +141,13 @@ export default function HomeScreen() {
       setFilteredDocuments(documents);
       setHasSearched(false);
       setSearchQueries([]);
+      setSearchFilters({});
+      setSearchSuggestions([]);
+      setBaseQuery("");
+      searchOrchestrator.clearQueryStack();
+      searchOrchestrator.clearCache();
     }
-  }, [documents, hasSearched]);
+  }, [documents, hasSearched, searchOrchestrator]);
 
   const handleRemoveQuery = useCallback((queryToRemove: string) => {
     setSearchQueries(prev => prev.filter(q => q !== queryToRemove));
@@ -105,8 +156,66 @@ export default function HomeScreen() {
     if (searchQueries.length === 1) {
       setFilteredDocuments(documents);
       setHasSearched(false);
+      setSearchFilters({});
+      setSearchSuggestions([]);
+      setBaseQuery("");
+      searchOrchestrator.clearQueryStack();
     }
-  }, [searchQueries, documents]);
+  }, [searchQueries, documents, searchOrchestrator]);
+
+  // Handle removing individual filter chips
+  const handleRemoveChip = useCallback((chipId: string) => {
+    // Parse chip ID to determine what to remove
+    if (chipId === 'temporal') {
+      setSearchFilters(prev => ({ ...prev, temporal: undefined }));
+    } else if (chipId === 'amount') {
+      setSearchFilters(prev => ({ ...prev, amount: undefined }));
+    } else if (chipId.startsWith('vendor-')) {
+      const index = parseInt(chipId.split('-')[1]);
+      setSearchFilters(prev => ({
+        ...prev,
+        vendor: prev.vendor?.filter((_, i) => i !== index)
+      }));
+    } else if (chipId.startsWith('doctype-')) {
+      const index = parseInt(chipId.split('-')[1]);
+      setSearchFilters(prev => ({
+        ...prev,
+        documentTypes: prev.documentTypes?.filter((_, i) => i !== index)
+      }));
+    } else if (chipId.startsWith('keyword-')) {
+      const index = parseInt(chipId.split('-')[1]);
+      setSearchFilters(prev => ({
+        ...prev,
+        keywords: prev.keywords?.filter((_, i) => i !== index)
+      }));
+    }
+    
+    // Re-run search with updated filters
+    if (baseQuery) {
+      handleSearch(baseQuery);
+    }
+  }, [baseQuery, handleSearch]);
+
+  // Clear all filter chips
+  const handleClearAllChips = useCallback(() => {
+    setSearchFilters({});
+    setSearchSuggestions([]);
+    searchOrchestrator.clearQueryStack();
+    
+    // Reset to base query search
+    if (baseQuery) {
+      handleSearch(baseQuery);
+    } else {
+      setFilteredDocuments(documents);
+      setHasSearched(false);
+    }
+  }, [baseQuery, handleSearch, documents, searchOrchestrator]);
+
+  // Handle suggestion press
+  const handleSuggestionPress = useCallback((suggestion: string) => {
+    // Add suggestion as a refinement
+    handleSearch(`+ ${suggestion}`);
+  }, [handleSearch]);
 
   const handleDocumentPress = useCallback((documentId: string) => {
     console.log('HomeScreen - Received document ID:', documentId);
@@ -289,6 +398,18 @@ export default function HomeScreen() {
       
       <SafeAreaView style={styles.safeArea}>
         {renderHeader()}
+        
+        {/* Search Query Chips */}
+        {(hasSearched || searchSuggestions.length > 0) && (
+          <SearchQueryChips
+            baseQuery={baseQuery}
+            filters={searchFilters}
+            onRemoveChip={handleRemoveChip}
+            onClearAll={handleClearAllChips}
+            suggestions={searchSuggestions}
+            onSuggestionPress={handleSuggestionPress}
+          />
+        )}
         
         {documents.length === 0 && !hasSearched ? (
         renderEmptyState()
