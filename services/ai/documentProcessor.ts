@@ -9,7 +9,6 @@ import { ocrEngineManager } from "./OCREngineManager";
 import type { OCREngineName } from "./ocrTypes";
 import { TempFileTracker } from '../memory/cleanupRegistry';
 import { memoryManager } from '../memory/memoryManager';
-import { unifiedImageCache } from '../cache/unifiedImageCache';
 
 export interface DocumentResult {
 	id: string;
@@ -114,6 +113,7 @@ export class DocumentProcessor {
 			const ocrResult = await this.performOCRWithMemoryCleanup(
 				imageUri,
 				opts.ocrEngine,
+				tempTracker  // Pass the tracker
 			);
 
 			const documentType = this.detectDocumentType(ocrResult.text);
@@ -241,14 +241,7 @@ export class DocumentProcessor {
 
 	private async preprocessImage(imageUri: string, tempTracker?: TempFileTracker): Promise<string> {
 		try {
-			// Check cache first
-			const cacheKey = `preprocessed_${await this.calculateImageHash(imageUri)}`;
-			const cached = await unifiedImageCache.get(cacheKey);
-			if (cached) {
-				console.log('[DocumentProcessor] Using cached preprocessed image');
-				return cached;
-			}
-			
+			// DON'T cache preprocessed images - they're temporary!
 			const manipulatedImage = await ImageResizer.createResizedImage(
 				imageUri,
 				1500, // maxWidth
@@ -260,18 +253,15 @@ export class DocumentProcessor {
 				false, // keepMeta
 			);
 
-			// Track the temp file for cleanup
+			// ONLY track for cleanup, don't cache
 			if (tempTracker) {
 				tempTracker.add(manipulatedImage.uri);
 			} else {
 				// Register with memory manager if no tracker provided
 				memoryManager.registerTempFile(manipulatedImage.uri, 'preprocessImage');
 			}
-			
-			// Cache the preprocessed image
-			await unifiedImageCache.set(cacheKey, manipulatedImage.uri, manipulatedImage.size, 'preprocess');
 
-			// Return the resized image
+			// Return the temp file directly - NO CACHING
 			return manipulatedImage.uri;
 		} catch (error) {
 			console.error("Error preprocessing image:", error);
@@ -282,6 +272,7 @@ export class DocumentProcessor {
 	private async performOCRWithMemoryCleanup(
 		imageUri: string,
 		engineName: OCREngineName = "mlkit",
+		tempTracker?: TempFileTracker  // ADD THIS PARAMETER
 	): Promise<{ text: string; confidence: number }> {
 		try {
 			let processUri = imageUri;
@@ -290,8 +281,8 @@ export class DocumentProcessor {
 			// Always preprocess content:// URIs as they can't be read directly by OCR engines
 			if (imageUri.startsWith('content://')) {
 				console.log('Preprocessing content URI for OCR');
-				processUri = await this.preprocessImage(imageUri);
-				needsCleanup = true;
+				processUri = await this.preprocessImage(imageUri, tempTracker);
+				needsCleanup = false; // Already tracked by tempTracker
 			} else {
 				// For file URIs, resize if too large
 				const imageInfo = await this.getImageSize(imageUri);
@@ -307,7 +298,15 @@ export class DocumentProcessor {
 						0,
 					);
 					processUri = resized.uri;
-					needsCleanup = true;
+					
+					// TRACK THIS TEMP FILE!
+					if (tempTracker) {
+						tempTracker.add(resized.uri);
+					} else {
+						memoryManager.registerTempFile(resized.uri, 'ocrResize');
+					}
+					
+					needsCleanup = false; // Don't double-cleanup
 				}
 			}
 			

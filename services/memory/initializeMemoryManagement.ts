@@ -18,8 +18,8 @@ export function initializeMemoryManagement(): void {
   // Register emergency cleanup handlers for all caches
   registerCacheCleanupHandlers();
 
-  // Start periodic memory monitoring
-  memoryManager.startMonitoring(30000); // Check every 30 seconds
+  // Start periodic memory monitoring - CHECK EVERY 2 SECONDS during active processing
+  memoryManager.startMonitoring(2000); // Check every 2 seconds
 
   console.log('[MemoryManagement] Memory management initialized');
 }

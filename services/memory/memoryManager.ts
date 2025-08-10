@@ -33,7 +33,7 @@ class MemoryManager {
   private readonly criticalSystemMemory = 50 * 1024 * 1024; // 50MB critical
   private isCleaningUp = false;
   private lastCleanupTime = 0;
-  private readonly cleanupCooldown = 5000; // 5 seconds between cleanups
+  private readonly cleanupCooldown = 5000; // 5 seconds between cleanups (reduced from 60000)
 
   private constructor() {
     this.setupLowMemoryListener();
@@ -42,6 +42,10 @@ class MemoryManager {
   static getInstance(): MemoryManager {
     if (!MemoryManager.instance) {
       MemoryManager.instance = new MemoryManager();
+      // Clean temp directories on startup
+      MemoryManager.instance.initialize().catch(err => 
+        console.error('[MemoryManager] Initialization error:', err)
+      );
     }
     return MemoryManager.instance;
   }
@@ -121,10 +125,17 @@ class MemoryManager {
       return;
     }
 
-    const now = Date.now();
-    if (now - this.lastCleanupTime < this.cleanupCooldown) {
-      console.log('[MemoryManager] Cleanup cooldown active, skipping');
-      return;
+    // For CRITICAL memory, skip cooldown check
+    const status = this.getMemoryStatus();
+    if (!status.isCriticalMemory) {
+      // Only apply cooldown for non-critical cleanups
+      const now = Date.now();
+      if (now - this.lastCleanupTime < this.cleanupCooldown) {
+        console.log('[MemoryManager] Cleanup cooldown active, skipping');
+        return;
+      }
+    } else {
+      console.warn('[MemoryManager] CRITICAL memory - bypassing cooldown!');
     }
 
     this.isCleaningUp = true;
@@ -355,6 +366,50 @@ class MemoryManager {
       oldestAge,
       bySource
     };
+  }
+
+  /**
+   * Initialize memory manager - clean old temp files on startup
+   */
+  async initialize(): Promise<void> {
+    console.log('[MemoryManager] Initializing, cleaning old temp files');
+    
+    // Clean ALL temp directories on startup
+    const tempDirs = [
+      RNFS.TemporaryDirectoryPath,
+      `${RNFS.CachesDirectoryPath}/preprocessed/`,
+      `${RNFS.CachesDirectoryPath}/hybrid_preprocessed/`,
+      `${RNFS.DocumentDirectoryPath}/.temp/`
+    ];
+    
+    for (const dir of tempDirs) {
+      try {
+        if (await RNFS.exists(dir)) {
+          console.log(`[MemoryManager] Cleaning directory: ${dir}`);
+          const files = await RNFS.readDir(dir);
+          let cleanedCount = 0;
+          
+          for (const file of files) {
+            if (file.isFile()) {
+              try {
+                await RNFS.unlink(file.path);
+                cleanedCount++;
+              } catch (e) {
+                // Ignore individual file errors
+              }
+            }
+          }
+          
+          if (cleanedCount > 0) {
+            console.log(`[MemoryManager] Cleaned ${cleanedCount} files from ${dir}`);
+          }
+        }
+      } catch (e) {
+        console.warn(`[MemoryManager] Error cleaning directory ${dir}:`, e);
+      }
+    }
+    
+    console.log('[MemoryManager] Startup cleanup completed');
   }
 
   /**

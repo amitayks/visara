@@ -270,9 +270,9 @@ export class GalleryScanner {
 				await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
 			}
 			
-			// Check heap usage
-			if (heapStatus.heapUsagePercent > 0.7) {
-				console.log(`[GalleryScanner] High heap usage: ${(heapStatus.heapUsagePercent * 100).toFixed(1)}%`);
+			// Be more aggressive with cleanup - check at 50% heap usage
+			if (heapStatus.heapUsagePercent > 0.5) { // Lower threshold to 50%
+				console.log(`[GalleryScanner] Heap usage above 50%: ${(heapStatus.heapUsagePercent * 100).toFixed(1)}%`);
 				await memoryManager.emergencyCleanup();
 				
 				// Try to trigger GC
@@ -280,24 +280,27 @@ export class GalleryScanner {
 					global.gc();
 				}
 				
-				await new Promise(resolve => setTimeout(resolve, 5000));
+				await new Promise(resolve => setTimeout(resolve, 3000));
 			}
 			
-			// Process with guaranteed cleanup
+			// Process one image at a time with full cleanup
 			await this.processAssetWithCleanup(assets[i], options);
+			
+			// Clean old temp files after EVERY image
+			await memoryManager.cleanOldTempFiles(10000); // 10 seconds old
+			
+			// Force GC hint after every image
+			if (global.gc) {
+				global.gc();
+			}
 			
 			// Every 5 images, pause to let UI breathe
 			if ((i + 1) % 5 === 0) {
 				await new Promise(resolve => setTimeout(resolve, 500));
-			}
-			
-			// Every 10 images, do a more thorough check
-			if ((i + 1) % 10 === 0) {
-				const tempStats = memoryManager.getTempFileStats();
-				console.log(`[GalleryScanner] Temp files: ${tempStats.count}, Size: ${tempStats.totalSize}`);
 				
-				// Clean old temp files
-				await memoryManager.cleanOldTempFiles(60000); // Clean files older than 1 minute
+				// Log temp file stats
+				const tempStats = memoryManager.getTempFileStats();
+				console.log(`[GalleryScanner] After ${i + 1} images - Temp files: ${tempStats.count}, Size: ${tempStats.totalSize}`);
 			}
 		}
 	}
