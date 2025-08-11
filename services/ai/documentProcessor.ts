@@ -9,6 +9,7 @@ import { ocrEngineManager } from "./OCREngineManager";
 import type { OCREngineName } from "./ocrTypes";
 import { TempFileTracker } from '../memory/cleanupRegistry';
 import { memoryManager } from '../memory/memoryManager';
+import { visualDocumentDetector } from './visualDocumentDetector';
 
 export interface DocumentResult {
 	id: string;
@@ -74,7 +75,7 @@ export class DocumentProcessor {
 		preprocessImage: true,
 		extractStructuredData: true,
 		confidenceThreshold: 0.7,
-		ocrEngine: "tesseract",
+		ocrEngine: "mlkit", // Changed from tesseract to mlkit for better memory management
 	};
 
 	async processImage(
@@ -109,6 +110,10 @@ export class DocumentProcessor {
 			// Get basic image info
 			const imageInfo = await this.getImageInfo(imageUri);
 
+			// Perform visual document detection FIRST
+			const visualFeatures = await visualDocumentDetector.detectDocument(imageUri);
+			console.log(`[DocumentProcessor] Visual detection score: ${(visualFeatures.overallScore * 100).toFixed(1)}%`);
+
 			// Perform OCR directly on the device URI
 			const ocrResult = await this.performOCRWithMemoryCleanup(
 				imageUri,
@@ -124,10 +129,13 @@ export class DocumentProcessor {
 				metadata = await this.extractMetadata(ocrResult.text, documentType);
 			}
 
-			const confidence = this.calculateOverallConfidence(
+			// Combine visual and OCR confidence
+			const confidence = this.calculateCombinedConfidence(
+				visualFeatures.overallScore,
 				ocrResult.confidence,
-				metadata.confidence,
 				documentType,
+				ocrResult.text.length,
+				metadata.confidence
 			);
 			
 			const keywords = await this.extractKeywords(ocrResult.text);
@@ -345,63 +353,116 @@ export class DocumentProcessor {
 	private detectDocumentType(text: string): DocumentResult["documentType"] {
 		const lowerText = text.toLowerCase();
 
-		const receiptKeywords = [
-			"receipt",
-			"total",
-			"subtotal",
-			"tax",
-			"payment",
-			"cash",
-			"change",
-			"sale",
-		];
-		const invoiceKeywords = [
-			"invoice",
-			"bill to",
-			"due date",
-			"invoice number",
-			"net",
-			"gross",
-		];
-		const idKeywords = [
-			"id",
-			"license",
-			"passport",
-			"identification",
-			"date of birth",
-			"expires",
-		];
-		const formKeywords = [
-			"form",
-			"application",
-			"signature",
-			"date signed",
-			"checkbox",
-			"fill",
-		];
+		// Receipt indicators (weighted keywords)
+		const receiptKeywords = {
+			strong: ['receipt', 'total', 'subtotal', 'tax', 'payment', 'cash', 'credit', 'debit', 'change', 'paid', 'amount due'],
+			medium: ['amount', 'price', 'qty', 'quantity', 'item', 'purchase', 'sale', 'transaction', '$', 'usd', 'eur'],
+			weak: ['date', 'time', 'thank', 'store', 'customer', 'cashier', 'order']
+		};
 
-		const countKeywords = (keywords: string[]) =>
-			keywords.filter((keyword) => lowerText.includes(keyword)).length;
+		// Invoice indicators
+		const invoiceKeywords = {
+			strong: ['invoice', 'bill', 'invoice no', 'invoice number', 'due date', 'payment terms', 'remittance'],
+			medium: ['billable', 'net', 'gross', 'vat', 'billing', 'po number', 'account'],
+			weak: ['client', 'customer', 'vendor', 'company', 'address']
+		};
 
+		// ID indicators
+		const idKeywords = {
+			strong: ['license', 'passport', 'identification', 'date of birth', 'expires', 'dob', 'exp', 'dl#'],
+			medium: ['id', 'card', 'number', 'issued', 'valid'],
+			weak: ['name', 'address', 'signature']
+		};
+
+		// Form indicators
+		const formKeywords = {
+			strong: ['form', 'application', 'checkbox', 'fill in', 'complete', 'sign here'],
+			medium: ['signature', 'date signed', 'applicant', 'section'],
+			weak: ['name', 'address', 'phone', 'email']
+		};
+
+		// Calculate weighted scores
+		let receiptScore = 0;
+		let invoiceScore = 0;
+		let idScore = 0;
+		let formScore = 0;
+
+		// Check receipt keywords
+		receiptKeywords.strong.forEach(kw => {
+			if (lowerText.includes(kw)) receiptScore += 3;
+		});
+		receiptKeywords.medium.forEach(kw => {
+			if (lowerText.includes(kw)) receiptScore += 2;
+		});
+		receiptKeywords.weak.forEach(kw => {
+			if (lowerText.includes(kw)) receiptScore += 1;
+		});
+
+		// Check invoice keywords
+		invoiceKeywords.strong.forEach(kw => {
+			if (lowerText.includes(kw)) invoiceScore += 3;
+		});
+		invoiceKeywords.medium.forEach(kw => {
+			if (lowerText.includes(kw)) invoiceScore += 2;
+		});
+		invoiceKeywords.weak.forEach(kw => {
+			if (lowerText.includes(kw)) invoiceScore += 1;
+		});
+
+		// Check ID keywords
+		idKeywords.strong.forEach(kw => {
+			if (lowerText.includes(kw)) idScore += 3;
+		});
+		idKeywords.medium.forEach(kw => {
+			if (lowerText.includes(kw)) idScore += 2;
+		});
+		idKeywords.weak.forEach(kw => {
+			if (lowerText.includes(kw)) idScore += 1;
+		});
+
+		// Check form keywords
+		formKeywords.strong.forEach(kw => {
+			if (lowerText.includes(kw)) formScore += 3;
+		});
+		formKeywords.medium.forEach(kw => {
+			if (lowerText.includes(kw)) formScore += 2;
+		});
+		formKeywords.weak.forEach(kw => {
+			if (lowerText.includes(kw)) formScore += 1;
+		});
+
+		// Determine type based on scores with thresholds
 		const scores = {
-			receipt: countKeywords(receiptKeywords),
-			invoice: countKeywords(invoiceKeywords),
-			id: countKeywords(idKeywords),
-			form: countKeywords(formKeywords),
+			receipt: receiptScore,
+			invoice: invoiceScore,
+			id: idScore,
+			form: formScore
 		};
 
 		const maxScore = Math.max(...Object.values(scores));
 
-		if (maxScore > 2) {
-			return (
-				(Object.entries(scores).find(
-					([_, score]) => score === maxScore,
-				)?.[0] as DocumentResult["documentType"]) || "unknown"
-			);
+		// Need at least a score of 5 to be confident
+		if (maxScore >= 5) {
+			const documentType = Object.entries(scores).find(
+				([_, score]) => score === maxScore
+			)?.[0];
+			
+			if (documentType === 'id') return 'id';
+			if (documentType === 'receipt') return 'receipt';
+			if (documentType === 'invoice') return 'invoice';
+			if (documentType === 'form') return 'form';
 		}
 
-		if (lowerText.includes("screenshot")) return "screenshot";
-		if (text.split("\n").length > 10) return "letter";
+		// Check for screenshot indicators
+		if (lowerText.includes("screenshot") || lowerText.includes("screen capture")) {
+			return "screenshot";
+		}
+
+		// Check if it might be a letter (multiple paragraphs of text)
+		const lines = text.split("\n").filter(line => line.trim().length > 0);
+		if (lines.length > 10 && text.length > 500) {
+			return "letter";
+		}
 
 		return "unknown";
 	}
@@ -753,6 +814,37 @@ export class DocumentProcessor {
 		return results;
 	}
 
+	private calculateCombinedConfidence(
+		visualScore: number,
+		ocrConfidence: number,
+		documentType: string,
+		textLength: number,
+		metadataConfidence: number
+	): number {
+		// Weight visual features more heavily than OCR confidence
+		let confidence = visualScore * 0.5; // 50% weight on visual
+		
+		// Add OCR contribution only if text was found
+		if (textLength > 50) {
+			confidence += 0.2; // Bonus for having text
+		}
+		
+		// Add bonus for specific document types
+		if (documentType !== 'unknown') {
+			confidence += 0.2;
+		}
+		
+		// Add small OCR confidence contribution
+		confidence += ocrConfidence * 0.1;
+		
+		// Add metadata confidence if available
+		if (metadataConfidence > 0) {
+			confidence += metadataConfidence * 0.05;
+		}
+		
+		return Math.min(confidence, 1.0);
+	}
+	
 	private calculateOverallConfidence(
 		ocrConfidence: number,
 		metadataConfidence: number,

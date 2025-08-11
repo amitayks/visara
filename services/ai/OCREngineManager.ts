@@ -11,12 +11,16 @@ import type {
 export class OCREngineManager {
 	private engines: Map<OCREngineName, LocalOCREngine> = new Map();
 	private initialized = false;
+	private processedCount = 0;
+	private readonly REINIT_THRESHOLD = 10; // Reinitialize Tesseract every 10 images
+	private tesseractEngine: TesseractEngine | null = null;
 
 	constructor() {
 		// Register all engines
 		this.registerEngine(new MLKitEngine());
 		this.registerEngine(new VisionCameraEngine());
-		this.registerEngine(new TesseractEngine());
+		this.tesseractEngine = new TesseractEngine();
+		this.registerEngine(this.tesseractEngine);
 	}
 
 	private registerEngine(engine: LocalOCREngine): void {
@@ -54,6 +58,28 @@ export class OCREngineManager {
 		imageUri: string,
 		engineName: OCREngineName,
 	): Promise<OCRResult> {
+		this.processedCount++;
+		
+		// Reinitialize Tesseract every N images to clear memory
+		if (engineName === 'tesseract' && this.processedCount >= this.REINIT_THRESHOLD) {
+			console.log('[OCREngineManager] Reinitializing Tesseract to clear memory');
+			
+			// Cleanup old instance
+			if (this.tesseractEngine) {
+				try {
+					await this.tesseractEngine.cleanup?.();
+				} catch (e) {
+					console.warn('[OCREngineManager] Error cleaning up Tesseract:', e);
+				}
+			}
+			
+			// Create new instance
+			this.tesseractEngine = new TesseractEngine();
+			this.engines.set('tesseract', this.tesseractEngine);
+			await this.tesseractEngine.initialize();
+			this.processedCount = 0;
+		}
+
 		const engine = this.getEngine(engineName);
 		if (!engine) {
 			throw new Error(`Engine ${engineName} not found`);

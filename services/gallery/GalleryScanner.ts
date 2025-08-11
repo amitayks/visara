@@ -286,17 +286,20 @@ export class GalleryScanner {
 			// Process one image at a time with full cleanup
 			await this.processAssetWithCleanup(assets[i], options);
 			
-			// Clean old temp files after EVERY image
-			await memoryManager.cleanOldTempFiles(10000); // 10 seconds old
+			// Clean old temp files after EVERY image (1 second old)
+			await memoryManager.cleanOldTempFiles(1000); // 1 second old
 			
-			// Force GC hint after every image
+			// Force GC after every image
 			if (global.gc) {
 				global.gc();
 			}
 			
-			// Every 5 images, pause to let UI breathe
+			// Pause after EVERY image to let system recover
+			await new Promise(resolve => setTimeout(resolve, 500));
+			
+			// Every 5 images, longer pause and log stats
 			if ((i + 1) % 5 === 0) {
-				await new Promise(resolve => setTimeout(resolve, 500));
+				await new Promise(resolve => setTimeout(resolve, 1000)); // Extra pause
 				
 				// Log temp file stats
 				const tempStats = memoryManager.getTempFileStats();
@@ -358,7 +361,7 @@ export class GalleryScanner {
 					assetInfo.localUri || assetInfo.uri,
 				);
 				const timeoutPromise = new Promise<null>((_, reject) => 
-					setTimeout(() => reject(new Error('Processing timeout')), 30000) // 30 second timeout
+					setTimeout(() => reject(new Error('Processing timeout')), 10000) // 10 second timeout
 				);
 				
 				result = await Promise.race([processPromise, timeoutPromise]);
@@ -381,7 +384,7 @@ export class GalleryScanner {
 				return;
 			}
 			
-			if (result && result.confidence > 0.8) {
+			if (result && result.confidence > 0.62) {
 				// Check for duplicate using the actual image hash from result
 				const existingDoc = await documentStorage.checkDuplicateByHash(result.imageHash);
 				if (existingDoc) {
