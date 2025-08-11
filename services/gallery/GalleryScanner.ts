@@ -12,6 +12,7 @@ import { galleryPermissions } from "../permissions/galleryPermissions";
 import { memoryManager } from '../memory/memoryManager';
 import { TempFileTracker } from '../memory/cleanupRegistry';
 import { getHeapStatus } from '../../utils/heapMonitor';
+import { BehaviorSubject, Subscription } from 'rxjs';
 
 export interface ScanProgress {
 	totalImages: number;
@@ -75,6 +76,7 @@ export class GalleryScanner {
 	private onProgressCallback?: (progress: ScanProgress) => void;
 	private scanStartTime = 0;
 	private documentsFoundInScan = 0;
+	private progressSubject = new BehaviorSubject<ScanProgress>(this.progress);
 
 	constructor() {
 		this.loadProgress();
@@ -153,7 +155,7 @@ export class GalleryScanner {
 		} finally {
 			this.stopMemoryMonitoring();
 			this.isScanning = false;
-			this.progress.isScanning = false;
+			this.updateProgress({ isScanning: false });
 			await this.saveProgress();
 		}
 	}
@@ -193,9 +195,11 @@ export class GalleryScanner {
 			}
 		}
 
-		this.progress.totalImages = uniqueAssets.length;
-		this.progress.processedImages = startIndex;
-		this.progress.isScanning = true;
+		this.updateProgress({
+			totalImages: uniqueAssets.length,
+			processedImages: startIndex,
+			isScanning: true
+		});
 
 		// Process in batches with dynamic sizing based on memory
 		let batchSize = options.batchSize || DEFAULT_OPTIONS.batchSize!;
@@ -222,13 +226,12 @@ export class GalleryScanner {
 				await this.processBatch(batch, options);
 			}
 
-			this.progress.processedImages = Math.min(
-				i + batchSize,
-				uniqueAssets.length,
-			);
-			this.progress.lastProcessedAssetId = (
-				batch[batch.length - 1] as any
-			).image.uri;
+			this.updateProgress({
+				processedImages: Math.min(i + batchSize, uniqueAssets.length),
+				lastProcessedAssetId: (
+					batch[batch.length - 1] as any
+				).image.uri
+			});
 
 			// Save progress after each batch
 			await this.saveProgress();
@@ -244,7 +247,7 @@ export class GalleryScanner {
 			}
 		}
 
-		this.progress.lastScanDate = new Date();
+		this.updateProgress({ lastScanDate: new Date() });
 		await this.saveProgress();
 	}
 
@@ -752,6 +755,69 @@ export class GalleryScanner {
 		memoryManager.emergencyCleanup().catch(err => 
 			console.error('[GalleryScanner] Error during final cleanup:', err)
 		);
+	}
+	
+	// Observable pattern for real-time progress updates
+	observeProgress(callback: (progress: ScanProgress) => void): Subscription {
+		// Send current progress immediately
+		callback(this.progress);
+		
+		// Subscribe to future updates
+		return this.progressSubject.subscribe(callback);
+	}
+	
+	private updateProgress(updates: Partial<ScanProgress>) {
+		this.progress = { ...this.progress, ...updates };
+		this.progressSubject.next(this.progress);
+		
+		// Also call the legacy callback if it exists
+		if (this.onProgressCallback) {
+			this.onProgressCallback(this.progress);
+		}
+	}
+	
+	// Add method to process a single image (for manual upload)
+	async processImage(imageUri: string): Promise<DocumentResult | null> {
+		try {
+			console.log(`[GalleryScanner] Processing single image: ${imageUri}`);
+			
+			// Check if image exists
+			const exists = await RNFS.exists(imageUri);
+			if (!exists) {
+				console.error(`[GalleryScanner] Image does not exist: ${imageUri}`);
+				return null;
+			}
+			
+			// Get file info
+			const stat = await RNFS.stat(imageUri);
+			const imageHash = CryptoJS.MD5(imageUri + stat.size).toString();
+			
+			// Check if already processed
+			const existingDoc = await documentStorage.checkDuplicateByHash(imageHash);
+			if (existingDoc) {
+				console.log(`[GalleryScanner] Image already processed: ${imageHash}`);
+				return null;
+			}
+			
+			// Process the image
+			const result = await documentProcessor.processImage(imageUri);
+			
+			if (result && result.confidence > 0.5) {
+				const savedDoc = await documentStorage.saveDocument(result);
+				console.log(`[GalleryScanner] Document saved: ${savedDoc.id}`);
+				
+				// Add to processed hashes
+				this.processedHashes.add(imageHash);
+				await this.saveProcessedHashes();
+				
+				return result;
+			}
+			
+			return null;
+		} catch (error) {
+			console.error(`[GalleryScanner] Error processing image:`, error);
+			return null;
+		}
 	}
 }
 

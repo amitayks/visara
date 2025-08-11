@@ -5,8 +5,11 @@ import {
 } from "../ai/documentProcessor";
 import { database } from "./index";
 import type Document from "./models/Document";
+import { BehaviorSubject, Subscription } from 'rxjs';
 
 export class DocumentStorage {
+	private documentsSubject = new BehaviorSubject<Document[]>([]);
+	private documentObservable: Subscription | null = null;
 	async saveDocument(result: DocumentResult): Promise<Document> {
 		console.log(`[DocumentStorage] Saving document with hash: ${result.imageHash}`);
 		console.log(`[DocumentStorage] Document type: ${result.documentType}, Confidence: ${(result.confidence * 100).toFixed(1)}%`);
@@ -80,6 +83,10 @@ export class DocumentStorage {
 			});
 
 			console.log(`[DocumentStorage] Document saved successfully with ID: ${document.id}`);
+			
+			// Notify observers immediately
+			this.notifyObservers();
+			
 			return document;
 		});
 	}
@@ -125,6 +132,9 @@ export class DocumentStorage {
 		await database.write(async () => {
 			await document.markAsDeleted();
 		});
+		
+		// Notify observers immediately
+		this.notifyObservers();
 	}
 
 	async getDocumentById(id: string): Promise<Document | null> {
@@ -169,6 +179,42 @@ export class DocumentStorage {
 			.fetch();
 
 		return docs.length > 0 ? docs[0] : null;
+	}
+	
+	// Observable pattern for real-time updates
+	observeDocuments(callback: (docs: Document[]) => void): Subscription | null {
+		// Subscribe to database changes
+		const documentsCollection = database.get<Document>("documents");
+		
+		// Initial load
+		this.getAllDocuments().then(docs => {
+			callback(docs);
+			this.documentsSubject.next(docs);
+		});
+		
+		// Watch for changes
+		try {
+			const subscription = documentsCollection
+				.query()
+				.observeWithColumns(['created_at'])
+				.subscribe(docs => {
+					callback(docs);
+					this.documentsSubject.next(docs);
+				});
+			
+			this.documentObservable = subscription;
+			return subscription;
+		} catch (error) {
+			console.error('Failed to observe documents:', error);
+			// Fallback to manual subscription to subject
+			const subscription = this.documentsSubject.subscribe(callback);
+			return subscription;
+		}
+	}
+	
+	private async notifyObservers() {
+		const docs = await this.getAllDocuments();
+		this.documentsSubject.next(docs);
 	}
 }
 

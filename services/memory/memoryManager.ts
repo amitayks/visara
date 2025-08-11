@@ -139,7 +139,7 @@ class MemoryManager {
     }
 
     this.isCleaningUp = true;
-    this.lastCleanupTime = now;
+    this.lastCleanupTime = Date.now();
 
     try {
       console.warn('[MemoryManager] Starting emergency cleanup');
