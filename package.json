@@ -5,6 +5,7 @@
 	"scripts": {
 		"start": "react-native start",
 		"android": "react-native run-android",
+		"build-apk": "cd android && gradlew assembleRelease",
 		"ios": "react-native run-ios",
 		"lint": "npx @biomejs/biome check --write",
 		"typecheck": "tsc --noEmit",
