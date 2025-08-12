@@ -38,14 +38,14 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   const buttonStyle = useAnimatedStyle(() => ({
     transform: [{
       scale: withSpring(buttonScale.value, {
-        damping: 15,
-        stiffness: 300
+        damping: 20,
+        stiffness: 120
       })
     }],
     opacity: buttonScale.value,
     width: withSpring(buttonWidth.value, {
-      damping: 15,
-      stiffness: 300
+      damping: 20,
+      stiffness: 120
     }),
   }));
   
@@ -64,7 +64,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
   return (
     <View style={styles.container}>
       <View style={styles.inputContainer}>
-        <Icon name="search" size={20} color="#999" style={styles.searchIcon} />
+        {/* <Icon name="search" size={20} color="#999" style={styles.searchIcon} /> */}
         <TextInput
           ref={inputRef}
           value={value}
@@ -79,7 +79,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           autoCapitalize="none"
           autoCorrect={false}
         />
-        {value.length > 0 && (
+        {/* {value.length > 0 && (
           <TouchableOpacity
             onPress={() => onChangeText('')}
             style={styles.clearButton}
@@ -87,7 +87,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           >
             <Icon name="close-circle" size={18} color="#BBB" />
           </TouchableOpacity>
-        )}
+        )} */}
       </View>
       
       <Animated.View style={[styles.sendButtonContainer, buttonStyle]}>
@@ -97,7 +97,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
           disabled={!showSendButton}
           style={styles.sendButton}
         >
-          <Icon name="send" size={22} color="#6366F1" />
+          <Icon name="send" size={22} color="#979797" />
         </TouchableOpacity>
       </Animated.View>
     </View>
@@ -121,19 +121,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     height: 44,
   },
-  searchIcon: {
-    marginRight: 8,
-  },
+  // searchIcon: {
+  //   marginRight: 8,
+  // },
   input: {
     flex: 1,
     fontSize: 16,
     color: '#333',
     paddingVertical: 0,
   },
-  clearButton: {
-    marginLeft: 8,
-    padding: 4,
-  },
+  // clearButton: {
+  //   marginLeft: 8,
+  //   padding: 4,
+  // },
   sendButtonContainer: {
     marginLeft: 12,
     overflow: 'hidden',
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F0F0FF',
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
   }

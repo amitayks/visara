@@ -138,8 +138,8 @@ export default function HomeScreen() {
     return {
       transform: [{
         translateY: withSpring(keyboard.height.value * -1, {
-          damping: 20,
-          stiffness: 300
+          damping: 50,
+          stiffness: 600
         })
       }]
     };
@@ -373,7 +373,7 @@ export default function HomeScreen() {
           value={searchQuery}
           onChangeText={setSearchQuery}
           onSubmit={handleSearch}
-          placeholder="Search documents..."
+          // placeholder="Search documents..."
           showSendButton={searchQuery.length > 0}
         />
       </Animated.View>

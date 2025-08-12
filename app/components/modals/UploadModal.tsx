@@ -20,6 +20,7 @@ import {
 import Animated, {
   FadeIn,
   FadeOut,
+  SlideInDown,
   SlideInUp,
   SlideOutDown,
 } from 'react-native-reanimated';
@@ -126,17 +127,17 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         />
         
         <Animated.View
-          entering={SlideInUp.springify().damping(15).stiffness(120)}
-          exiting={SlideOutDown.springify().damping(15).stiffness(120)}
+          entering={SlideInDown.springify().damping(15).stiffness(100)}
+          exiting={SlideOutDown.springify().damping(15).stiffness(100)}
           style={styles.container}
         >
-          <View style={styles.handle} />
+          {/* <View style={styles.handle} /> */}
           
           <View style={styles.header}>
             <Text style={styles.title}>Upload Document</Text>
-            <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+            {/* <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
               <Icon name="close" size={24} color="#333" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
           
           {processing ? (
@@ -154,7 +155,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
           ) : (
             <View style={styles.content}>
               <Text style={styles.subtitle}>
-                Choose a document from your gallery or take a photo
+                Choose a document from your gallery
               </Text>
               
               <View style={styles.options}>
@@ -172,7 +173,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   </Text>
                 </TouchableOpacity>
                 
-                <TouchableOpacity
+                {/* <TouchableOpacity
                   style={styles.optionButton}
                   onPress={handleLaunchCamera}
                   activeOpacity={0.7}
@@ -184,7 +185,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
                   <Text style={styles.optionDescription}>
                     Take a new photo
                   </Text>
-                </TouchableOpacity>
+                </TouchableOpacity> */}
               </View>
               
               <View style={styles.tipContainer}>
@@ -224,18 +225,18 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 15,
   },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#DDD',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 12,
-  },
+  // handle: {
+  //   width: 40,
+  //   height: 4,
+  //   backgroundColor: '#DDD',
+  //   borderRadius: 2,
+  //   alignSelf: 'center',
+  //   marginTop: 12,
+  // },
   header: {
-    flexDirection: 'row',
+    // flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    // justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
@@ -246,9 +247,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  closeButton: {
-    padding: 8,
-  },
+  // closeButton: {
+  //   padding: 8,
+  // },
   content: {
     padding: 20,
   },

@@ -102,7 +102,7 @@ export const DocumentCard = memo(({
         )}
       </View>
       
-      <View style={styles.info}>
+      {/* <View style={styles.info}>
         {document.vendor && (
           <Text style={styles.vendor} numberOfLines={1}>
             {document.vendor}
@@ -121,7 +121,7 @@ export const DocumentCard = memo(({
             </Text>
           )}
         </View>
-      </View>
+      </View> */}
     </TouchableOpacity>
   );
 });
@@ -180,24 +180,24 @@ const styles = StyleSheet.create({
   info: {
     padding: 12,
   },
-  vendor: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  date: {
-    fontSize: 12,
-    color: '#999',
-  },
-  amount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#6366F1',
-  },
+  // vendor: {
+  //   fontSize: 14,
+  //   fontWeight: '600',
+  //   color: '#333',
+  //   marginBottom: 4,
+  // },
+  // metaRow: {
+  //   flexDirection: 'row',
+  //   justifyContent: 'space-between',
+  //   alignItems: 'center',
+  // },
+  // date: {
+  //   fontSize: 12,
+  //   color: '#999',
+  // },
+  // amount: {
+  //   fontSize: 14,
+  //   fontWeight: '600',
+  //   color: '#6366F1',
+  // },
 });

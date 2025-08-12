@@ -16,9 +16,11 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {
   FadeIn,
   FadeOut,
-  SlideInUp,
-  SlideOutDown,
-  withSpring,
+  SlideInDown,
+  // SlideInUp,
+  // SlideOutDown,
+  SlideOutUp,
+  // withSpring,
 } from 'react-native-reanimated';
 import { showToast } from './Toast';
 import { Document } from '../gallery/DocumentGrid';
@@ -73,7 +75,7 @@ const ActionButton: React.FC<ActionButtonProps> = ({ icon, label, onPress, color
 
 const DocumentSkeleton: React.FC = () => (
   <View style={styles.skeleton}>
-    <View style={styles.skeletonImage} />
+    {/* <View style={styles.skeletonImage} /> */}
     <View style={styles.skeletonInfo}>
       <View style={styles.skeletonRow} />
       <View style={styles.skeletonRow} />
@@ -90,13 +92,13 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
   onShare,
 }) => {
   const [loading, setLoading] = useState(true);
-  const [imageLoaded, setImageLoaded] = useState(false);
+  // const [imageLoaded, setImageLoaded] = useState(false);
   const [deleting, setDeleting] = useState(false);
   
   useEffect(() => {
     if (visible && document) {
       setLoading(true);
-      setImageLoaded(false);
+      // setImageLoaded(false);
       setTimeout(() => setLoading(false), 300);
     }
   }, [visible, document]);
@@ -179,17 +181,17 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
         />
         
         <Animated.View
-          entering={SlideInUp.springify().damping(15).stiffness(120)}
-          exiting={SlideOutDown.springify().damping(15).stiffness(120)}
+          entering={SlideInDown.springify().damping(15).stiffness(100)}
+          exiting={SlideOutUp.springify().damping(15).stiffness(12)}
           style={styles.container}
         >
-          <View style={styles.handle} />
+          {/* <View style={styles.handle} /> */}
           
           <View style={styles.header}>
             <Text style={styles.title}>Document Details</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            {/* <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Icon name="close" size={24} color="#333" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
           
           <ScrollView
@@ -200,7 +202,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
               <DocumentSkeleton />
             ) : (
               <>
-                <View style={styles.imageContainer}>
+                {/* <View style={styles.imageContainer}>
                   <Image
                     source={{ uri: document?.imageUri }}
                     style={styles.image}
@@ -214,7 +216,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
                       color="#6366F1"
                     />
                   )}
-                </View>
+                </View> */}
                 
                 <View style={styles.infoSection}>
                   <InfoRow
@@ -292,18 +294,18 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 15,
   },
-  handle: {
-    width: 40,
-    height: 4,
-    backgroundColor: '#DDD',
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginTop: 12,
-  },
+  // handle: {
+  //   width: 40,
+  //   height: 4,
+  //   backgroundColor: '#DDD',
+  //   borderRadius: 2,
+  //   alignSelf: 'center',
+  //   marginTop: 12,
+  // },
   header: {
-    flexDirection: 'row',
+    // flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    // justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
@@ -314,28 +316,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  closeButton: {
-    padding: 8,
-  },
+  // closeButton: {
+  //   padding: 8,
+  // },
   content: {
     flex: 1,
   },
-  imageContainer: {
-    height: 300,
-    backgroundColor: '#F5F5F5',
-    margin: 20,
-    borderRadius: 12,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  image: {
-    width: '100%',
-    height: '100%',
-  },
-  imageLoader: {
-    position: 'absolute',
-  },
+  // imageContainer: {
+  //   height: 300,
+  //   backgroundColor: '#F5F5F5',
+  //   margin: 20,
+  //   borderRadius: 12,
+  //   overflow: 'hidden',
+  //   alignItems: 'center',
+  //   justifyContent: 'center',
+  // },
+  // image: {
+  //   width: '100%',
+  //   height: '100%',
+  // },
+  // imageLoader: {
+  //   position: 'absolute',
+  // },
   infoSection: {
     paddingHorizontal: 20,
     paddingBottom: 20,
