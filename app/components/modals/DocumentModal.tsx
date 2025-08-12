@@ -99,7 +99,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
     if (visible && document) {
       setLoading(true);
       // setImageLoaded(false);
-      setTimeout(() => setLoading(false), 300);
+      setTimeout(() => setLoading(false), 100);
     }
   }, [visible, document]);
 
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   //   padding: 8,
   // },
   content: {
-    flex: 1,
+    flexGrow: 1,
   },
   // imageContainer: {
   //   height: 300,
@@ -349,8 +349,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    // borderBottomWidth: 0.5,
+    // borderBottomColor: '#F0F0F0',
   },
   infoIcon: {
     marginRight: 16,
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     gap: 12,
     backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
+    // borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
@@ -423,5 +423,16 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionBarSkeleton: {
+    flexDirection: 'row',
+    gap: 12,
+    flex: 1,
+  },
+  actionButtonSkeleton: {
+    flex: 1,
+    height: 46,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 12,
   },
 });
