@@ -21,9 +21,6 @@ import {
 import Animated, {
   FadeIn,
   FadeOut,
-  SlideInDown,
-  SlideInUp,
-  SlideOutDown,
   Easing,
 } from 'react-native-reanimated';
 import { showToast } from './Toast';
@@ -115,15 +112,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
   return (
     <Modal
       visible={visible}
-      animationType="none"
+      animationType="fade"
       transparent
       onRequestClose={handleClose}
     >
-      <Animated.View
-        entering={FadeIn.duration(300)}
-        exiting={FadeOut.duration(300)}
-        style={styles.backdrop}
-      >
+      <View style={styles.backdrop}>
         <TouchableOpacity
           style={StyleSheet.absoluteFillObject}
           activeOpacity={1}
@@ -131,8 +124,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         />
         
         <Animated.View
-          entering={SlideInDown.duration(350).easing(Easing.out(Easing.cubic))}
-          exiting={SlideOutDown.duration(300)}
+          entering={FadeIn.duration(350).easing(Easing.out(Easing.cubic))}
+          exiting={FadeOut.duration(300)}
           style={styles.container}
         >
           {/* <View style={styles.handle} /> */}
@@ -201,7 +194,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
             </View>
           )}
         </Animated.View>
-      </Animated.View>
+      </View>
     </Modal>
   );
 };
@@ -210,21 +203,19 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
   container: {
-    position: 'absolute',
-    top: SCREEN_HEIGHT * 0.2, // Fixed position from top
-    left: 20,
-    right: 20,
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-    maxWidth: 400,
-    alignSelf: 'center',
+    marginTop: SCREEN_HEIGHT * 0.1,
+    maxHeight: SCREEN_HEIGHT * 0.9,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 10,
+      height: -10,
     },
     shadowOpacity: 0.25,
     shadowRadius: 20,

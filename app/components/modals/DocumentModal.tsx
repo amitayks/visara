@@ -16,11 +16,6 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {
   FadeIn,
   FadeOut,
-  SlideInDown,
-  // SlideInUp,
-  // SlideOutDown,
-  SlideOutUp,
-  // withSpring,
   Easing,
 } from 'react-native-reanimated';
 import { showToast } from './Toast';
@@ -167,15 +162,11 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
   return (
     <Modal
       visible={visible}
-      animationType="none"
+      animationType="fade"
       transparent
       onRequestClose={onClose}
     >
-      <Animated.View
-        entering={FadeIn.duration(300)}
-        exiting={FadeOut.duration(300)}
-        style={styles.backdrop}
-      >
+      <View style={styles.backdrop}>
         <TouchableOpacity
           style={StyleSheet.absoluteFillObject}
           activeOpacity={1}
@@ -183,8 +174,8 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
         />
         
         <Animated.View
-          entering={SlideInDown.duration(350).easing(Easing.out(Easing.cubic))}
-          exiting={SlideOutUp.duration(300)}
+          entering={FadeIn.duration(150).easing(Easing.out(Easing.cubic))}
+          exiting={FadeOut.duration(100)}
           style={styles.container}
         >
           {/* <View style={styles.handle} /> */}
@@ -277,7 +268,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
             </View>
           )}
         </Animated.View>
-      </Animated.View>
+      </View>
     </Modal>
   );
 };
@@ -286,22 +277,19 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
   container: {
-    position: 'absolute',
-    top: SCREEN_HEIGHT * 0.2, // Fixed position from top
-    left: 20,
-    right: 20,
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
-    maxHeight: SCREEN_HEIGHT * 0.8,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: SCREEN_HEIGHT * 0.9,
     minHeight: SCREEN_HEIGHT * 0.5,
-    maxWidth: 400,
-    alignSelf: 'center',
+    marginTop: SCREEN_HEIGHT * 0.1,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 10,
+      height: -10,
     },
     shadowOpacity: 0.25,
     shadowRadius: 20,
@@ -387,8 +375,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     // borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
   },
   actions: {
     flexDirection: 'row',
