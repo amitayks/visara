@@ -1,19 +1,20 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useState, useEffect } from 'react';
 import {
-  FlatList,
+  ScrollView,
   View,
   StyleSheet,
   Dimensions,
   RefreshControl,
   Text,
   ViewStyle,
+  Image,
 } from 'react-native';
 import { DocumentCard } from './DocumentCard';
 import { SkeletonGrid } from './SkeletonGrid';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const COLUMNS = 2;
-const SPACING = 8;
+const SPACING = 15;
 const CONTAINER_PADDING = 16;
 const ITEM_WIDTH = (SCREEN_WIDTH - (CONTAINER_PADDING * 2) - SPACING) / COLUMNS;
 
@@ -45,27 +46,91 @@ export const DocumentGrid = memo(({
   ListEmptyComponent,
   contentContainerStyle
 }: DocumentGridProps) => {
-  const renderItem = useCallback(({ item, index }: { item: Document; index: number }) => {
-    const isLeft = index % 2 === 0;
-    
-    return (
-      <DocumentCard
-        document={item}
-        onPress={() => onDocumentPress(item)}
-        style={{
-          ...styles.item,
-          ...(isLeft ? styles.leftItem : styles.rightItem)
-        }}
-        width={ITEM_WIDTH}
-      />
-    );
-  }, [onDocumentPress]);
+  const [imageHeights, setImageHeights] = useState<{ [key: string]: number }>({});
+  const [loading, setLoading] = useState(true);
+
+  // Calculate image heights for Pinterest layout
+  useEffect(() => {
+    if (!documents.length) {
+      setLoading(false);
+      return;
+    }
+
+    const calculateHeights = async () => {
+      const heights: { [key: string]: number } = {};
+      let loadedCount = 0;
+
+      documents.forEach((doc) => {
+        Image.getSize(
+          doc.imageUri,
+          (width, height) => {
+            const aspectRatio = height / width;
+            const calculatedHeight = ITEM_WIDTH * aspectRatio;
+            // Limit height to reasonable bounds for Pinterest-style layout
+            const minHeight = ITEM_WIDTH * 0.8;
+            const maxHeight = ITEM_WIDTH * 2.5;
+            heights[doc.id] = Math.min(Math.max(calculatedHeight, minHeight), maxHeight);
+            
+            loadedCount++;
+            if (loadedCount === documents.length) {
+              setImageHeights(heights);
+              setLoading(false);
+            }
+          },
+          (error) => {
+            // Fallback to default height
+            heights[doc.id] = ITEM_WIDTH * 1.4;
+            loadedCount++;
+            if (loadedCount === documents.length) {
+              setImageHeights(heights);
+              setLoading(false);
+            }
+          }
+        );
+      });
+    };
+
+    calculateHeights();
+  }, [documents]);
+
+  // Create masonry layout
+  const createMasonryLayout = useCallback(() => {
+    const leftColumn: Document[] = [];
+    const rightColumn: Document[] = [];
+    let leftColumnHeight = 0;
+    let rightColumnHeight = 0;
+
+    documents.forEach((doc) => {
+      const itemHeight = imageHeights[doc.id] || ITEM_WIDTH * 1.4;
+      
+      if (leftColumnHeight <= rightColumnHeight) {
+        leftColumn.push(doc);
+        leftColumnHeight += itemHeight + SPACING;
+      } else {
+        rightColumn.push(doc);
+        rightColumnHeight += itemHeight + SPACING;
+      }
+    });
+
+    return { leftColumn, rightColumn };
+  }, [documents, imageHeights]);
+
+  const renderColumn = useCallback((columnDocs: Document[], isLeft: boolean) => (
+    <View style={[styles.column, isLeft ? styles.leftColumn : styles.rightColumn]}>
+      {columnDocs.map((doc) => (
+        <View key={doc.id} style={styles.cardContainer}>
+          <DocumentCard
+            document={doc}
+            onPress={() => onDocumentPress(doc)}
+            width={ITEM_WIDTH}
+            height={imageHeights[doc.id]}
+          />
+        </View>
+      ))}
+    </View>
+  ), [onDocumentPress, imageHeights]);
   
-  const keyExtractor = useCallback((item: Document) => item.id, []);
-  
-  const ItemSeparator = () => <View style={{ height: SPACING }} />;
-  
-  if (!documents && !refreshing) {
+  if (loading || (!documents && !refreshing)) {
     return <SkeletonGrid columns={COLUMNS} count={6} />;
   }
   
@@ -77,13 +142,29 @@ export const DocumentGrid = memo(({
       </Text>
     </View>
   );
+
+  if (documents.length === 0) {
+    return (
+      <ScrollView
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#6366F1']}
+            tintColor="#6366F1"
+          />
+        }
+        contentContainerStyle={[styles.container, styles.emptyListContainer, contentContainerStyle]}
+      >
+        {EmptyComponent}
+      </ScrollView>
+    );
+  }
+
+  const { leftColumn, rightColumn } = createMasonryLayout();
   
   return (
-    <FlatList
-      data={documents}
-      renderItem={renderItem}
-      keyExtractor={keyExtractor}
-      numColumns={COLUMNS}
+    <ScrollView
       refreshControl={
         <RefreshControl
           refreshing={refreshing}
@@ -92,18 +173,14 @@ export const DocumentGrid = memo(({
           tintColor="#6366F1"
         />
       }
-      contentContainerStyle={[
-        styles.container,
-        contentContainerStyle,
-        documents.length === 0 && styles.emptyListContainer
-      ]}
+      contentContainerStyle={[styles.container, contentContainerStyle]}
       showsVerticalScrollIndicator={false}
-      removeClippedSubviews={true}
-      maxToRenderPerBatch={10}
-      windowSize={10}
-      ListEmptyComponent={EmptyComponent}
-      ItemSeparatorComponent={ItemSeparator}
-    />
+    >
+      <View style={styles.masonryContainer}>
+        {renderColumn(leftColumn, true)}
+        {renderColumn(rightColumn, false)}
+      </View>
+    </ScrollView>
   );
 });
 
@@ -116,14 +193,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
   },
-  item: {
-    width: ITEM_WIDTH,
+  masonryContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
   },
-  leftItem: {
+  column: {
+    flex: 1,
+  },
+  leftColumn: {
     marginRight: SPACING / 2,
   },
-  rightItem: {
+  rightColumn: {
     marginLeft: SPACING / 2,
+  },
+  cardContainer: {
+    marginBottom: SPACING,
   },
   emptyContainer: {
     flex: 1,

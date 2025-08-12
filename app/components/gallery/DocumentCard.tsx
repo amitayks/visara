@@ -16,16 +16,19 @@ interface DocumentCardProps {
   onPress: () => void;
   style?: ViewStyle;
   width: number;
+  height?: number;
 }
 
 export const DocumentCard = memo(({
   document,
   onPress,
   style,
-  width
+  width,
+  height
 }: DocumentCardProps) => {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [imageHeight, setImageHeight] = useState(height || width * 1.4);
 
   const getDocumentIcon = (type?: string) => {
     switch (type?.toLowerCase()) {
@@ -72,8 +75,20 @@ export const DocumentCard = memo(({
           <>
             <Image
               source={{ uri: document.imageUri }}
-              style={[styles.image, { width: width, height: width * 1.4 }]}
-              onLoad={() => setImageLoading(false)}
+              style={[styles.image, { width: width, height: imageHeight }]}
+              onLoad={(event) => {
+                setImageLoading(false);
+                // If height is provided from parent, use it; otherwise calculate from image dimensions
+                if (!height && event.nativeEvent.source) {
+                  const { width: imgWidth, height: imgHeight } = event.nativeEvent.source;
+                  const aspectRatio = imgHeight / imgWidth;
+                  const calculatedHeight = width * aspectRatio;
+                  // Limit height to reasonable bounds
+                  const minHeight = width * 0.8;
+                  const maxHeight = width * 2.5;
+                  setImageHeight(Math.min(Math.max(calculatedHeight, minHeight), maxHeight));
+                }
+              }}
               onError={() => {
                 setImageLoading(false);
                 setImageError(true);
@@ -138,7 +153,7 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
-    elevation: 5,
+    elevation: 10,
   },
   imageContainer: {
     position: 'relative',
