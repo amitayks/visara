@@ -16,8 +16,9 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import Animated, {
   FadeIn,
   FadeOut,
-  SlideInDown,
+  SlideInUp,
   SlideOutDown,
+  withSpring,
 } from 'react-native-reanimated';
 import { showToast } from './Toast';
 import { Document } from '../gallery/DocumentGrid';
@@ -178,8 +179,8 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
         />
         
         <Animated.View
-          entering={SlideInDown.springify()}
-          exiting={SlideOutDown.springify()}
+          entering={SlideInUp.springify().damping(15).stiffness(120)}
+          exiting={SlideOutDown.springify().damping(15).stiffness(120)}
           style={styles.container}
         >
           <View style={styles.handle} />
@@ -271,14 +272,25 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   container: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    maxHeight: SCREEN_HEIGHT * 0.9,
+    borderRadius: 24,
+    maxHeight: SCREEN_HEIGHT * 0.8,
     minHeight: SCREEN_HEIGHT * 0.5,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 15,
   },
   handle: {
     width: 40,

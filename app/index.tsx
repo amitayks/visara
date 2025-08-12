@@ -219,6 +219,57 @@ export default function HomeScreen() {
     }
   }, []);
   
+  // Handle background scan
+  const handleStartBackgroundScan = useCallback(async () => {
+    try {
+      // Check permissions first
+      const hasPermission = await galleryScanner.hasPermissions();
+      if (!hasPermission) {
+        const granted = await galleryScanner.requestPermissions();
+        if (!granted) {
+          Alert.alert(
+            'Permission Required',
+            'Gallery access is needed to scan for documents. Please enable it in settings.'
+          );
+          return;
+        }
+      }
+
+      // Start the scan
+      setIsScanning(true);
+      await galleryScanner.startScan(
+        {
+          batchSize: 15,
+          smartFilterEnabled: true,
+          batterySaver: true,
+        },
+        (progress) => {
+          setScanProgress(progress);
+          console.log(`Scan progress: ${progress.processedImages}/${progress.totalImages}`);
+        }
+      );
+
+      // Refresh documents once scan is complete
+      await loadDocuments();
+      
+      showToast({
+        type: 'success',
+        message: 'Scan completed successfully',
+        icon: 'checkmark-circle',
+      });
+    } catch (error) {
+      console.error('Background scan error:', error);
+      showToast({
+        type: 'error',
+        message: 'Failed to start scan',
+        icon: 'alert-circle',
+      });
+    } finally {
+      setIsScanning(false);
+      setScanProgress(null);
+    }
+  }, [loadDocuments]);
+  
   // Handle manual upload
   const handleManualUpload = useCallback(() => {
     setShowUploadModal(true);
@@ -297,7 +348,7 @@ export default function HomeScreen() {
             message="Tap the scan button to find documents in your gallery"
             action={{
               label: 'Start Scanning',
-              onPress: handleManualUpload,
+              onPress: handleStartBackgroundScan,
             }}
           />
         }
