@@ -240,24 +240,27 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
                     value={formatCurrency(document?.totalAmount)}
                   />
                 </View>
-                
-                <View style={styles.actions}>
-                  <ActionButton
-                    icon="share-social"
-                    label="Share"
-                    onPress={handleShare}
-                    color="#6366F1"
-                  />
-                  <ActionButton
-                    icon="trash"
-                    label="Delete"
-                    onPress={handleDelete}
-                    color="#EF4444"
-                  />
-                </View>
               </>
             )}
           </ScrollView>
+          
+          {/* Fixed Action Bar at Bottom */}
+          {!loading && (
+            <View style={styles.actionBar}>
+              <ActionButton
+                icon="share-social"
+                label="Share"
+                onPress={handleShare}
+                color="#6366F1"
+              />
+              <ActionButton
+                icon="trash"
+                label="Delete"
+                onPress={handleDelete}
+                color="#EF4444"
+              />
+            </View>
+          )}
           
           {deleting && (
             <View style={styles.deletingOverlay}>
@@ -364,6 +367,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
     fontWeight: '500',
+  },
+  actionBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: 20,
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   actions: {
     flexDirection: 'row',
