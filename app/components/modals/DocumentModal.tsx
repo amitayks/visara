@@ -21,6 +21,7 @@ import Animated, {
   // SlideOutDown,
   SlideOutUp,
   // withSpring,
+  Easing,
 } from 'react-native-reanimated';
 import { showToast } from './Toast';
 import { Document } from '../gallery/DocumentGrid';
@@ -99,7 +100,8 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
     if (visible && document) {
       setLoading(true);
       // setImageLoaded(false);
-      setTimeout(() => setLoading(false), 100);
+      // Wait for animation to complete before loading content
+      setTimeout(() => setLoading(false), 400);
     }
   }, [visible, document]);
 
@@ -181,8 +183,8 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
         />
         
         <Animated.View
-          entering={SlideInDown.springify().damping(15).stiffness(100)}
-          exiting={SlideOutUp.springify().damping(15).stiffness(12)}
+          entering={SlideInDown.duration(350).easing(Easing.out(Easing.cubic))}
+          exiting={SlideOutUp.duration(300)}
           style={styles.container}
         >
           {/* <View style={styles.handle} /> */}
@@ -245,22 +247,29 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
           </ScrollView>
           
           {/* Fixed Action Bar at Bottom */}
-          {!loading && (
-            <View style={styles.actionBar}>
-              <ActionButton
-                icon="share-social"
-                label="Share"
-                onPress={handleShare}
-                color="#6366F1"
-              />
-              <ActionButton
-                icon="trash"
-                label="Delete"
-                onPress={handleDelete}
-                color="#EF4444"
-              />
-            </View>
-          )}
+          <View style={styles.actionBar}>
+            {!loading ? (
+              <>
+                <ActionButton
+                  icon="share-social"
+                  label="Share"
+                  onPress={handleShare}
+                  color="#6366F1"
+                />
+                <ActionButton
+                  icon="trash"
+                  label="Delete"
+                  onPress={handleDelete}
+                  color="#EF4444"
+                />
+              </>
+            ) : (
+              <>
+                <View style={styles.actionButtonSkeleton} />
+                <View style={styles.actionButtonSkeleton} />
+              </>
+            )}
+          </View>
           
           {deleting && (
             <View style={styles.deletingOverlay}>
@@ -277,17 +286,18 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
   },
   container: {
+    position: 'absolute',
+    top: SCREEN_HEIGHT * 0.2, // Fixed position from top
+    left: 20,
+    right: 20,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     maxHeight: SCREEN_HEIGHT * 0.8,
     minHeight: SCREEN_HEIGHT * 0.5,
-    width: '100%',
     maxWidth: 400,
+    alignSelf: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -431,7 +441,7 @@ const styles = StyleSheet.create({
   },
   actionButtonSkeleton: {
     flex: 1,
-    height: 46,
+    height: 52, // Match exact height with padding (24 icon + 14*2 padding)
     backgroundColor: '#F0F0F0',
     borderRadius: 12,
   },

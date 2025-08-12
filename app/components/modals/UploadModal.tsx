@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Image,
   Platform,
+  Dimensions,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import {
@@ -23,8 +24,11 @@ import Animated, {
   SlideInDown,
   SlideInUp,
   SlideOutDown,
+  Easing,
 } from 'react-native-reanimated';
 import { showToast } from './Toast';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface UploadModalProps {
   visible: boolean;
@@ -127,8 +131,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
         />
         
         <Animated.View
-          entering={SlideInDown.springify().damping(15).stiffness(100)}
-          exiting={SlideOutDown.springify().damping(15).stiffness(100)}
+          entering={SlideInDown.duration(350).easing(Easing.out(Easing.cubic))}
+          exiting={SlideOutDown.duration(300)}
           style={styles.container}
         >
           {/* <View style={styles.handle} /> */}
@@ -206,16 +210,17 @@ const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
   },
   container: {
+    position: 'absolute',
+    top: SCREEN_HEIGHT * 0.2, // Fixed position from top
+    left: 20,
+    right: 20,
     backgroundColor: '#FFFFFF',
     borderRadius: 24,
     paddingBottom: Platform.OS === 'ios' ? 34 : 24,
-    width: '100%',
     maxWidth: 400,
+    alignSelf: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
