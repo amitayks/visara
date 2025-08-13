@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import {
 	ImagePickerResponse,
-	launchCamera,
+	// launchCamera,
 	launchImageLibrary,
 	MediaType,
 	PhotoQuality,
@@ -49,9 +49,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 		launchImageLibrary(imagePickerOptions, handleImageResponse);
 	};
 
-	const handleLaunchCamera = () => {
-		launchCamera(imagePickerOptions, handleImageResponse);
-	};
+	// const handleLaunchCamera = () => {
+	// 	launchCamera(imagePickerOptions, handleImageResponse);
+	// };
 
 	const handleImageResponse = (response: ImagePickerResponse) => {
 		if (response.didCancel || response.errorMessage) {
