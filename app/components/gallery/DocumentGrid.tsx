@@ -2,6 +2,7 @@ import React, { memo, useCallback, useEffect, useState } from "react";
 import {
 	Dimensions,
 	Image,
+	Keyboard,
 	RefreshControl,
 	ScrollView,
 	StyleSheet,
@@ -176,6 +177,8 @@ export const DocumentGrid = memo(
 						styles.emptyListContainer,
 						contentContainerStyle,
 					]}
+					keyboardShouldPersistTaps="handled"
+					onScrollBeginDrag={() => Keyboard.dismiss()}
 				>
 					{EmptyComponent}
 				</ScrollView>
@@ -196,6 +199,8 @@ export const DocumentGrid = memo(
 				}
 				contentContainerStyle={[styles.container, contentContainerStyle]}
 				showsVerticalScrollIndicator={false}
+				keyboardShouldPersistTaps="handled"
+				onScrollBeginDrag={() => Keyboard.dismiss()}
 			>
 				<View style={styles.masonryContainer}>
 					{renderColumn(leftColumn, true)}

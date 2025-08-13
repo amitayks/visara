@@ -6,16 +6,16 @@ interface AppSettings {
 	autoScan: boolean;
 	scanFrequency: "hourly" | "daily" | "weekly" | "manual";
 	darkMode: boolean;
+	scanWifiOnly: boolean;
+	batterySaver: boolean;
+	smartFilterEnabled: boolean;
 	// notifications: boolean;
 	// biometricLock: boolean;
 	// scanQuality: "low" | "medium" | "high";
 	// encryptSensitiveDocuments: boolean;
 	// language: string;
 	// storageLimit: number; // in GB
-	// scanWifiOnly: boolean;
-	// batterySaver: boolean;
 	// scanNewOnly: boolean;
-	// smartFilterEnabled: boolean;
 	// maxScanBatchSize: number;
 }
 
@@ -37,16 +37,16 @@ const defaultSettings: AppSettings = {
 	autoScan: true,
 	darkMode: false,
 	scanFrequency: "daily",
+	scanWifiOnly: true,
+	batterySaver: true,
+	smartFilterEnabled: true,
 	// notifications: false,
 	// biometricLock: false,
 	// scanQuality: "medium",
 	// encryptSensitiveDocuments: false,
 	// language: "en",
 	// storageLimit: 5,
-	// scanWifiOnly: true,
-	// batterySaver: true,
 	// scanNewOnly: false,
-	// smartFilterEnabled: true,
 	// maxScanBatchSize: 20,
 };
 

@@ -8,6 +8,7 @@ import {
 	Platform,
 	StatusBar,
 	StyleSheet,
+	TouchableWithoutFeedback,
 } from "react-native";
 import Animated, {
 	useAnimatedKeyboard,
@@ -28,8 +29,7 @@ import { ScanProgressBar } from "./components/layout/ScanProgressBar";
 import { DocumentModal } from "./components/modals/DocumentModal";
 import { ToastContainer, showToast } from "./components/modals/Toast";
 import { UploadModal } from "./components/modals/UploadModal";
-import { QueryChip, QueryChips } from "./components/search/QueryChips";
-import { SearchBar } from "./components/search/SearchBar";
+import { QueryChip, SearchContainer } from "./components/search/SearchContainer";
 
 // Import services
 import { database } from "../services/database";
@@ -269,9 +269,27 @@ export default function HomeScreen() {
 	const handleSearch = useCallback(async () => {
 		if (!searchQuery.trim()) return;
 
+		// First: Add chip immediately for better UX (before loading state)
+		const newChip: QueryChip = {
+			id: Date.now().toString(),
+			text: searchQuery,
+			type: "search",
+		};
+		setQueryChips((prev) => [...prev, newChip]);
+		
+		// Clear search input immediately
+		setSearchQuery("");
+
+		// Small delay to let chip animation complete before showing loading
+		await new Promise(resolve => setTimeout(resolve, 200));
+		
 		setIsSearching(true);
 		try {
-			const result = await searchOrchestrator.search(searchQuery, {
+			// Build combined search query from all chips (including new one)
+			const allSearchTerms = [...queryChips.map(chip => chip.text), newChip.text];
+			const combinedQuery = allSearchTerms.join(" ");
+			
+			const result = await searchOrchestrator.search(combinedQuery, {
 				useSemanticSearch: true,
 				usePhoneticMatching: true,
 				useFuzzyMatching: true,
@@ -291,18 +309,10 @@ export default function HomeScreen() {
 
 			setSearchResults(docs);
 			setFilteredDocuments(docs);
-
-			// Add to query chips
-			const newChip: QueryChip = {
-				id: Date.now().toString(),
-				text: searchQuery,
-				type: "search",
-			};
-			setQueryChips((prev) => [...prev, newChip]);
-
-			Keyboard.dismiss();
 		} catch (error) {
 			console.error("Search error:", error);
+			// Remove the chip if search failed
+			setQueryChips((prev) => prev.filter(chip => chip.id !== newChip.id));
 			showToast({
 				type: "error",
 				message: "Search failed",
@@ -311,7 +321,7 @@ export default function HomeScreen() {
 		} finally {
 			setIsSearching(false);
 		}
-	}, [searchQuery, searchOrchestrator]);
+	}, [searchQuery, queryChips, searchOrchestrator]);
 
 	// Handle document press
 	const handleDocumentPress = useCallback((doc: Document) => {
@@ -421,17 +431,55 @@ export default function HomeScreen() {
 
 	// Handle chip removal
 	const handleRemoveChip = useCallback(
-		(chipId: string) => {
-			setQueryChips((prev) => prev.filter((chip) => chip.id !== chipId));
+		async (chipId: string) => {
+			const updatedChips = queryChips.filter((chip) => chip.id !== chipId);
+			setQueryChips(updatedChips);
 
 			// If this was the last chip, clear search state
-			if (queryChips.length === 1) {
+			if (updatedChips.length === 0) {
 				setFilteredDocuments(documents);
 				setSearchQuery("");
 				setSearchResults([]);
+				return;
+			}
+
+			// Re-search with remaining chips
+			try {
+				setIsSearching(true);
+				const combinedQuery = updatedChips.map(chip => chip.text).join(" ");
+				
+				const result = await searchOrchestrator.search(combinedQuery, {
+					useSemanticSearch: true,
+					usePhoneticMatching: true,
+					useFuzzyMatching: true,
+					maxResults: 50,
+				});
+
+				const docs: Document[] = result.documents.map((scored) => ({
+					id: scored.document.id,
+					imageUri: scored.document.imageUri,
+					documentType: scored.document.documentType,
+					vendor: scored.document.vendor,
+					date: scored.document.date ? new Date(scored.document.date) : undefined,
+					totalAmount: scored.document.totalAmount,
+					metadata: scored.document.metadata,
+					createdAt: new Date(scored.document.createdAt),
+				}));
+
+				setSearchResults(docs);
+				setFilteredDocuments(docs);
+			} catch (error) {
+				console.error("Re-search error:", error);
+				showToast({
+					type: "error",
+					message: "Search failed",
+					icon: "alert-circle",
+				});
+			} finally {
+				setIsSearching(false);
 			}
 		},
-		[queryChips, documents],
+		[queryChips, documents, searchOrchestrator],
 	);
 
 	// Initial load
@@ -449,80 +497,74 @@ export default function HomeScreen() {
 				backgroundColor={theme.background}
 			/>
 
-			{/* Header */}
-			<AppHeader
-				onScanPress={handleManualUpload}
-				onSettingsPress={handleSettingsPress}
-			/>
+			<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+				<>
+					{/* Header */}
+					<AppHeader
+						onScanPress={handleManualUpload}
+						onSettingsPress={handleSettingsPress}
+					/>
 
-			{/* Scanning Progress */}
-			{isScanning && scanProgress && (
-				<ScanProgressBar
-					current={scanProgress.processedImages}
-					total={scanProgress.totalImages}
-					animated
-				/>
-			)}
+					{/* Scanning Progress */}
+					{isScanning && scanProgress && (
+						<ScanProgressBar
+							current={scanProgress.processedImages}
+							total={scanProgress.totalImages}
+							animated
+						/>
+					)}
 
-			{/* Document Grid */}
-			{isSearching ? (
-				<SkeletonGrid columns={2} count={6} />
-			) : (
-				<DocumentGrid
-					documents={filteredDocuments}
-					refreshing={isRefreshing}
-					onRefresh={handleRefresh}
-					onDocumentPress={handleDocumentPress}
-					ListEmptyComponent={
-						queryChips.length > 0 ? (
-							<EmptyState
-								icon="search-outline"
-								title="No results found"
-								message={`No documents found for "${queryChips[0]?.text || searchQuery}"`}
-							/>
-						) : (
-							<EmptyState
-								icon="folder-open-outline"
-								title="No documents yet"
-								message="Tap the scan button to find documents in your gallery"
-								action={{
-									label: "Start Scanning",
-									onPress: handleStartBackgroundScan,
-								}}
-							/>
-						)
-					}
-					contentContainerStyle={{
-						paddingBottom: 100,
-					}}
-				/>
-			)}
+					{/* Document Grid */}
+					{isSearching ? (
+						<SkeletonGrid columns={2} count={6} />
+					) : (
+						<DocumentGrid
+							documents={filteredDocuments}
+							refreshing={isRefreshing}
+							onRefresh={handleRefresh}
+							onDocumentPress={handleDocumentPress}
+							ListEmptyComponent={
+								queryChips.length > 0 ? (
+									<EmptyState
+										icon="search-outline"
+										title="No results found"
+										message={`No documents found for "${queryChips[0]?.text || searchQuery}"`}
+									/>
+								) : (
+									<EmptyState
+										icon="folder-open-outline"
+										title="No documents yet"
+										message="Tap the scan button to find documents in your gallery"
+										action={{
+											label: "Start Scanning",
+											onPress: handleStartBackgroundScan,
+										}}
+									/>
+								)
+							}
+							contentContainerStyle={{
+								paddingBottom: 100,
+							}}
+						/>
+					)}
+				</>
+			</TouchableWithoutFeedback>
 
 			{/* Search Section - Fixed at bottom */}
-			<Animated.View style={[styles.searchContainer, searchBarStyle]}>
-				{/* Query Chips */}
-				{queryChips.length > 0 && (
-					<QueryChips
-						chips={queryChips}
-						onRemoveChip={handleRemoveChip}
-						style={styles.queryChips}
-					/>
-				)}
-
-				{/* Search Bar */}
-				<SearchBar
-					value={searchQuery}
-					onChangeText={(text) => {
+			<Animated.View style={[styles.searchWrapper, searchBarStyle]}>
+				<SearchContainer
+					searchValue={searchQuery}
+					onSearchChange={(text) => {
 						setSearchQuery(text);
-						// If user clears search query manually, clear search results
-						if (!text.trim() && queryChips.length > 0) {
-							setQueryChips([]);
+						// Only clear search results if user clears input AND there are no chips
+						if (!text.trim() && queryChips.length === 0) {
 							setFilteredDocuments(documents);
 							setSearchResults([]);
 						}
 					}}
 					onSubmit={handleSearch}
-					// placeholder="Search documents..."
+					queryChips={queryChips}
+					onRemoveChip={handleRemoveChip}
 					showSendButton={searchQuery.length > 0}
 				/>
 			</Animated.View>
@@ -557,21 +599,10 @@ const createStyles = (theme: any) =>
 			flex: 1,
 			backgroundColor: theme.background,
 		},
-		searchContainer: {
+		searchWrapper: {
 			position: "absolute",
 			bottom: 0,
 			left: 0,
 			right: 0,
-			backgroundColor: theme.background,
-			borderTopWidth: 1,
-			borderTopColor: theme.border,
-			paddingBottom: Platform.OS === "ios" ? 20 : 10,
-		},
-		queryChips: {
-			paddingHorizontal: 16,
-			paddingTop: 12,
-			paddingBottom: 8,
-			borderBottomWidth: 1,
-			borderBottomColor: theme.borderLight,
 		},
 	});
