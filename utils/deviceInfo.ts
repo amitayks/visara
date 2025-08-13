@@ -36,7 +36,7 @@ class DeviceInfo {
 		// React Native doesn't have a built-in battery API
 		// You would need to create a native module or use a third-party library
 		// For now, we'll return mock values that can be replaced with actual implementation
-		
+
 		// TODO: Implement native module for battery info or use react-native-device-info
 		return {
 			batteryLevel: this.batteryLevel,
@@ -52,26 +52,28 @@ class DeviceInfo {
 		isLowMemory: boolean;
 	}> {
 		try {
-			if (Platform.OS === 'android') {
+			if (Platform.OS === "android") {
 				// Use Android's ActivityManager for memory info
 				const { DeviceInfo } = NativeModules;
 				if (DeviceInfo && DeviceInfo.getMemoryInfo) {
 					const memInfo = await DeviceInfo.getMemoryInfo();
 					return {
 						...memInfo,
-						isLowMemory: memInfo.availableMemory < this.memoryThreshold * 1024 * 1024,
+						isLowMemory:
+							memInfo.availableMemory < this.memoryThreshold * 1024 * 1024,
 					};
 				}
 			}
-			
+
 			// Fallback - estimate based on app memory usage if available
 			const { heapSize, heapUsed } = (global as any).performance?.memory || {};
-			
+
 			const totalMemory = heapSize || 512 * 1024 * 1024; // Default 512MB
 			const usedMemory = heapUsed || 256 * 1024 * 1024;
 			const availableMemory = totalMemory - usedMemory;
-			const memoryPercentage = heapUsed && heapSize ? (heapUsed / heapSize) * 100 : 50;
-			
+			const memoryPercentage =
+				heapUsed && heapSize ? (heapUsed / heapSize) * 100 : 50;
+
 			return {
 				totalMemory,
 				availableMemory,
@@ -97,7 +99,7 @@ class DeviceInfo {
 		isWifiConnected: boolean;
 	}> {
 		const netInfo = await NetInfo.fetch();
-		
+
 		return {
 			networkType: netInfo.type,
 			isWifiConnected: netInfo.type === "wifi" && netInfo.isConnected === true,

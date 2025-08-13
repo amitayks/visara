@@ -1,15 +1,15 @@
-import { Image } from 'react-native';
+import { Image } from "react-native";
 import RNFS from "react-native-fs";
 import CryptoJS from "crypto-js";
-import nlp from 'compromise';
-import ImageResizer from '@bam.tech/react-native-image-resizer';
+import nlp from "compromise";
+import ImageResizer from "@bam.tech/react-native-image-resizer";
 import { embeddingService } from "../search/simpleEmbeddingService";
 import { keywordExtractor } from "./keywordExtractor";
 import { ocrEngineManager } from "./OCREngineManager";
 import type { OCREngineName } from "./ocrTypes";
-import { TempFileTracker } from '../memory/cleanupRegistry';
-import { memoryManager } from '../memory/memoryManager';
-import { visualDocumentDetector } from './visualDocumentDetector';
+import { TempFileTracker } from "../memory/cleanupRegistry";
+import { memoryManager } from "../memory/memoryManager";
+import { visualDocumentDetector } from "./visualDocumentDetector";
 
 export interface DocumentResult {
 	id: string;
@@ -70,7 +70,7 @@ export interface ProcessingOptions {
 export class DocumentProcessor {
 	private activeProcessingCount = 0;
 	private readonly MAX_CONCURRENT_PROCESSING = 2; // Limit concurrent processing
-	
+
 	private defaultOptions: ProcessingOptions = {
 		preprocessImage: true,
 		extractStructuredData: true,
@@ -84,26 +84,26 @@ export class DocumentProcessor {
 	): Promise<DocumentResult> {
 		// Wait if too many images are being processed
 		while (this.activeProcessingCount >= this.MAX_CONCURRENT_PROCESSING) {
-			await new Promise(resolve => setTimeout(resolve, 100));
+			await new Promise((resolve) => setTimeout(resolve, 100));
 		}
-		
+
 		this.activeProcessingCount++;
-		
+
 		// Create temp file tracker for this processing session
-		const tempTracker = new TempFileTracker('documentProcessor');
-		
+		const tempTracker = new TempFileTracker("documentProcessor");
+
 		try {
 			const opts = { ...this.defaultOptions, ...options };
 			const startTime = Date.now();
-			
+
 			// Check memory before processing
 			const memStatus = memoryManager.getMemoryStatus();
 			if (memStatus.isCriticalMemory) {
-				console.warn('[DocumentProcessor] Critical memory, triggering cleanup');
+				console.warn("[DocumentProcessor] Critical memory, triggering cleanup");
 				await memoryManager.emergencyCleanup();
-				await new Promise(resolve => setTimeout(resolve, 2000));
+				await new Promise((resolve) => setTimeout(resolve, 2000));
 			}
-			
+
 			// Calculate image hash for deduplication using URI and basic properties
 			const imageHash = await this.calculateImageHash(imageUri);
 
@@ -111,14 +111,17 @@ export class DocumentProcessor {
 			const imageInfo = await this.getImageInfo(imageUri);
 
 			// Perform visual document detection FIRST
-			const visualFeatures = await visualDocumentDetector.detectDocument(imageUri);
-			console.log(`[DocumentProcessor] Visual detection score: ${(visualFeatures.overallScore * 100).toFixed(1)}%`);
+			const visualFeatures =
+				await visualDocumentDetector.detectDocument(imageUri);
+			console.log(
+				`[DocumentProcessor] Visual detection score: ${(visualFeatures.overallScore * 100).toFixed(1)}%`,
+			);
 
 			// Perform OCR directly on the device URI
 			const ocrResult = await this.performOCRWithMemoryCleanup(
 				imageUri,
 				opts.ocrEngine,
-				tempTracker  // Pass the tracker
+				tempTracker, // Pass the tracker
 			);
 
 			const documentType = this.detectDocumentType(ocrResult.text);
@@ -135,9 +138,9 @@ export class DocumentProcessor {
 				ocrResult.confidence,
 				documentType,
 				ocrResult.text.length,
-				metadata.confidence
+				metadata.confidence,
 			);
-			
+
 			const keywords = await this.extractKeywords(ocrResult.text);
 			const searchVector = await this.generateSearchVector(ocrResult.text);
 
@@ -162,9 +165,8 @@ export class DocumentProcessor {
 			console.log(
 				`Document processed in ${processingTime}ms - Type: ${documentType}, Confidence: ${(confidence * 100).toFixed(1)}%`,
 			);
-			
+
 			return result;
-			
 		} catch (error) {
 			console.error("Error processing document:", error);
 			throw error;
@@ -172,7 +174,7 @@ export class DocumentProcessor {
 			// ALWAYS cleanup temp files, even on error
 			await tempTracker.cleanupAll();
 			this.activeProcessingCount--;
-			
+
 			// Trigger GC hint after processing
 			if (global.gc) {
 				global.gc();
@@ -184,10 +186,10 @@ export class DocumentProcessor {
 	private async calculateImageHash(imageUri: string): Promise<string> {
 		try {
 			// For content:// URIs, create hash from URI itself (stable identifier)
-			if (imageUri.startsWith('content://')) {
+			if (imageUri.startsWith("content://")) {
 				return CryptoJS.SHA256(imageUri).toString();
 			}
-			
+
 			// For file:// URIs, try to get file stats for more unique hash
 			try {
 				const stats = await RNFS.stat(imageUri);
@@ -198,7 +200,7 @@ export class DocumentProcessor {
 				return CryptoJS.SHA256(imageUri).toString();
 			}
 		} catch (error) {
-			console.error('Error calculating image hash:', error);
+			console.error("Error calculating image hash:", error);
 			// Ultimate fallback
 			return CryptoJS.SHA256(imageUri).toString();
 		}
@@ -213,19 +215,21 @@ export class DocumentProcessor {
 	}> {
 		try {
 			// Get image dimensions using React Native Image
-			const dimensions = await new Promise<{ width: number; height: number }>((resolve, reject) => {
-				Image.getSize(
-					imageUri,
-					(width, height) => resolve({ width, height }),
-					(error) => reject(error)
-				);
-			});
+			const dimensions = await new Promise<{ width: number; height: number }>(
+				(resolve, reject) => {
+					Image.getSize(
+						imageUri,
+						(width, height) => resolve({ width, height }),
+						(error) => reject(error),
+					);
+				},
+			);
 
 			let size: number | undefined;
 			let takenDate: Date | undefined;
 
 			// Try to get file size for file:// URIs
-			if (imageUri.startsWith('file://')) {
+			if (imageUri.startsWith("file://")) {
 				try {
 					const stats = await RNFS.stat(imageUri);
 					size = stats.size;
@@ -242,12 +246,15 @@ export class DocumentProcessor {
 				takenDate,
 			};
 		} catch (error) {
-			console.error('Error getting image info:', error);
+			console.error("Error getting image info:", error);
 			return {};
 		}
 	}
 
-	private async preprocessImage(imageUri: string, tempTracker?: TempFileTracker): Promise<string> {
+	private async preprocessImage(
+		imageUri: string,
+		tempTracker?: TempFileTracker,
+	): Promise<string> {
 		try {
 			// DON'T cache preprocessed images - they're temporary!
 			const manipulatedImage = await ImageResizer.createResizedImage(
@@ -266,7 +273,7 @@ export class DocumentProcessor {
 				tempTracker.add(manipulatedImage.uri);
 			} else {
 				// Register with memory manager if no tracker provided
-				memoryManager.registerTempFile(manipulatedImage.uri, 'preprocessImage');
+				memoryManager.registerTempFile(manipulatedImage.uri, "preprocessImage");
 			}
 
 			// Return the temp file directly - NO CACHING
@@ -280,73 +287,79 @@ export class DocumentProcessor {
 	private async performOCRWithMemoryCleanup(
 		imageUri: string,
 		engineName: OCREngineName = "mlkit",
-		tempTracker?: TempFileTracker  // ADD THIS PARAMETER
+		tempTracker?: TempFileTracker, // ADD THIS PARAMETER
 	): Promise<{ text: string; confidence: number }> {
 		try {
 			let processUri = imageUri;
 			let needsCleanup = false;
-			
+
 			// Always preprocess content:// URIs as they can't be read directly by OCR engines
-			if (imageUri.startsWith('content://')) {
-				console.log('Preprocessing content URI for OCR');
+			if (imageUri.startsWith("content://")) {
+				console.log("Preprocessing content URI for OCR");
 				processUri = await this.preprocessImage(imageUri, tempTracker);
 				needsCleanup = false; // Already tracked by tempTracker
 			} else {
 				// For file URIs, resize if too large
 				const imageInfo = await this.getImageSize(imageUri);
-				
+
 				if (imageInfo.width > 2000 || imageInfo.height > 2000) {
-					console.log(`Resizing large image for OCR: ${imageInfo.width}x${imageInfo.height}`);
+					console.log(
+						`Resizing large image for OCR: ${imageInfo.width}x${imageInfo.height}`,
+					);
 					const resized = await ImageResizer.createResizedImage(
 						imageUri,
 						Math.min(2000, imageInfo.width),
 						Math.min(2000, imageInfo.height),
-						'JPEG',
+						"JPEG",
 						85,
 						0,
 					);
 					processUri = resized.uri;
-					
+
 					// TRACK THIS TEMP FILE!
 					if (tempTracker) {
 						tempTracker.add(resized.uri);
 					} else {
-						memoryManager.registerTempFile(resized.uri, 'ocrResize');
+						memoryManager.registerTempFile(resized.uri, "ocrResize");
 					}
-					
+
 					needsCleanup = false; // Don't double-cleanup
 				}
 			}
-			
+
 			// Initialize engine manager if needed
 			await ocrEngineManager.initialize();
-			
-			const result = await ocrEngineManager.processImage(processUri, engineName);
-			
+
+			const result = await ocrEngineManager.processImage(
+				processUri,
+				engineName,
+			);
+
 			// Clean up processed image if it was created during preprocessing
 			if (needsCleanup && processUri !== imageUri) {
 				try {
 					await RNFS.unlink(processUri);
 				} catch (e) {
 					// Ignore cleanup errors
-					console.log('Note: Could not clean up temporary file:', e instanceof Error ? e.message : String(e));
+					console.log(
+						"Note: Could not clean up temporary file:",
+						e instanceof Error ? e.message : String(e),
+					);
 				}
 			}
-			
+
 			return result;
 		} catch (error) {
 			console.error("Error performing OCR:", error);
 			return { text: "", confidence: 0 };
 		}
 	}
-	
-	private async getImageSize(uri: string): Promise<{ width: number; height: number }> {
+
+	private async getImageSize(
+		uri: string,
+	): Promise<{ width: number; height: number }> {
 		return new Promise((resolve, reject) => {
-			Image.getSize(
-				uri,
-				(width, height) => resolve({ width, height }),
-				reject
-			);
+			Image.getSize(uri, (width, height) => resolve({ width, height }), reject);
 		});
 	}
 
@@ -355,30 +368,86 @@ export class DocumentProcessor {
 
 		// Receipt indicators (weighted keywords)
 		const receiptKeywords = {
-			strong: ['receipt', 'total', 'subtotal', 'tax', 'payment', 'cash', 'credit', 'debit', 'change', 'paid', 'amount due'],
-			medium: ['amount', 'price', 'qty', 'quantity', 'item', 'purchase', 'sale', 'transaction', '$', 'usd', 'eur'],
-			weak: ['date', 'time', 'thank', 'store', 'customer', 'cashier', 'order']
+			strong: [
+				"receipt",
+				"total",
+				"subtotal",
+				"tax",
+				"payment",
+				"cash",
+				"credit",
+				"debit",
+				"change",
+				"paid",
+				"amount due",
+			],
+			medium: [
+				"amount",
+				"price",
+				"qty",
+				"quantity",
+				"item",
+				"purchase",
+				"sale",
+				"transaction",
+				"$",
+				"usd",
+				"eur",
+			],
+			weak: ["date", "time", "thank", "store", "customer", "cashier", "order"],
 		};
 
 		// Invoice indicators
 		const invoiceKeywords = {
-			strong: ['invoice', 'bill', 'invoice no', 'invoice number', 'due date', 'payment terms', 'remittance'],
-			medium: ['billable', 'net', 'gross', 'vat', 'billing', 'po number', 'account'],
-			weak: ['client', 'customer', 'vendor', 'company', 'address']
+			strong: [
+				"invoice",
+				"bill",
+				"invoice no",
+				"invoice number",
+				"due date",
+				"payment terms",
+				"remittance",
+			],
+			medium: [
+				"billable",
+				"net",
+				"gross",
+				"vat",
+				"billing",
+				"po number",
+				"account",
+			],
+			weak: ["client", "customer", "vendor", "company", "address"],
 		};
 
 		// ID indicators
 		const idKeywords = {
-			strong: ['license', 'passport', 'identification', 'date of birth', 'expires', 'dob', 'exp', 'dl#'],
-			medium: ['id', 'card', 'number', 'issued', 'valid'],
-			weak: ['name', 'address', 'signature']
+			strong: [
+				"license",
+				"passport",
+				"identification",
+				"date of birth",
+				"expires",
+				"dob",
+				"exp",
+				"dl#",
+			],
+			medium: ["id", "card", "number", "issued", "valid"],
+			weak: ["name", "address", "signature"],
 		};
 
 		// Form indicators
 		const formKeywords = {
-			strong: ['form', 'application', 'checkbox', 'fill in', 'complete', 'sign here'],
-			medium: ['signature', 'date signed', 'applicant', 'section'],
-			weak: ['name', 'address', 'phone', 'email']
+			strong: [
+				"form",
+				"application",
+				"checkbox",
+				"fill in",
+				"complete",
+				"sign here",
+			],
+			medium: ["signature", "date signed", "applicant", "section"],
+			weak: ["name", "address", "phone", "email"],
 		};
 
 		// Calculate weighted scores
@@ -388,46 +457,46 @@ export class DocumentProcessor {
 		let formScore = 0;
 
 		// Check receipt keywords
-		receiptKeywords.strong.forEach(kw => {
+		receiptKeywords.strong.forEach((kw) => {
 			if (lowerText.includes(kw)) receiptScore += 3;
 		});
-		receiptKeywords.medium.forEach(kw => {
+		receiptKeywords.medium.forEach((kw) => {
 			if (lowerText.includes(kw)) receiptScore += 2;
 		});
-		receiptKeywords.weak.forEach(kw => {
+		receiptKeywords.weak.forEach((kw) => {
 			if (lowerText.includes(kw)) receiptScore += 1;
 		});
 
 		// Check invoice keywords
-		invoiceKeywords.strong.forEach(kw => {
+		invoiceKeywords.strong.forEach((kw) => {
 			if (lowerText.includes(kw)) invoiceScore += 3;
 		});
-		invoiceKeywords.medium.forEach(kw => {
+		invoiceKeywords.medium.forEach((kw) => {
 			if (lowerText.includes(kw)) invoiceScore += 2;
 		});
-		invoiceKeywords.weak.forEach(kw => {
+		invoiceKeywords.weak.forEach((kw) => {
 			if (lowerText.includes(kw)) invoiceScore += 1;
 		});
 
 		// Check ID keywords
-		idKeywords.strong.forEach(kw => {
+		idKeywords.strong.forEach((kw) => {
 			if (lowerText.includes(kw)) idScore += 3;
 		});
-		idKeywords.medium.forEach(kw => {
+		idKeywords.medium.forEach((kw) => {
 			if (lowerText.includes(kw)) idScore += 2;
 		});
-		idKeywords.weak.forEach(kw => {
+		idKeywords.weak.forEach((kw) => {
 			if (lowerText.includes(kw)) idScore += 1;
 		});
 
 		// Check form keywords
-		formKeywords.strong.forEach(kw => {
+		formKeywords.strong.forEach((kw) => {
 			if (lowerText.includes(kw)) formScore += 3;
 		});
-		formKeywords.medium.forEach(kw => {
+		formKeywords.medium.forEach((kw) => {
 			if (lowerText.includes(kw)) formScore += 2;
 		});
-		formKeywords.weak.forEach(kw => {
+		formKeywords.weak.forEach((kw) => {
 			if (lowerText.includes(kw)) formScore += 1;
 		});
 
@@ -436,7 +505,7 @@ export class DocumentProcessor {
 			receipt: receiptScore,
 			invoice: invoiceScore,
 			id: idScore,
-			form: formScore
+			form: formScore,
 		};
 
 		const maxScore = Math.max(...Object.values(scores));
@@ -444,30 +513,36 @@ export class DocumentProcessor {
 		// Need at least a score of 5 to be confident
 		if (maxScore >= 5) {
 			const documentType = Object.entries(scores).find(
-				([_, score]) => score === maxScore
+				([_, score]) => score === maxScore,
 			)?.[0];
-			
-			if (documentType === 'id') return 'id';
-			if (documentType === 'receipt') return 'receipt';
-			if (documentType === 'invoice') return 'invoice';
-			if (documentType === 'form') return 'form';
+
+			if (documentType === "id") return "id";
+			if (documentType === "receipt") return "receipt";
+			if (documentType === "invoice") return "invoice";
+			if (documentType === "form") return "form";
 		}
 
 		// Check for screenshot indicators
-		if (lowerText.includes("screenshot") || lowerText.includes("screen capture")) {
+		if (
+			lowerText.includes("screenshot") ||
+			lowerText.includes("screen capture")
+		) {
 			return "screenshot";
 		}
 
 		// Check if it might be a letter (multiple paragraphs of text)
-		const lines = text.split("\n").filter(line => line.trim().length > 0);
+		const lines = text.split("\n").filter((line) => line.trim().length > 0);
 		if (lines.length > 10 && text.length > 500) {
 			return "letter";
 		}
 
 		return "unknown";
 	}
-	
-	private async extractMetadata(text: string, documentType: DocumentResult["documentType"]): Promise<ExtractedMetadata> {
+
+	private async extractMetadata(
+		text: string,
+		documentType: DocumentResult["documentType"],
+	): Promise<ExtractedMetadata> {
 		switch (documentType) {
 			case "receipt":
 				return await this.extractReceiptMetadata(text);
@@ -477,39 +552,51 @@ export class DocumentProcessor {
 				return await this.extractGenericMetadata(text);
 		}
 	}
-	
+
 	private async extractKeywords(text: string): Promise<string[]> {
 		const doc = nlp(text);
 		const keywords: Set<string> = new Set();
-		
+
 		// Extract nouns and proper nouns
-		doc.nouns().out('array').forEach((noun: string) => {
-			if (noun.length > 2) keywords.add(noun.toLowerCase());
-		});
-		
+		doc
+			.nouns()
+			.out("array")
+			.forEach((noun: string) => {
+				if (noun.length > 2) keywords.add(noun.toLowerCase());
+			});
+
 		// Extract organizations and people
-		doc.organizations().out('array').forEach((org: string) => keywords.add(org.toLowerCase()));
-		doc.people().out('array').forEach((person: string) => keywords.add(person.toLowerCase()));
-		
+		doc
+			.organizations()
+			.out("array")
+			.forEach((org: string) => keywords.add(org.toLowerCase()));
+		doc
+			.people()
+			.out("array")
+			.forEach((person: string) => keywords.add(person.toLowerCase()));
+
 		// Extract money values
-		doc.money().out('array').forEach((money: string) => keywords.add(money));
-		
+		doc
+			.money()
+			.out("array")
+			.forEach((money: string) => keywords.add(money));
+
 		// Add document type
 		keywords.add(this.detectDocumentType(text));
-		
+
 		// Add vendor if detected
 		const vendorMatch = text.match(/^([A-Z][A-Za-z\s&'.-]+)(?:\n|$)/m);
 		if (vendorMatch) {
 			keywords.add(vendorMatch[1].trim().toLowerCase());
 		}
-		
+
 		// Also get keywords from keywordExtractor for additional coverage
 		const extractedKeywords = keywordExtractor.extractKeywords(text);
-		extractedKeywords.forEach(kw => keywords.add(kw.toLowerCase()));
-		
+		extractedKeywords.forEach((kw) => keywords.add(kw.toLowerCase()));
+
 		return Array.from(keywords).slice(0, 20); // Limit to 20 keywords
 	}
-	
+
 	private async generateSearchVector(text: string): Promise<number[]> {
 		// Generate embedding for the document using the new embedding service
 		return await embeddingService.generateEmbedding(text);
@@ -819,32 +906,32 @@ export class DocumentProcessor {
 		ocrConfidence: number,
 		documentType: string,
 		textLength: number,
-		metadataConfidence: number
+		metadataConfidence: number,
 	): number {
 		// Weight visual features more heavily than OCR confidence
 		let confidence = visualScore * 0.5; // 50% weight on visual
-		
+
 		// Add OCR contribution only if text was found
 		if (textLength > 50) {
 			confidence += 0.2; // Bonus for having text
 		}
-		
+
 		// Add bonus for specific document types
-		if (documentType !== 'unknown') {
+		if (documentType !== "unknown") {
 			confidence += 0.2;
 		}
-		
+
 		// Add small OCR confidence contribution
 		confidence += ocrConfidence * 0.1;
-		
+
 		// Add metadata confidence if available
 		if (metadataConfidence > 0) {
 			confidence += metadataConfidence * 0.05;
 		}
-		
+
 		return Math.min(confidence, 1.0);
 	}
-	
+
 	private calculateOverallConfidence(
 		ocrConfidence: number,
 		metadataConfidence: number,

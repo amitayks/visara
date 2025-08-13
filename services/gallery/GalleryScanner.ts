@@ -4,15 +4,22 @@ import CryptoJS from "crypto-js";
 import { Platform } from "react-native";
 import RNFS from "react-native-fs";
 import BackgroundService from "react-native-background-actions";
-import { documentProcessor, type DocumentResult } from "../ai/documentProcessor";
+import {
+	documentProcessor,
+	type DocumentResult,
+} from "../ai/documentProcessor";
 import { documentStorage } from "../database/documentStorage";
-import { smartFilter, type AssetInfo, type SmartFilterOptions } from "./smartFilter";
+import {
+	smartFilter,
+	type AssetInfo,
+	type SmartFilterOptions,
+} from "./smartFilter";
 import { deviceInfo } from "../../utils/deviceInfo";
 import { galleryPermissions } from "../permissions/galleryPermissions";
-import { memoryManager } from '../memory/memoryManager';
-import { TempFileTracker } from '../memory/cleanupRegistry';
-import { getHeapStatus } from '../../utils/heapMonitor';
-import { BehaviorSubject, Subscription } from 'rxjs';
+import { memoryManager } from "../memory/memoryManager";
+import { TempFileTracker } from "../memory/cleanupRegistry";
+import { getHeapStatus } from "../../utils/heapMonitor";
+import { BehaviorSubject, Subscription } from "rxjs";
 
 export interface ScanProgress {
 	totalImages: number;
@@ -120,9 +127,11 @@ export class GalleryScanner {
 				wifiOnly: scanOptions.wifiOnly || false,
 				batterySaver: scanOptions.batterySaver || false,
 			});
-			
+
 			if (!deviceCheck.canRun) {
-				throw new Error(deviceCheck.reason || "Device conditions not met for scanning");
+				throw new Error(
+					deviceCheck.reason || "Device conditions not met for scanning",
+				);
 			}
 		}
 
@@ -136,13 +145,13 @@ export class GalleryScanner {
 		if (scanOptions.smartFilterEnabled && scanOptions.smartFilterOptions) {
 			smartFilter.updateOptions(scanOptions.smartFilterOptions);
 		}
-		
+
 		// Start memory monitoring
 		this.startMemoryMonitoring();
 
 		try {
 			await this.performScan(scanOptions);
-			
+
 			// Save scan history
 			const scanDuration = Date.now() - this.scanStartTime;
 			this.scanHistory.push({
@@ -198,12 +207,12 @@ export class GalleryScanner {
 		this.updateProgress({
 			totalImages: uniqueAssets.length,
 			processedImages: startIndex,
-			isScanning: true
+			isScanning: true,
 		});
 
 		// Process in batches with dynamic sizing based on memory
 		let batchSize = options.batchSize || DEFAULT_OPTIONS.batchSize!;
-		
+
 		// Adjust batch size based on available memory
 		const memoryInfo = await deviceInfo.getMemoryInfo();
 		if (memoryInfo.isLowMemory) {
@@ -228,9 +237,7 @@ export class GalleryScanner {
 
 			this.updateProgress({
 				processedImages: Math.min(i + batchSize, uniqueAssets.length),
-				lastProcessedAssetId: (
-					batch[batch.length - 1] as any
-				).image.uri
+				lastProcessedAssetId: (batch[batch.length - 1] as any).image.uri,
 			});
 
 			// Save progress after each batch
@@ -239,11 +246,14 @@ export class GalleryScanner {
 			if (this.onProgressCallback) {
 				this.onProgressCallback(this.progress);
 			}
-			
+
 			// Dynamic batch size adjustment based on processing time
 			if (i > startIndex && memoryInfo.availableMemory > 200) {
 				// If we have good memory, we can try increasing batch size
-				batchSize = Math.min(batchSize + 5, options.batchSize || DEFAULT_OPTIONS.batchSize!);
+				batchSize = Math.min(
+					batchSize + 5,
+					options.batchSize || DEFAULT_OPTIONS.batchSize!,
+				);
 			}
 		}
 
@@ -255,71 +265,83 @@ export class GalleryScanner {
 		// Process sequentially with comprehensive memory monitoring
 		for (let i = 0; i < assets.length; i++) {
 			if (this.shouldStop) {
-				console.log("[GalleryScanner] Stop requested, breaking batch processing");
+				console.log(
+					"[GalleryScanner] Stop requested, breaking batch processing",
+				);
 				break;
 			}
-			
+
 			// Check BOTH system and heap memory before each image
 			const memStatus = memoryManager.getMemoryStatus();
 			const heapStatus = getHeapStatus();
-			
+
 			if (memStatus.isCriticalMemory) {
-				console.warn("[GalleryScanner] Critical memory state, emergency cleanup");
+				console.warn(
+					"[GalleryScanner] Critical memory state, emergency cleanup",
+				);
 				await memoryManager.emergencyCleanup();
-				await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+				await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10 seconds
 			} else if (memStatus.isLowMemory) {
 				console.log("[GalleryScanner] Low memory detected, triggering cleanup");
 				await memoryManager.emergencyCleanup();
-				await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+				await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds
 			}
-			
+
 			// Be more aggressive with cleanup - check at 50% heap usage
-			if (heapStatus.heapUsagePercent > 0.5) { // Lower threshold to 50%
-				console.log(`[GalleryScanner] Heap usage above 50%: ${(heapStatus.heapUsagePercent * 100).toFixed(1)}%`);
+			if (heapStatus.heapUsagePercent > 0.5) {
+				// Lower threshold to 50%
+				console.log(
+					`[GalleryScanner] Heap usage above 50%: ${(heapStatus.heapUsagePercent * 100).toFixed(1)}%`,
+				);
 				await memoryManager.emergencyCleanup();
-				
+
 				// Try to trigger GC
 				if (global.gc) {
 					global.gc();
 				}
-				
-				await new Promise(resolve => setTimeout(resolve, 3000));
+
+				await new Promise((resolve) => setTimeout(resolve, 3000));
 			}
-			
+
 			// Process one image at a time with full cleanup
 			await this.processAssetWithCleanup(assets[i], options);
-			
+
 			// Clean old temp files after EVERY image (1 second old)
 			await memoryManager.cleanOldTempFiles(1000); // 1 second old
-			
+
 			// Force GC after every image
 			if (global.gc) {
 				global.gc();
 			}
-			
+
 			// Pause after EVERY image to let system recover
-			await new Promise(resolve => setTimeout(resolve, 500));
-			
+			await new Promise((resolve) => setTimeout(resolve, 500));
+
 			// Every 5 images, longer pause and log stats
 			if ((i + 1) % 5 === 0) {
-				await new Promise(resolve => setTimeout(resolve, 1000)); // Extra pause
-				
+				await new Promise((resolve) => setTimeout(resolve, 1000)); // Extra pause
+
 				// Log temp file stats
 				const tempStats = memoryManager.getTempFileStats();
-				console.log(`[GalleryScanner] After ${i + 1} images - Temp files: ${tempStats.count}, Size: ${tempStats.totalSize}`);
+				console.log(
+					`[GalleryScanner] After ${i + 1} images - Temp files: ${tempStats.count}, Size: ${tempStats.totalSize}`,
+				);
 			}
 		}
 	}
-	
-	private async processAssetWithCleanup(asset: any, options: ScanOptions): Promise<void> {
-		const tempTracker = new TempFileTracker('galleryScanner');
-		
+
+	private async processAssetWithCleanup(
+		asset: any,
+		options: ScanOptions,
+	): Promise<void> {
+		const tempTracker = new TempFileTracker("galleryScanner");
+
 		try {
 			await this.processAsset(asset, options);
 		} catch (error) {
 			console.error(`Failed to process asset ${asset.image.uri}:`, error);
 			// Give system time to recover on error
-			await new Promise(resolve => setTimeout(resolve, 1000));
+			await new Promise((resolve) => setTimeout(resolve, 1000));
 		} finally {
 			// ALWAYS cleanup temp files
 			await tempTracker.cleanupAll();
@@ -352,82 +374,101 @@ export class GalleryScanner {
 			if (BackgroundService.isRunning()) {
 				// Update notification
 				await BackgroundService.updateNotification({
-					taskDesc: `Processing: ${asset.image.filename || 'image'}...`,
+					taskDesc: `Processing: ${asset.image.filename || "image"}...`,
 				});
 			}
-			
+
 			// Process the image with timeout
 			let result: DocumentResult | null = null;
-			
+
 			try {
 				const processPromise = documentProcessor.processImage(
 					assetInfo.localUri || assetInfo.uri,
 				);
-				const timeoutPromise = new Promise<null>((_, reject) => 
-					setTimeout(() => reject(new Error('Processing timeout')), 10000) // 10 second timeout
+				const timeoutPromise = new Promise<null>(
+					(_, reject) =>
+						setTimeout(() => reject(new Error("Processing timeout")), 10000), // 10 second timeout
 				);
-				
+
 				result = await Promise.race([processPromise, timeoutPromise]);
 			} catch (error) {
 				if (error instanceof Error) {
-					if (error.message === 'Processing timeout') {
-						console.log(`Processing timeout for ${asset.image.filename}, skipping...`);
+					if (error.message === "Processing timeout") {
+						console.log(
+							`Processing timeout for ${asset.image.filename}, skipping...`,
+						);
 						this.failedImages.set(assetInfo.uri, 1);
 						return;
-					} else if (error.message.includes('Failed to construct') || 
-					          error.message.includes('content://')) {
-						console.log(`Content URI error for ${asset.image.filename}, skipping...`);
+					} else if (
+						error.message.includes("Failed to construct") ||
+						error.message.includes("content://")
+					) {
+						console.log(
+							`Content URI error for ${asset.image.filename}, skipping...`,
+						);
 						this.failedImages.set(assetInfo.uri, 1);
 						return;
 					}
 				}
-				
+
 				console.error(`Error processing ${asset.image.filename}:`, error);
 				this.failedImages.set(assetInfo.uri, 1);
 				return;
 			}
-			
+
 			if (result && result.confidence > 0.62) {
 				// Check for duplicate using the actual image hash from result
-				const existingDoc = await documentStorage.checkDuplicateByHash(result.imageHash);
+				const existingDoc = await documentStorage.checkDuplicateByHash(
+					result.imageHash,
+				);
 				if (existingDoc) {
 					console.log(`Document already exists with hash: ${result.imageHash}`);
 					this.processedHashes.add(result.imageHash);
 					return;
 				}
-				
+
 				// Save to database
 				try {
 					const savedDoc = await documentStorage.saveDocument(result);
-					console.log(`Successfully saved document: ${savedDoc.id} - ${asset.image.filename}`);
-					
+					console.log(
+						`Successfully saved document: ${savedDoc.id} - ${asset.image.filename}`,
+					);
+
 					this.processedHashes.add(result.imageHash);
 					await this.saveProcessedHashes();
 					this.documentsFoundInScan++;
-					
+
 					// Remove from failed images if it was there
 					this.failedImages.delete(assetInfo.uri);
 				} catch (saveError) {
-					console.error(`Failed to save document ${asset.image.filename}:`, saveError);
+					console.error(
+						`Failed to save document ${asset.image.filename}:`,
+						saveError,
+					);
 					this.failedImages.set(assetInfo.uri, 1);
 				}
 			} else {
-				console.log(`Document confidence too low (${result?.confidence || 0}) for ${asset.image.filename}`);
+				console.log(
+					`Document confidence too low (${result?.confidence || 0}) for ${asset.image.filename}`,
+				);
 			}
 		} catch (error) {
 			console.error(`Error processing asset ${asset.image.uri}:`, error);
-			
+
 			// Track failed images for retry
 			const retryCount = this.failedImages.get(asset.image.uri) || 0;
 			if (retryCount < (options.maxRetries || DEFAULT_OPTIONS.maxRetries!)) {
 				this.failedImages.set(asset.image.uri, retryCount + 1);
 			}
-			
+
 			// Don't throw - just log and continue
 		}
 	}
-	
-	private async prioritizeBatch(assets: any[], options: ScanOptions): Promise<any[]> {
+
+	private async prioritizeBatch(
+		assets: any[],
+		options: ScanOptions,
+	): Promise<any[]> {
 		// Calculate priority for each asset
 		const assetsWithPriority = await Promise.all(
 			assets.map(async (asset) => {
@@ -438,21 +479,21 @@ export class GalleryScanner {
 					height: asset.image.height,
 					timestamp: asset.timestamp,
 				};
-				
+
 				const filterResult = await smartFilter.shouldProcess(assetInfo);
 				return {
 					asset,
 					priority: filterResult.priority,
 					shouldProcess: filterResult.shouldProcess,
 				};
-			})
+			}),
 		);
-		
+
 		// Sort by priority (highest first) and filter out assets that shouldn't be processed
 		return assetsWithPriority
-			.filter(item => item.shouldProcess)
+			.filter((item) => item.shouldProcess)
 			.sort((a, b) => b.priority - a.priority)
-			.map(item => item.asset);
+			.map((item) => item.asset);
 	}
 
 	private async shouldProcessAsset(
@@ -468,7 +509,7 @@ export class GalleryScanner {
 				height: asset.image.height,
 				timestamp: asset.timestamp,
 			};
-			
+
 			// Try to get file size if possible
 			if (Platform.OS === "ios" && asset.image.uri) {
 				try {
@@ -478,7 +519,7 @@ export class GalleryScanner {
 					// Ignore file size check if we can't get it
 				}
 			}
-			
+
 			const filterResult = await smartFilter.shouldProcess(assetInfo);
 			return filterResult.shouldProcess;
 		} else {
@@ -620,7 +661,7 @@ export class GalleryScanner {
 		await AsyncStorage.removeItem(FAILED_IMAGES_KEY);
 		await AsyncStorage.removeItem(SCAN_HISTORY_KEY);
 	}
-	
+
 	private async loadFailedImages() {
 		try {
 			const saved = await AsyncStorage.getItem(FAILED_IMAGES_KEY);
@@ -664,7 +705,10 @@ export class GalleryScanner {
 			if (this.scanHistory.length > 50) {
 				this.scanHistory = this.scanHistory.slice(-50);
 			}
-			await AsyncStorage.setItem(SCAN_HISTORY_KEY, JSON.stringify(this.scanHistory));
+			await AsyncStorage.setItem(
+				SCAN_HISTORY_KEY,
+				JSON.stringify(this.scanHistory),
+			);
 		} catch (error) {
 			console.error("Failed to save scan history:", error);
 		}
@@ -682,17 +726,17 @@ export class GalleryScanner {
 		}
 
 		console.log(`Retrying ${failedUris.length} failed images`);
-		
+
 		// Clear failed images and try processing them again
 		const tempFailedImages = new Map(this.failedImages);
 		this.failedImages.clear();
-		
+
 		for (const uri of failedUris) {
 			// Create a minimal asset structure for reprocessing
 			const asset = {
 				image: { uri },
 			};
-			
+
 			try {
 				await this.processAsset(asset, options);
 			} catch (error) {
@@ -700,18 +744,26 @@ export class GalleryScanner {
 				console.error(`Retry failed for ${uri}:`, error);
 			}
 		}
-		
+
 		await this.saveFailedImages();
 	}
-	
+
 	getStatistics() {
 		const totalScans = this.scanHistory.length;
-		const totalImagesScanned = this.scanHistory.reduce((sum, scan) => sum + scan.imagesScanned, 0);
-		const totalDocumentsFound = this.scanHistory.reduce((sum, scan) => sum + scan.documentsFound, 0);
-		const averageScanDuration = totalScans > 0
-			? this.scanHistory.reduce((sum, scan) => sum + scan.duration, 0) / totalScans
-			: 0;
-		
+		const totalImagesScanned = this.scanHistory.reduce(
+			(sum, scan) => sum + scan.imagesScanned,
+			0,
+		);
+		const totalDocumentsFound = this.scanHistory.reduce(
+			(sum, scan) => sum + scan.documentsFound,
+			0,
+		);
+		const averageScanDuration =
+			totalScans > 0
+				? this.scanHistory.reduce((sum, scan) => sum + scan.duration, 0) /
+					totalScans
+				: 0;
+
 		return {
 			totalScans,
 			totalImagesScanned,
@@ -722,17 +774,19 @@ export class GalleryScanner {
 			failedImages: this.failedImages.size,
 		};
 	}
-	
+
 	private startMemoryMonitoring() {
 		// Start the centralized memory manager monitoring
 		memoryManager.startMonitoring(10000); // Check every 10 seconds
-		
+
 		// Also do our own checks more frequently
 		this.memoryCheckInterval = setInterval(async () => {
 			const memStatus = memoryManager.getMemoryStatus();
-			
+
 			if (memStatus.isCriticalMemory) {
-				console.error("[GalleryScanner] Critical memory detected, stopping scan");
+				console.error(
+					"[GalleryScanner] Critical memory detected, stopping scan",
+				);
 				this.shouldStop = true;
 				await memoryManager.emergencyCleanup();
 			} else if (memStatus.heapUsagePercent > 0.8) {
@@ -741,78 +795,80 @@ export class GalleryScanner {
 			}
 		}, 5000); // Check every 5 seconds
 	}
-	
+
 	private stopMemoryMonitoring() {
 		// Stop centralized monitoring
 		memoryManager.stopMonitoring();
-		
+
 		if (this.memoryCheckInterval) {
 			clearInterval(this.memoryCheckInterval);
 			this.memoryCheckInterval = null;
 		}
-		
+
 		// Final cleanup
-		memoryManager.emergencyCleanup().catch(err => 
-			console.error('[GalleryScanner] Error during final cleanup:', err)
-		);
+		memoryManager
+			.emergencyCleanup()
+			.catch((err) =>
+				console.error("[GalleryScanner] Error during final cleanup:", err),
+			);
 	}
-	
+
 	// Observable pattern for real-time progress updates
 	observeProgress(callback: (progress: ScanProgress) => void): Subscription {
 		// Send current progress immediately
 		callback(this.progress);
-		
+
 		// Subscribe to future updates
 		return this.progressSubject.subscribe(callback);
 	}
-	
+
 	private updateProgress(updates: Partial<ScanProgress>) {
 		this.progress = { ...this.progress, ...updates };
 		this.progressSubject.next(this.progress);
-		
+
 		// Also call the legacy callback if it exists
 		if (this.onProgressCallback) {
 			this.onProgressCallback(this.progress);
 		}
 	}
-	
+
 	// Add method to process a single image (for manual upload)
 	async processImage(imageUri: string): Promise<DocumentResult | null> {
 		try {
 			console.log(`[GalleryScanner] Processing single image: ${imageUri}`);
-			
+
 			// Check if image exists
 			const exists = await RNFS.exists(imageUri);
 			if (!exists) {
 				console.error(`[GalleryScanner] Image does not exist: ${imageUri}`);
 				return null;
 			}
-			
+
 			// Get file info
 			const stat = await RNFS.stat(imageUri);
 			const imageHash = CryptoJS.MD5(imageUri + stat.size).toString();
-			
+
 			// Check if already processed
 			const existingDoc = await documentStorage.checkDuplicateByHash(imageHash);
 			if (existingDoc) {
 				console.log(`[GalleryScanner] Image already processed: ${imageHash}`);
 				return null;
 			}
-			
+
 			// Process the image
 			const result = await documentProcessor.processImage(imageUri);
-			
+
 			if (result && result.confidence > 0.5) {
 				const savedDoc = await documentStorage.saveDocument(result);
 				console.log(`[GalleryScanner] Document saved: ${savedDoc.id}`);
-				
+
 				// Add to processed hashes
 				this.processedHashes.add(imageHash);
 				await this.saveProcessedHashes();
-				
+
 				return result;
 			}
-			
+
 			return null;
 		} catch (error) {
 			console.error(`[GalleryScanner] Error processing image:`, error);

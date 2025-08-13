@@ -59,23 +59,28 @@ export class OCREngineManager {
 		engineName: OCREngineName,
 	): Promise<OCRResult> {
 		this.processedCount++;
-		
+
 		// Reinitialize Tesseract every N images to clear memory
-		if (engineName === 'tesseract' && this.processedCount >= this.REINIT_THRESHOLD) {
-			console.log('[OCREngineManager] Reinitializing Tesseract to clear memory');
-			
+		if (
+			engineName === "tesseract" &&
+			this.processedCount >= this.REINIT_THRESHOLD
+		) {
+			console.log(
+				"[OCREngineManager] Reinitializing Tesseract to clear memory",
+			);
+
 			// Cleanup old instance
 			if (this.tesseractEngine) {
 				try {
 					await this.tesseractEngine.cleanup?.();
 				} catch (e) {
-					console.warn('[OCREngineManager] Error cleaning up Tesseract:', e);
+					console.warn("[OCREngineManager] Error cleaning up Tesseract:", e);
 				}
 			}
-			
+
 			// Create new instance
 			this.tesseractEngine = new TesseractEngine();
-			this.engines.set('tesseract', this.tesseractEngine);
+			this.engines.set("tesseract", this.tesseractEngine);
 			await this.tesseractEngine.initialize();
 			this.processedCount = 0;
 		}
@@ -110,7 +115,7 @@ export class OCREngineManager {
 					text: "",
 					confidence: 0,
 					blocks: [],
-					language: 'en',
+					language: "en",
 					processingTime: 0,
 					engine: engine.name,
 				};

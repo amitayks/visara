@@ -6,7 +6,7 @@ export class MLKitEngine implements LocalOCREngine {
 	name = "mlkit" as const;
 	displayName = "ML Kit Text Recognition";
 	private initialized = false;
-	
+
 	async initialize(): Promise<void> {
 		try {
 			this.initialized = true;
@@ -22,16 +22,16 @@ export class MLKitEngine implements LocalOCREngine {
 	}
 
 	supportsLanguage(lang: string): boolean {
-		return lang.toLowerCase() === 'en';
+		return lang.toLowerCase() === "en";
 	}
 
 	getSupportedLanguages(): string[] {
-		return ['en'];
+		return ["en"];
 	}
 
 	async processImage(uri: string): Promise<OCRResult> {
 		const startTime = Date.now();
-		
+
 		if (!this.initialized) {
 			await this.initialize();
 		}
@@ -39,15 +39,15 @@ export class MLKitEngine implements LocalOCREngine {
 		try {
 			// Fix URI format
 			let processedUri = uri;
-			if (!uri.startsWith('file://') && !uri.startsWith('content://')) {
+			if (!uri.startsWith("file://") && !uri.startsWith("content://")) {
 				processedUri = `file://${uri}`;
 			}
 
 			// Simple recognition for English only
 			const result = await TextRecognition.recognize(processedUri);
-			
+
 			// Process blocks
-			const blocks: OCRBlock[] = result.blocks.map(block => ({
+			const blocks: OCRBlock[] = result.blocks.map((block) => ({
 				text: block.text,
 				confidence: 0.9, // Default high confidence for English
 				boundingBox: {
@@ -58,14 +58,14 @@ export class MLKitEngine implements LocalOCREngine {
 					height: block.frame?.height || 0,
 					confidence: 0.9,
 				},
-				language: 'en'
+				language: "en",
 			}));
 
 			return {
 				text: result.text,
 				blocks,
 				confidence: 0.9,
-				language: 'en',
+				language: "en",
 				processingTime: Date.now() - startTime,
 				engine: this.name,
 			};

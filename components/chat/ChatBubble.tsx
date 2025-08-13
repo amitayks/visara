@@ -14,7 +14,7 @@ interface ChatBubbleProps {
 	message: ChatMessage;
 	onDocumentPress?: (documentId: string) => void;
 }
-
+// not used at the app //
 export const ChatBubble: React.FC<ChatBubbleProps> = ({
 	message,
 	onDocumentPress,

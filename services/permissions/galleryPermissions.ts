@@ -1,9 +1,4 @@
-import {
-	Alert,
-	Linking,
-	PermissionsAndroid,
-	Platform,
-} from "react-native";
+import { Alert, Linking, PermissionsAndroid, Platform } from "react-native";
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 
 export type PermissionStatus = "granted" | "denied" | "blocked" | "unavailable";
@@ -33,23 +28,26 @@ class GalleryPermissions {
 	private async checkAndroidPermission(): Promise<PermissionResult> {
 		try {
 			// Android 13+ uses READ_MEDIA_IMAGES
-			const androidVersion = typeof Platform.Version === 'string' ? parseInt(Platform.Version, 10) : Platform.Version;
+			const androidVersion =
+				typeof Platform.Version === "string"
+					? parseInt(Platform.Version, 10)
+					: Platform.Version;
 			if (androidVersion >= 33) {
 				const granted = await PermissionsAndroid.check(
 					PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES as any,
 				);
-				
+
 				return {
 					status: granted ? "granted" : "denied",
 					canAskAgain: !granted,
 				};
 			}
-			
+
 			// Older Android versions use READ_EXTERNAL_STORAGE
 			const granted = await PermissionsAndroid.check(
 				PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE as any,
 			);
-			
+
 			return {
 				status: granted ? "granted" : "denied",
 				canAskAgain: !granted,
@@ -71,20 +69,23 @@ class GalleryPermissions {
 				first: 1,
 				assetType: "Photos",
 			});
-			
+
 			return {
 				status: "granted",
 				canAskAgain: false,
 			};
 		} catch (error: any) {
 			// If error contains permission-related message
-			if (error.message?.includes("permission") || error.code === "E_PHOTO_LIBRARY_AUTH_DENIED") {
+			if (
+				error.message?.includes("permission") ||
+				error.code === "E_PHOTO_LIBRARY_AUTH_DENIED"
+			) {
 				return {
 					status: "denied",
 					canAskAgain: true,
 				};
 			}
-			
+
 			return {
 				status: "unavailable",
 				canAskAgain: false,
@@ -99,15 +100,20 @@ class GalleryPermissions {
 			let rationaleMessage: string;
 
 			// Android 13+ uses READ_MEDIA_IMAGES
-			const androidVersion = typeof Platform.Version === 'string' ? parseInt(Platform.Version, 10) : Platform.Version;
+			const androidVersion =
+				typeof Platform.Version === "string"
+					? parseInt(Platform.Version, 10)
+					: Platform.Version;
 			if (androidVersion >= 33) {
 				permission = PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES;
 				rationaleTitle = "Photo Access Required";
-				rationaleMessage = "Visara needs access to your photos to scan for documents. This allows the app to identify and organize your receipts, invoices, and other documents.";
+				rationaleMessage =
+					"Visara needs access to your photos to scan for documents. This allows the app to identify and organize your receipts, invoices, and other documents.";
 			} else {
 				permission = PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE;
 				rationaleTitle = "Storage Access Required";
-				rationaleMessage = "Visara needs access to your storage to scan photos for documents. This allows the app to identify and organize your receipts, invoices, and other documents.";
+				rationaleMessage =
+					"Visara needs access to your storage to scan photos for documents. This allows the app to identify and organize your receipts, invoices, and other documents.";
 			}
 
 			const granted = await PermissionsAndroid.request(permission, {
@@ -150,19 +156,22 @@ class GalleryPermissions {
 				first: 1,
 				assetType: "Photos",
 			});
-			
+
 			return {
 				status: "granted",
 				canAskAgain: false,
 			};
 		} catch (error: any) {
-			if (error.message?.includes("permission") || error.code === "E_PHOTO_LIBRARY_AUTH_DENIED") {
+			if (
+				error.message?.includes("permission") ||
+				error.code === "E_PHOTO_LIBRARY_AUTH_DENIED"
+			) {
 				return {
 					status: "denied",
 					canAskAgain: false, // On iOS, can't ask again programmatically
 				};
 			}
-			
+
 			return {
 				status: "unavailable",
 				canAskAgain: false,
@@ -171,7 +180,10 @@ class GalleryPermissions {
 	}
 
 	async handlePermissionDenied(result: PermissionResult): Promise<void> {
-		if (result.status === "blocked" || (result.status === "denied" && !result.canAskAgain)) {
+		if (
+			result.status === "blocked" ||
+			(result.status === "denied" && !result.canAskAgain)
+		) {
 			// Permission is permanently denied, need to go to settings
 			Alert.alert(
 				"Permission Required",
@@ -218,13 +230,13 @@ class GalleryPermissions {
 
 	async ensurePermission(): Promise<boolean> {
 		const checkResult = await this.checkPermission();
-		
+
 		if (checkResult.status === "granted") {
 			return true;
 		}
 
 		const requestResult = await this.requestPermission();
-		
+
 		if (requestResult.status === "granted") {
 			return true;
 		}
@@ -243,7 +255,7 @@ class GalleryPermissions {
 			const result = await this.checkPermission();
 			return result.status === "granted";
 		}
-		
+
 		// iOS handles background tasks differently
 		const result = await this.checkPermission();
 		return result.status === "granted";

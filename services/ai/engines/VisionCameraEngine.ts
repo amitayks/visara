@@ -88,7 +88,7 @@ export class VisionCameraEngine implements LocalOCREngine {
 				text: ocrText,
 				confidence: 0.92,
 				blocks,
-				language: 'en',
+				language: "en",
 				processingTime,
 				engine: this.name,
 			};

@@ -1,14 +1,6 @@
 import { format } from "date-fns";
 import type React from "react";
-import {
-	I18nManager,
-	Image,
-	StyleSheet,
-	Text,
-	TouchableOpacity,
-	View,
-} from "react-native";
-import Icon from "react-native-vector-icons/Ionicons";
+import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import type Document from "../../services/database/models/Document";
 
 export interface Message {
@@ -25,7 +17,7 @@ interface ChatMessageProps {
 	message: Message;
 	onDocumentPress?: (document: Document) => void;
 }
-
+// not used at the app //
 export const ChatMessage: React.FC<ChatMessageProps> = ({
 	message,
 	onDocumentPress,
@@ -49,7 +41,7 @@ export const ChatMessage: React.FC<ChatMessageProps> = ({
 			<View style={styles.documentInfo}>
 				<View style={styles.documentHeader}>
 					<Text style={styles.documentType}>
-						{doc.documentType ? doc.documentType.toUpperCase() : 'UNKNOWN'}
+						{doc.documentType ? doc.documentType.toUpperCase() : "UNKNOWN"}
 					</Text>
 					{doc.confidence && (
 						<Text style={styles.documentConfidence}>

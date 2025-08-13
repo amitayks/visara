@@ -3,7 +3,7 @@ import RNFS from "react-native-fs";
 
 export interface SmartFilterOptions {
 	minFileSize: number; // in KB
-	maxFileSize?: number; // in KB  
+	maxFileSize?: number; // in KB
 	maxAspectRatio: number;
 	priorityKeywords: string[];
 	skipPatterns: RegExp[];
@@ -78,7 +78,7 @@ export class SmartFilter {
 	}> {
 		// Check if it's a priority document based on filename
 		const priority = this.calculatePriority(asset);
-		
+
 		// Always process high priority items
 		if (priority >= 8) {
 			return { shouldProcess: true, priority };
@@ -96,7 +96,7 @@ export class SmartFilter {
 
 		// Apply inclusion filters
 		const inclusionResult = await this.checkInclusions(asset);
-		
+
 		return {
 			shouldProcess: inclusionResult.pass,
 			priority: inclusionResult.pass ? priority : 0,
@@ -133,7 +133,10 @@ export class SmartFilter {
 			priority += 1;
 		}
 
-		if (filename.match(/invoice[\s_-]?\d+/i) || filename.match(/receipt[\s_-]?\d+/i)) {
+		if (
+			filename.match(/invoice[\s_-]?\d+/i) ||
+			filename.match(/receipt[\s_-]?\d+/i)
+		) {
 			// Invoice or receipt with number
 			priority += 2;
 		}
@@ -174,7 +177,7 @@ export class SmartFilter {
 			const aspectRatio =
 				Math.max(asset.width, asset.height) /
 				Math.min(asset.width, asset.height);
-			
+
 			if (aspectRatio > this.options.maxAspectRatio) {
 				return {
 					pass: false,
@@ -225,14 +228,14 @@ export class SmartFilter {
 		// Check file size
 		if (asset.fileSize !== undefined) {
 			const sizeInKB = asset.fileSize / 1024;
-			
+
 			if (sizeInKB < this.options.minFileSize) {
 				return {
 					pass: false,
 					reason: `File size ${sizeInKB.toFixed(1)}KB below minimum ${this.options.minFileSize}KB`,
 				};
 			}
-			
+
 			if (this.options.maxFileSize && sizeInKB > this.options.maxFileSize) {
 				return {
 					pass: false,
@@ -244,14 +247,14 @@ export class SmartFilter {
 			try {
 				const fileInfo = await RNFS.stat(asset.uri);
 				const sizeInKB = fileInfo.size / 1024;
-				
+
 				if (sizeInKB < this.options.minFileSize) {
 					return {
 						pass: false,
 						reason: `File size ${sizeInKB.toFixed(1)}KB below minimum ${this.options.minFileSize}KB`,
 					};
 				}
-				
+
 				if (this.options.maxFileSize && sizeInKB > this.options.maxFileSize) {
 					return {
 						pass: false,
@@ -319,7 +322,7 @@ export class SmartFilter {
 		// Check if image has document-like aspect ratio
 		if (asset.width && asset.height) {
 			const aspectRatio = asset.width / asset.height;
-			
+
 			// Common document aspect ratios
 			const documentRatios = [
 				{ ratio: 1.414, tolerance: 0.05 }, // A4 (√2:1)

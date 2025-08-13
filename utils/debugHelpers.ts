@@ -53,13 +53,15 @@ export const safeSetState = <T>(
 export const debugPermissionCheck = async (source: string) => {
 	try {
 		debugLog(source, "Starting permission check");
-		
+
 		// Import dynamically to avoid circular dependencies
-		const { galleryPermissions } = await import("../services/permissions/galleryPermissions");
-		
+		const { galleryPermissions } = await import(
+			"../services/permissions/galleryPermissions"
+		);
+
 		const result = await galleryPermissions.checkPermission();
 		debugLog(source, "Permission check result", result);
-		
+
 		return result;
 	} catch (error) {
 		debugLog(source, "Permission check failed", error);
@@ -71,11 +73,13 @@ export const debugPermissionCheck = async (source: string) => {
 export const debugBackgroundService = async () => {
 	try {
 		// Import dynamically
-		const { backgroundScanner } = await import("../services/gallery/backgroundScanner");
-		
+		const { backgroundScanner } = await import(
+			"../services/gallery/backgroundScanner"
+		);
+
 		const status = await backgroundScanner.getBackgroundServiceStatus();
 		console.log("Background Service Status:", status);
-		
+
 		return status;
 	} catch (error) {
 		console.error("Failed to get background service status:", error);

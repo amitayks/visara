@@ -396,22 +396,30 @@ export default function DocumentDetailScreen() {
 				{document.metadata && (
 					<View style={styles.hybridSection}>
 						<Text style={styles.hybridTitle}>Hybrid Processing Results</Text>
-						
+
 						{/* Document Type */}
 						{document.metadata.hybridResult && (
 							<View style={styles.documentTypeContainer}>
 								<Text style={styles.sectionTitle}>Document Type</Text>
 								<View style={styles.documentTypeBadge}>
 									<Text style={styles.documentTypeText}>
-										{document.metadata.hybridResult.contextualResult.documentType}
+										{
+											document.metadata.hybridResult.contextualResult
+												.documentType
+										}
 									</Text>
 									<Text style={styles.confidenceText}>
-										({(document.metadata.hybridResult.contextualResult.confidence * 100).toFixed(1)}%)
+										(
+										{(
+											document.metadata.hybridResult.contextualResult
+												.confidence * 100
+										).toFixed(1)}
+										%)
 									</Text>
 								</View>
 							</View>
 						)}
-						
+
 						{/* Quality Metrics */}
 						{document.metadata.hybridResult?.qualityMetrics && (
 							<View style={styles.qualityContainer}>
@@ -420,89 +428,120 @@ export default function DocumentDetailScreen() {
 									<View style={styles.metricItem}>
 										<Text style={styles.metricLabel}>OCR Quality</Text>
 										<Text style={styles.metricValue}>
-											{(document.metadata.hybridResult.qualityMetrics.ocrQuality * 100).toFixed(1)}%
+											{(
+												document.metadata.hybridResult.qualityMetrics
+													.ocrQuality * 100
+											).toFixed(1)}
+											%
 										</Text>
 									</View>
 									<View style={styles.metricItem}>
 										<Text style={styles.metricLabel}>Completeness</Text>
 										<Text style={styles.metricValue}>
-											{(document.metadata.hybridResult.qualityMetrics.completeness * 100).toFixed(1)}%
+											{(
+												document.metadata.hybridResult.qualityMetrics
+													.completeness * 100
+											).toFixed(1)}
+											%
 										</Text>
 									</View>
 									<View style={styles.metricItem}>
 										<Text style={styles.metricLabel}>Consistency</Text>
 										<Text style={styles.metricValue}>
-											{(document.metadata.hybridResult.qualityMetrics.consistency * 100).toFixed(1)}%
+											{(
+												document.metadata.hybridResult.qualityMetrics
+													.consistency * 100
+											).toFixed(1)}
+											%
 										</Text>
 									</View>
 									<View style={styles.metricItem}>
 										<Text style={styles.metricLabel}>Total Score</Text>
 										<Text style={[styles.metricValue, styles.totalScore]}>
-											{(document.metadata.hybridResult.qualityMetrics.confidence * 100).toFixed(1)}%
+											{(
+												document.metadata.hybridResult.qualityMetrics
+													.confidence * 100
+											).toFixed(1)}
+											%
 										</Text>
 									</View>
 								</View>
-								{document.metadata.hybridResult.qualityMetrics.warnings && 
-								 document.metadata.hybridResult.qualityMetrics.warnings.length > 0 && (
-									<View style={styles.warningsContainer}>
-										<Text style={styles.warningsTitle}>Warnings:</Text>
-										{document.metadata.hybridResult.qualityMetrics.warnings.map((warning: string, index: number) => (
-											<Text key={index} style={styles.warningText}>• {warning}</Text>
-										))}
-									</View>
-								)}
+								{document.metadata.hybridResult.qualityMetrics.warnings &&
+									document.metadata.hybridResult.qualityMetrics.warnings
+										.length > 0 && (
+										<View style={styles.warningsContainer}>
+											<Text style={styles.warningsTitle}>Warnings:</Text>
+											{document.metadata.hybridResult.qualityMetrics.warnings.map(
+												(warning: string, index: number) => (
+													<Text key={index} style={styles.warningText}>
+														• {warning}
+													</Text>
+												),
+											)}
+										</View>
+									)}
 							</View>
 						)}
-						
+
 						{/* Extracted Information */}
 						<View style={styles.structuredDataContainer}>
 							<Text style={styles.sectionTitle}>Extracted Information</Text>
-							
+
 							{/* Vendor */}
 							{document.metadata.vendor && (
 								<View style={styles.dataRow}>
 									<Text style={styles.dataLabel}>Vendor:</Text>
-									<Text style={styles.dataValue}>{document.metadata.vendor}</Text>
-								</View>
-							)}
-							
-							{/* Total Amount */}
-							{document.metadata.hybridResult?.structuredData?.totalAmount !== undefined && (
-								<View style={styles.dataRow}>
-									<Text style={styles.dataLabel}>Total:</Text>
 									<Text style={styles.dataValue}>
-										{document.metadata.hybridResult.structuredData.currency} {document.metadata.hybridResult.structuredData.totalAmount.toFixed(2)}
+										{document.metadata.vendor}
 									</Text>
 								</View>
 							)}
-							
-							{/* Dates */}
-							{document.metadata.dates && document.metadata.dates.length > 0 && (
-								<>
-									{document.metadata.dates.map((dateInfo, index) => (
-										<View key={index} style={styles.dataRow}>
-											<Text style={styles.dataLabel}>{dateInfo.type} Date:</Text>
-											<Text style={styles.dataValue}>
-												{new Date(dateInfo.date).toLocaleDateString()}
-											</Text>
-										</View>
-									))}
-								</>
-							)}
-							
-							{/* Items */}
-							{document.metadata.items && document.metadata.items.length > 0 && (
-								<View style={styles.itemsContainer}>
-									<Text style={styles.dataLabel}>Items:</Text>
-									{document.metadata.items.map((item, index) => (
-										<Text key={index} style={styles.itemText}>
-											• {item.name} {item.price ? `- $${item.price}` : ''}
-											{item.quantity ? ` x${item.quantity}` : ''}
-										</Text>
-									))}
+
+							{/* Total Amount */}
+							{document.metadata.hybridResult?.structuredData?.totalAmount !==
+								undefined && (
+								<View style={styles.dataRow}>
+									<Text style={styles.dataLabel}>Total:</Text>
+									<Text style={styles.dataValue}>
+										{document.metadata.hybridResult.structuredData.currency}{" "}
+										{document.metadata.hybridResult.structuredData.totalAmount.toFixed(
+											2,
+										)}
+									</Text>
 								</View>
 							)}
-							
+
+							{/* Dates */}
+							{document.metadata.dates &&
+								document.metadata.dates.length > 0 && (
+									<>
+										{document.metadata.dates.map((dateInfo, index) => (
+											<View key={index} style={styles.dataRow}>
+												<Text style={styles.dataLabel}>
+													{dateInfo.type} Date:
+												</Text>
+												<Text style={styles.dataValue}>
+													{new Date(dateInfo.date).toLocaleDateString()}
+												</Text>
+											</View>
+										))}
+									</>
+								)}
+
+							{/* Items */}
+							{document.metadata.items &&
+								document.metadata.items.length > 0 && (
+									<View style={styles.itemsContainer}>
+										<Text style={styles.dataLabel}>Items:</Text>
+										{document.metadata.items.map((item, index) => (
+											<Text key={index} style={styles.itemText}>
+												• {item.name} {item.price ? `- $${item.price}` : ""}
+												{item.quantity ? ` x${item.quantity}` : ""}
+											</Text>
+										))}
+									</View>
+								)}
+
 							{/* Location */}
 							{document.metadata.location && (
 								<View style={styles.dataRow}>
@@ -511,22 +550,28 @@ export default function DocumentDetailScreen() {
 										{[
 											document.metadata.location.address,
 											document.metadata.location.city,
-											document.metadata.location.country
-										].filter(Boolean).join(', ')}
+											document.metadata.location.country,
+										]
+											.filter(Boolean)
+											.join(", ")}
 									</Text>
 								</View>
 							)}
 						</View>
-						
+
 						{/* Processing Stats */}
 						{document.metadata.hybridResult && (
 							<View style={styles.statsContainer}>
 								<Text style={styles.statsTitle}>Processing Stats</Text>
 								<Text style={styles.statsText}>
-									Total Time: {document.metadata.hybridResult.processingStats.totalTime}ms
+									Total Time:{" "}
+									{document.metadata.hybridResult.processingStats.totalTime}ms
 								</Text>
 								<Text style={styles.statsText}>
-									Engines Used: {document.metadata.hybridResult.processingStats.ocrEngines.join(', ')}
+									Engines Used:{" "}
+									{document.metadata.hybridResult.processingStats.ocrEngines.join(
+										", ",
+									)}
 								</Text>
 							</View>
 						)}

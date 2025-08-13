@@ -48,31 +48,39 @@ export class BackgroundScanner {
 	}
 
 	private handleAppStateChange = (nextAppState: AppStateStatus) => {
-		console.log(`[BackgroundScanner] App state changed: ${this.appState} -> ${nextAppState}`);
+		console.log(
+			`[BackgroundScanner] App state changed: ${this.appState} -> ${nextAppState}`,
+		);
 		this.appState = nextAppState;
-		
+
 		// Pause background scanning when app is in foreground
 		if (nextAppState === "active" && this.isRunning) {
-			console.log("[BackgroundScanner] App is in foreground, background scan continues");
+			console.log(
+				"[BackgroundScanner] App is in foreground, background scan continues",
+			);
 		}
 	};
 
 	async startPeriodicScan(): Promise<void> {
 		console.log("[BackgroundScanner] startPeriodicScan called");
-		
+
 		// Prevent multiple start attempts
 		if (this.isStarting) {
-			console.log("[BackgroundScanner] Already starting, ignoring duplicate call");
+			console.log(
+				"[BackgroundScanner] Already starting, ignoring duplicate call",
+			);
 			return;
 		}
-		
+
 		if (this.isRunning) {
-			console.log("[BackgroundScanner] Already running, ignoring start request");
+			console.log(
+				"[BackgroundScanner] Already running, ignoring start request",
+			);
 			return;
 		}
-		
+
 		this.isStarting = true;
-		
+
 		try {
 			const settings = settingsStore.getState().settings;
 
@@ -92,10 +100,12 @@ export class BackgroundScanner {
 
 			// Stop any existing task first
 			if (this.currentTaskId) {
-				console.log("[BackgroundScanner] Stopping existing task before starting new one");
+				console.log(
+					"[BackgroundScanner] Stopping existing task before starting new one",
+				);
 				await this.stopPeriodicScan();
 				// Wait for cleanup
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				await new Promise((resolve) => setTimeout(resolve, 1000));
 			}
 
 			// Configure background service
@@ -115,20 +125,22 @@ export class BackgroundScanner {
 			};
 
 			console.log("[BackgroundScanner] Starting background service");
-			
+
 			// Reset stop flag
 			this.shouldStop = false;
-			
+
 			// Start the background service
 			await BackgroundService.start(this.backgroundTask, options);
-			
+
 			this.isRunning = true;
 			this.currentTaskId = Date.now().toString();
-			
+
 			// Update store
 			useScannerStore.getState().setBackgroundScanEnabled(true);
-			
-			console.log("[BackgroundScanner] Background service started successfully");
+
+			console.log(
+				"[BackgroundScanner] Background service started successfully",
+			);
 		} catch (error) {
 			console.error("[BackgroundScanner] Failed to start:", error);
 			this.isRunning = false;
@@ -140,7 +152,7 @@ export class BackgroundScanner {
 
 	async stopPeriodicScan(): Promise<void> {
 		console.log("[BackgroundScanner] stopPeriodicScan called");
-		
+
 		if (!this.isRunning && !BackgroundService.isRunning()) {
 			console.log("[BackgroundScanner] Not running, nothing to stop");
 			return;
@@ -148,24 +160,24 @@ export class BackgroundScanner {
 
 		try {
 			console.log("[BackgroundScanner] Stopping background service");
-			
+
 			// Signal the background task to stop
 			this.shouldStop = true;
-			
+
 			await BackgroundService.stop();
-			
+
 			this.isRunning = false;
 			this.currentTaskId = null;
-			
+
 			// Clear interval if any
 			if (this.scanInterval) {
 				clearInterval(this.scanInterval);
 				this.scanInterval = null;
 			}
-			
+
 			// Update store
 			useScannerStore.getState().setBackgroundScanEnabled(false);
-			
+
 			console.log("[BackgroundScanner] Background service stopped");
 		} catch (error) {
 			console.error("[BackgroundScanner] Error stopping:", error);
@@ -190,7 +202,7 @@ export class BackgroundScanner {
 
 	private backgroundTask = async (taskData: any) => {
 		console.log("[BackgroundScanner] Background task started");
-		
+
 		try {
 			// Add a global error handler for this task
 			const originalConsoleError = console.error;
@@ -198,23 +210,25 @@ export class BackgroundScanner {
 				originalConsoleError("[BackgroundScanner Error]", ...args);
 				// Don't let errors crash the background task
 			};
-			
+
 			// Don't run heavy processing immediately
 			await this.sleep(5000); // 5 second initial delay
-			
+
 			let iterationCount = 0;
 			const maxIterations = 1000; // Prevent infinite loops
-			
+
 			while (BackgroundService.isRunning() && iterationCount < maxIterations) {
 				iterationCount++;
-				
+
 				try {
 					const settings = settingsStore.getState().settings;
-					
+
 					// Check if we should run scan
 					if (await this.shouldRunScan()) {
-						console.log(`[BackgroundScanner] Starting scan iteration ${iterationCount}`);
-						
+						console.log(
+							`[BackgroundScanner] Starting scan iteration ${iterationCount}`,
+						);
+
 						// Wrap scan in try-catch to prevent crashes
 						try {
 							await this.performBackgroundScan();
@@ -228,36 +242,42 @@ export class BackgroundScanner {
 							}
 						}
 					} else {
-						console.log("[BackgroundScanner] Skipping scan - conditions not met");
+						console.log(
+							"[BackgroundScanner] Skipping scan - conditions not met",
+						);
 					}
-					
+
 					// Sleep for the configured interval
 					const intervalMs = this.getIntervalMs(settings.scanFrequency);
 					const sleepTime = intervalMs > 0 ? intervalMs : 60 * 60 * 1000; // Default 1 hour
-					
-					console.log(`[BackgroundScanner] Sleeping for ${sleepTime / 1000} seconds`);
-					
+
+					console.log(
+						`[BackgroundScanner] Sleeping for ${sleepTime / 1000} seconds`,
+					);
+
 					// Break sleep into smaller chunks to check if service should stop
 					const chunkTime = 60000; // 1 minute chunks
 					const chunks = Math.ceil(sleepTime / chunkTime);
-					
+
 					for (let i = 0; i < chunks; i++) {
 						if (!BackgroundService.isRunning() || this.shouldStop) {
 							console.log("[BackgroundScanner] Service stopped, exiting task");
 							return;
 						}
-						
-						const sleepDuration = Math.min(chunkTime, sleepTime - (i * chunkTime));
+
+						const sleepDuration = Math.min(
+							chunkTime,
+							sleepTime - i * chunkTime,
+						);
 						await this.sleep(sleepDuration);
 					}
-					
 				} catch (error) {
 					console.error("[BackgroundScanner] Error in task iteration:", error);
 					// Wait before retrying
 					await this.sleep(60000); // 1 minute
 				}
 			}
-			
+
 			console.log("[BackgroundScanner] Background task ended normally");
 		} catch (error) {
 			console.error("[BackgroundScanner] Fatal task error:", error);
@@ -269,29 +289,29 @@ export class BackgroundScanner {
 		}
 	};
 
-	private sleep = (time: number) => 
+	private sleep = (time: number) =>
 		new Promise<void>((resolve) => setTimeout(resolve, time));
 
 	private async performBackgroundScan() {
 		const settings = settingsStore.getState().settings;
-		
+
 		try {
 			console.log("[BackgroundScanner] Starting background gallery scan");
-			
+
 			// Run scan on lower priority
-			await new Promise(resolve => {
+			await new Promise((resolve) => {
 				InteractionManager.runAfterInteractions(() => {
 					resolve(null);
 				});
 			});
-			
+
 			// Update notification
 			if (BackgroundService.isRunning()) {
 				await BackgroundService.updateNotification({
 					taskDesc: "Scanning gallery for new documents...",
 				});
 			}
-			
+
 			// Create special options for background processing
 			const scanOptions = {
 				batchSize: 3, // Even smaller batches for background
@@ -301,42 +321,45 @@ export class BackgroundScanner {
 				isBackground: true,
 				maxConcurrentProcessing: 1, // Only process one image at a time in background
 			};
-			
+
 			// Run scan with lower priority
 			await galleryScanner.startScan(scanOptions, async (progress) => {
 				// Update progress less frequently
 				if (progress.processedImages % 20 === 0) {
-					const percentage = progress.totalImages > 0 
-						? Math.round((progress.processedImages / progress.totalImages) * 100)
-						: 0;
-					
+					const percentage =
+						progress.totalImages > 0
+							? Math.round(
+									(progress.processedImages / progress.totalImages) * 100,
+								)
+							: 0;
+
 					if (BackgroundService.isRunning()) {
 						await BackgroundService.updateNotification({
 							taskDesc: `Scanning: ${percentage}% complete`,
 						});
 					}
 				}
-				
+
 				// Update store less frequently
 				if (progress.processedImages % 10 === 0) {
 					useScannerStore.getState().setScanProgress(progress);
 				}
 			});
-			
+
 			// Update last scan time
 			this.lastScanTime = new Date();
-			
+
 			// Update notification to show completion
 			if (BackgroundService.isRunning()) {
 				await BackgroundService.updateNotification({
 					taskDesc: "Scan complete. Waiting for next scan...",
 				});
 			}
-			
+
 			console.log("[BackgroundScanner] Background gallery scan completed");
 		} catch (error) {
 			console.error("[BackgroundScanner] Background scan failed:", error);
-			
+
 			if (BackgroundService.isRunning()) {
 				await BackgroundService.updateNotification({
 					taskDesc: "Scan failed. Will retry later...",
@@ -390,7 +413,7 @@ export class BackgroundScanner {
 		if (this.lastScanTime) {
 			const timeSinceLastScan = Date.now() - this.lastScanTime.getTime();
 			const minInterval = this.getIntervalMs(settings.scanFrequency);
-			
+
 			if (minInterval > 0 && timeSinceLastScan < minInterval * 0.9) {
 				// Allow 10% tolerance
 				console.log("[BackgroundScanner] Too soon since last scan");
@@ -420,12 +443,12 @@ export class BackgroundScanner {
 
 	cleanup() {
 		console.log("[BackgroundScanner] Cleaning up");
-		
+
 		// Clean up app state listener
 		if (this.appStateSubscription) {
 			this.appStateSubscription.remove();
 		}
-		
+
 		// Stop any running scans
 		this.stopPeriodicScan();
 	}

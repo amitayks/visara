@@ -23,7 +23,7 @@ let databaseInitialized = false;
 
 export const initializeDatabase = async (): Promise<void> => {
 	if (databaseInitialized) return;
-	
+
 	try {
 		console.log("Initializing database...");
 		// Test database connection

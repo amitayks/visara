@@ -5,15 +5,19 @@ import {
 } from "../ai/documentProcessor";
 import { database } from "./index";
 import type Document from "./models/Document";
-import { BehaviorSubject, Subscription } from 'rxjs';
+import { BehaviorSubject, Subscription } from "rxjs";
 
 export class DocumentStorage {
 	private documentsSubject = new BehaviorSubject<Document[]>([]);
 	private documentObservable: Subscription | null = null;
 	async saveDocument(result: DocumentResult): Promise<Document> {
-		console.log(`[DocumentStorage] Saving document with hash: ${result.imageHash}`);
-		console.log(`[DocumentStorage] Document type: ${result.documentType}, Confidence: ${(result.confidence * 100).toFixed(1)}%`);
-		
+		console.log(
+			`[DocumentStorage] Saving document with hash: ${result.imageHash}`,
+		);
+		console.log(
+			`[DocumentStorage] Document type: ${result.documentType}, Confidence: ${(result.confidence * 100).toFixed(1)}%`,
+		);
+
 		const documentsCollection = database.get<Document>("documents");
 
 		// Check for duplicate by image hash
@@ -22,7 +26,9 @@ export class DocumentStorage {
 			.fetch();
 
 		if (existingDocs.length > 0) {
-			console.log(`[DocumentStorage] Document already exists with hash: ${result.imageHash}`);
+			console.log(
+				`[DocumentStorage] Document already exists with hash: ${result.imageHash}`,
+			);
 			return existingDocs[0];
 		}
 
@@ -70,7 +76,7 @@ export class DocumentStorage {
 					// Use the first date found
 					doc.date = result.metadata.dates[0].date.getTime();
 				}
-				
+
 				// Log what we're saving
 				console.log(`[DocumentStorage] Setting document fields:`, {
 					id: doc.id,
@@ -78,15 +84,17 @@ export class DocumentStorage {
 					vendor: doc.vendor,
 					date: doc.date,
 					processedAt: doc.processedAt,
-					createdAt: doc.createdAt
+					createdAt: doc.createdAt,
 				});
 			});
 
-			console.log(`[DocumentStorage] Document saved successfully with ID: ${document.id}`);
-			
+			console.log(
+				`[DocumentStorage] Document saved successfully with ID: ${document.id}`,
+			);
+
 			// Notify observers immediately
 			this.notifyObservers();
-			
+
 			return document;
 		});
 	}
@@ -132,7 +140,7 @@ export class DocumentStorage {
 		await database.write(async () => {
 			await document.markAsDeleted();
 		});
-		
+
 		// Notify observers immediately
 		this.notifyObservers();
 	}
@@ -180,38 +188,38 @@ export class DocumentStorage {
 
 		return docs.length > 0 ? docs[0] : null;
 	}
-	
+
 	// Observable pattern for real-time updates
 	observeDocuments(callback: (docs: Document[]) => void): Subscription | null {
 		// Subscribe to database changes
 		const documentsCollection = database.get<Document>("documents");
-		
+
 		// Initial load
-		this.getAllDocuments().then(docs => {
+		this.getAllDocuments().then((docs) => {
 			callback(docs);
 			this.documentsSubject.next(docs);
 		});
-		
+
 		// Watch for changes
 		try {
 			const subscription = documentsCollection
 				.query()
-				.observeWithColumns(['created_at'])
-				.subscribe(docs => {
+				.observeWithColumns(["created_at"])
+				.subscribe((docs) => {
 					callback(docs);
 					this.documentsSubject.next(docs);
 				});
-			
+
 			this.documentObservable = subscription;
 			return subscription;
 		} catch (error) {
-			console.error('Failed to observe documents:', error);
+			console.error("Failed to observe documents:", error);
 			// Fallback to manual subscription to subject
 			const subscription = this.documentsSubject.subscribe(callback);
 			return subscription;
 		}
 	}
-	
+
 	private async notifyObservers() {
 		const docs = await this.getAllDocuments();
 		this.documentsSubject.next(docs);
