@@ -155,12 +155,84 @@ export default function HomeScreen() {
 		};
 	});
 
-	// Handle refresh
+	// Core scan logic - extracted for reusability
+	const performGalleryScan = useCallback(async (onProgress?: (progress: ScanProgress) => void) => {
+		// Check permissions first
+		const hasPermission = await galleryScanner.hasPermissions();
+		if (!hasPermission) {
+			const granted = await galleryScanner.requestPermissions();
+			if (!granted) {
+				Alert.alert(
+					"Permission Required",
+					"Gallery access is needed to scan for documents. Please enable it in settings.",
+				);
+				return false;
+			}
+		}
+
+		// Start the scan
+		await galleryScanner.startScan(
+			{
+				batchSize: 15,
+				smartFilterEnabled: true,
+				batterySaver: true,
+			},
+			onProgress || ((progress) => {
+				setScanProgress(progress);
+				console.log(
+					`Scan progress: ${progress.processedImages}/${progress.totalImages}`,
+				);
+			}),
+		);
+
+		return true;
+	}, []);
+
+	// Handle refresh - loads documents first, then triggers background scan
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
-		await loadDocuments();
-		setIsRefreshing(false);
-	}, [loadDocuments]);
+		try {
+			// First: Load existing documents (original refresh behavior)
+			await loadDocuments();
+		} catch (error) {
+			console.error("Refresh documents error:", error);
+			showToast({
+				type: "error",
+				message: "Failed to refresh documents",
+				icon: "alert-circle",
+			});
+		} finally {
+			// End refresh indicator
+			setIsRefreshing(false);
+		}
+
+		// Then: Start background gallery scan separately
+		try {
+			setIsScanning(true);
+			const scanSuccess = await performGalleryScan((progress) => {
+				setScanProgress(progress);
+				console.log(`Background scan progress: ${progress.processedImages}/${progress.totalImages}`);
+			});
+
+			if (scanSuccess) {
+				showToast({
+					type: "success",
+					message: "Gallery scan completed successfully",
+					icon: "checkmark-circle",
+				});
+			}
+		} catch (error) {
+			console.error("Background scan error:", error);
+			showToast({
+				type: "error",
+				message: "Failed to scan gallery",
+				icon: "alert-circle",
+			});
+		} finally {
+			setIsScanning(false);
+			setScanProgress(null);
+		}
+	}, [performGalleryScan, loadDocuments]);
 
 	// Handle search
 	const handleSearch = useCallback(async () => {
@@ -229,46 +301,26 @@ export default function HomeScreen() {
 		}
 	}, []);
 
-	// Handle background scan
+	// Handle manual background scan (initiated by user via button)
 	const handleStartBackgroundScan = useCallback(async () => {
+		setIsScanning(true);
 		try {
-			// Check permissions first
-			const hasPermission = await galleryScanner.hasPermissions();
-			if (!hasPermission) {
-				const granted = await galleryScanner.requestPermissions();
-				if (!granted) {
-					Alert.alert(
-						"Permission Required",
-						"Gallery access is needed to scan for documents. Please enable it in settings.",
-					);
-					return;
-				}
-			}
-
-			// Start the scan
-			setIsScanning(true);
-			await galleryScanner.startScan(
-				{
-					batchSize: 15,
-					smartFilterEnabled: true,
-					batterySaver: true,
-				},
-				(progress) => {
-					setScanProgress(progress);
-					console.log(
-						`Scan progress: ${progress.processedImages}/${progress.totalImages}`,
-					);
-				},
-			);
-
-			// Refresh documents once scan is complete
-			await loadDocuments();
-
-			showToast({
-				type: "success",
-				message: "Scan completed successfully",
-				icon: "checkmark-circle",
+			// Use the extracted scan logic
+			const scanSuccess = await performGalleryScan((progress) => {
+				setScanProgress(progress);
+				console.log(`Manual scan progress: ${progress.processedImages}/${progress.totalImages}`);
 			});
+
+			if (scanSuccess) {
+				// Refresh documents once scan is complete
+				await loadDocuments();
+				
+				showToast({
+					type: "success",
+					message: "Scan completed successfully",
+					icon: "checkmark-circle",
+				});
+			}
 		} catch (error) {
 			console.error("Background scan error:", error);
 			showToast({
@@ -280,7 +332,7 @@ export default function HomeScreen() {
 			setIsScanning(false);
 			setScanProgress(null);
 		}
-	}, [loadDocuments]);
+	}, [performGalleryScan, loadDocuments]);
 
 	// Handle manual upload
 	const handleManualUpload = useCallback(() => {
