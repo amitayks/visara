@@ -22,6 +22,7 @@ import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
 // Import our new components
 import { EmptyState } from "./components/common/LoadingStates";
 import { Document, DocumentGrid } from "./components/gallery/DocumentGrid";
+import { SkeletonGrid } from "./components/gallery/SkeletonGrid";
 import { AppHeader } from "./components/layout/AppHeader";
 import { ScanProgressBar } from "./components/layout/ScanProgressBar";
 import { DocumentModal } from "./components/modals/DocumentModal";
@@ -29,7 +30,6 @@ import { ToastContainer, showToast } from "./components/modals/Toast";
 import { UploadModal } from "./components/modals/UploadModal";
 import { QueryChip, QueryChips } from "./components/search/QueryChips";
 import { SearchBar } from "./components/search/SearchBar";
-import { SearchResults } from "./components/search/SearchResults";
 
 // Import services
 import { database } from "../services/database";
@@ -61,7 +61,7 @@ export default function HomeScreen() {
 	const [searchQuery, setSearchQuery] = useState("");
 	const [queryChips, setQueryChips] = useState<QueryChip[]>([]);
 	const [searchResults, setSearchResults] = useState<Document[]>([]);
-	const [showSearchResults, setShowSearchResults] = useState(false);
+	const [isSearching, setIsSearching] = useState(false);
 	const [searchOrchestrator] = useState(() => new SearchOrchestrator(database));
 
 	// UI state
@@ -129,13 +129,14 @@ export default function HomeScreen() {
 			}));
 
 			setDocuments(transformedDocs);
-			if (!showSearchResults) {
+			// Only update filtered documents if not currently showing search results
+			if (queryChips.length === 0) {
 				setFilteredDocuments(transformedDocs);
 			}
 		});
 
 		return () => subscription?.unsubscribe?.();
-	}, [showSearchResults]);
+	}, [queryChips.length]);
 
 	// Scan progress subscription
 	useEffect(() => {
@@ -268,6 +269,7 @@ export default function HomeScreen() {
 	const handleSearch = useCallback(async () => {
 		if (!searchQuery.trim()) return;
 
+		setIsSearching(true);
 		try {
 			const result = await searchOrchestrator.search(searchQuery, {
 				useSemanticSearch: true,
@@ -289,7 +291,6 @@ export default function HomeScreen() {
 
 			setSearchResults(docs);
 			setFilteredDocuments(docs);
-			setShowSearchResults(true);
 
 			// Add to query chips
 			const newChip: QueryChip = {
@@ -307,6 +308,8 @@ export default function HomeScreen() {
 				message: "Search failed",
 				icon: "alert-circle",
 			});
+		} finally {
+			setIsSearching(false);
 		}
 	}, [searchQuery, searchOrchestrator]);
 
@@ -421,10 +424,11 @@ export default function HomeScreen() {
 		(chipId: string) => {
 			setQueryChips((prev) => prev.filter((chip) => chip.id !== chipId));
 
+			// If this was the last chip, clear search state
 			if (queryChips.length === 1) {
 				setFilteredDocuments(documents);
-				setShowSearchResults(false);
 				setSearchQuery("");
+				setSearchResults([]);
 			}
 		},
 		[queryChips, documents],
@@ -461,26 +465,38 @@ export default function HomeScreen() {
 			)}
 
 			{/* Document Grid */}
-			<DocumentGrid
-				documents={filteredDocuments}
-				refreshing={isRefreshing}
-				onRefresh={handleRefresh}
-				onDocumentPress={handleDocumentPress}
-				ListEmptyComponent={
-					<EmptyState
-						icon="folder-open-outline"
-						title="No documents yet"
-						message="Tap the scan button to find documents in your gallery"
-						action={{
-							label: "Start Scanning",
-							onPress: handleStartBackgroundScan,
-						}}
-					/>
-				}
-				contentContainerStyle={{
-					paddingBottom: 100,
-				}}
-			/>
+			{isSearching ? (
+				<SkeletonGrid columns={2} count={6} />
+			) : (
+				<DocumentGrid
+					documents={filteredDocuments}
+					refreshing={isRefreshing}
+					onRefresh={handleRefresh}
+					onDocumentPress={handleDocumentPress}
+					ListEmptyComponent={
+						queryChips.length > 0 ? (
+							<EmptyState
+								icon="search-outline"
+								title="No results found"
+								message={`No documents found for "${queryChips[0]?.text || searchQuery}"`}
+							/>
+						) : (
+							<EmptyState
+								icon="folder-open-outline"
+								title="No documents yet"
+								message="Tap the scan button to find documents in your gallery"
+								action={{
+									label: "Start Scanning",
+									onPress: handleStartBackgroundScan,
+								}}
+							/>
+						)
+					}
+					contentContainerStyle={{
+						paddingBottom: 100,
+					}}
+				/>
+			)}
 
 			{/* Search Section - Fixed at bottom */}
 			<Animated.View style={[styles.searchContainer, searchBarStyle]}>
@@ -496,28 +512,20 @@ export default function HomeScreen() {
 				{/* Search Bar */}
 				<SearchBar
 					value={searchQuery}
-					onChangeText={setSearchQuery}
+					onChangeText={(text) => {
+						setSearchQuery(text);
+						// If user clears search query manually, clear search results
+						if (!text.trim() && queryChips.length > 0) {
+							setQueryChips([]);
+							setFilteredDocuments(documents);
+							setSearchResults([]);
+						}
+					}}
 					onSubmit={handleSearch}
 					// placeholder="Search documents..."
 					showSendButton={searchQuery.length > 0}
 				/>
 			</Animated.View>
-
-			{/* Search Results Overlay */}
-			{showSearchResults && (
-				<SearchResults
-					results={searchResults}
-					loading={false}
-					query={searchQuery}
-					onResultPress={handleDocumentPress}
-					onClose={() => {
-						setShowSearchResults(false);
-						setFilteredDocuments(documents);
-						setSearchQuery("");
-						setQueryChips([]);
-					}}
-				/>
-			)}
 
 			{/* Document Modal */}
 			<DocumentModal
