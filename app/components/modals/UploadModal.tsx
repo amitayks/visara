@@ -235,6 +235,8 @@ const createStyles = (theme: any) =>
 			shadowOpacity: 0.25,
 			shadowRadius: 20,
 			elevation: 15,
+			// borderWidth: 1,
+			// borderTopColor: theme.surfaceSecondary,
 		},
 		// handle: {
 		// 	width: 40,
