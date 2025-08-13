@@ -42,32 +42,33 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
 	);
 };
 
-const createStyles = (theme: any) => StyleSheet.create({
-	container: {
-		height: 56,
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		paddingHorizontal: 16,
-		backgroundColor: theme.surface,
-		borderBottomWidth: 1,
-		borderBottomColor: theme.border,
-	},
-	iconButton: {
-		width: 40,
-		height: 40,
-		alignItems: "center",
-		justifyContent: "center",
-		borderRadius: 20,
-	},
-	logo: {
-		flex: 1,
-		alignItems: "center",
-	},
-	logoText: {
-		fontSize: 24,
-		fontWeight: "600",
-		color: theme.primary,
-		letterSpacing: -0.5,
-	},
-});
+const createStyles = (theme: any) =>
+	StyleSheet.create({
+		container: {
+			height: 56,
+			flexDirection: "row",
+			alignItems: "center",
+			justifyContent: "space-between",
+			paddingHorizontal: 16,
+			// backgroundColor: theme.surface,
+			// borderBottomWidth: 1,
+			// borderBottomColor: theme.border,
+		},
+		iconButton: {
+			width: 40,
+			height: 40,
+			alignItems: "center",
+			justifyContent: "center",
+			borderRadius: 20,
+		},
+		logo: {
+			flex: 1,
+			alignItems: "center",
+		},
+		logoText: {
+			fontSize: 24,
+			fontWeight: "600",
+			color: theme.primary,
+			letterSpacing: -0.5,
+		},
+	});

@@ -35,7 +35,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 	const { theme, isDark } = useTheme();
 	const iconColors = useIconColors();
 	const styles = useThemedStyles(createStyles);
-	
+
 	const inputRef = useRef<TextInput>(null);
 	const buttonScale = useSharedValue(showSendButton ? 1 : 0);
 	const buttonWidth = useSharedValue(showSendButton ? 56 : 0);
@@ -111,46 +111,47 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 	);
 };
 
-const createStyles = (theme: any) => StyleSheet.create({
-	container: {
-		flexDirection: "row",
-		alignItems: "center",
-		paddingHorizontal: 16,
-		paddingVertical: 12,
-		backgroundColor: theme.surface,
-	},
-	inputContainer: {
-		flex: 1,
-		flexDirection: "row",
-		alignItems: "center",
-		backgroundColor: theme.surfaceSecondary,
-		borderRadius: 24,
-		paddingHorizontal: 16,
-		height: 44,
-	},
-	// searchIcon: {
-	//   marginRight: 8,
-	// },
-	input: {
-		flex: 1,
-		fontSize: 16,
-		color: theme.text,
-		paddingVertical: 0,
-	},
-	// clearButton: {
-	//   marginLeft: 8,
-	//   padding: 4,
-	// },
-	sendButtonContainer: {
-		marginLeft: 12,
-		overflow: "hidden",
-	},
-	sendButton: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-		backgroundColor: theme.surfaceSecondary,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-});
+const createStyles = (theme: any) =>
+	StyleSheet.create({
+		container: {
+			flexDirection: "row",
+			alignItems: "center",
+			paddingHorizontal: 16,
+			paddingVertical: 12,
+			backgroundColor: theme.background,
+		},
+		inputContainer: {
+			flex: 1,
+			flexDirection: "row",
+			alignItems: "center",
+			backgroundColor: theme.surfaceSecondary,
+			borderRadius: 24,
+			paddingHorizontal: 16,
+			height: 44,
+		},
+		// searchIcon: {
+		//   marginRight: 8,
+		// },
+		input: {
+			flex: 1,
+			fontSize: 16,
+			color: theme.text,
+			paddingVertical: 0,
+		},
+		// clearButton: {
+		//   marginLeft: 8,
+		//   padding: 4,
+		// },
+		sendButtonContainer: {
+			marginLeft: 12,
+			overflow: "hidden",
+		},
+		sendButton: {
+			width: 44,
+			height: 44,
+			borderRadius: 22,
+			// backgroundColor: theme.surfaceSecondary,
+			alignItems: "center",
+			justifyContent: "center",
+		},
+	});

@@ -162,37 +162,41 @@ export default function HomeScreen() {
 	});
 
 	// Core scan logic - extracted for reusability
-	const performGalleryScan = useCallback(async (onProgress?: (progress: ScanProgress) => void) => {
-		// Check permissions first
-		const hasPermission = await galleryScanner.hasPermissions();
-		if (!hasPermission) {
-			const granted = await galleryScanner.requestPermissions();
-			if (!granted) {
-				Alert.alert(
-					"Permission Required",
-					"Gallery access is needed to scan for documents. Please enable it in settings.",
-				);
-				return false;
+	const performGalleryScan = useCallback(
+		async (onProgress?: (progress: ScanProgress) => void) => {
+			// Check permissions first
+			const hasPermission = await galleryScanner.hasPermissions();
+			if (!hasPermission) {
+				const granted = await galleryScanner.requestPermissions();
+				if (!granted) {
+					Alert.alert(
+						"Permission Required",
+						"Gallery access is needed to scan for documents. Please enable it in settings.",
+					);
+					return false;
+				}
 			}
-		}
 
-		// Start the scan
-		await galleryScanner.startScan(
-			{
-				batchSize: 15,
-				smartFilterEnabled: true,
-				batterySaver: true,
-			},
-			onProgress || ((progress) => {
-				setScanProgress(progress);
-				console.log(
-					`Scan progress: ${progress.processedImages}/${progress.totalImages}`,
-				);
-			}),
-		);
+			// Start the scan
+			await galleryScanner.startScan(
+				{
+					batchSize: 15,
+					smartFilterEnabled: true,
+					batterySaver: true,
+				},
+				onProgress ||
+					((progress) => {
+						setScanProgress(progress);
+						console.log(
+							`Scan progress: ${progress.processedImages}/${progress.totalImages}`,
+						);
+					}),
+			);
 
-		return true;
-	}, []);
+			return true;
+		},
+		[],
+	);
 
 	// Handle refresh - loads documents first, then triggers background scan
 	const handleRefresh = useCallback(async () => {
@@ -217,7 +221,9 @@ export default function HomeScreen() {
 			setIsScanning(true);
 			const scanSuccess = await performGalleryScan((progress) => {
 				setScanProgress(progress);
-				console.log(`Background scan progress: ${progress.processedImages}/${progress.totalImages}`);
+				console.log(
+					`Background scan progress: ${progress.processedImages}/${progress.totalImages}`,
+				);
 			});
 
 			if (scanSuccess) {
@@ -314,13 +320,15 @@ export default function HomeScreen() {
 			// Use the extracted scan logic
 			const scanSuccess = await performGalleryScan((progress) => {
 				setScanProgress(progress);
-				console.log(`Manual scan progress: ${progress.processedImages}/${progress.totalImages}`);
+				console.log(
+					`Manual scan progress: ${progress.processedImages}/${progress.totalImages}`,
+				);
 			});
 
 			if (scanSuccess) {
 				// Refresh documents once scan is complete
 				await loadDocuments();
-				
+
 				showToast({
 					type: "success",
 					message: "Scan completed successfully",
@@ -390,10 +398,13 @@ export default function HomeScreen() {
 	}, [loadDocuments]);
 
 	return (
-		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["top"]}>
-			<StatusBar 
-				barStyle={isDark ? "light-content" : "dark-content"} 
-				backgroundColor={theme.background} 
+		<SafeAreaView
+			style={[styles.container, { backgroundColor: theme.background }]}
+			edges={["top"]}
+		>
+			<StatusBar
+				barStyle={isDark ? "light-content" : "dark-content"}
+				backgroundColor={theme.background}
 			/>
 
 			{/* Header */}
@@ -494,26 +505,27 @@ export default function HomeScreen() {
 	);
 }
 
-const createStyles = (theme: any) => StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: theme.background,
-	},
-	searchContainer: {
-		position: "absolute",
-		bottom: 0,
-		left: 0,
-		right: 0,
-		backgroundColor: theme.surface,
-		borderTopWidth: 1,
-		borderTopColor: theme.border,
-		paddingBottom: Platform.OS === "ios" ? 20 : 10,
-	},
-	queryChips: {
-		paddingHorizontal: 16,
-		paddingTop: 12,
-		paddingBottom: 8,
-		borderBottomWidth: 1,
-		borderBottomColor: theme.borderLight,
-	},
-});
+const createStyles = (theme: any) =>
+	StyleSheet.create({
+		container: {
+			flex: 1,
+			backgroundColor: theme.background,
+		},
+		searchContainer: {
+			position: "absolute",
+			bottom: 0,
+			left: 0,
+			right: 0,
+			// backgroundColor: theme.bac,
+			borderTopWidth: 1,
+			borderTopColor: theme.border,
+			paddingBottom: Platform.OS === "ios" ? 20 : 10,
+		},
+		queryChips: {
+			paddingHorizontal: 16,
+			paddingTop: 12,
+			paddingBottom: 8,
+			borderBottomWidth: 1,
+			borderBottomColor: theme.borderLight,
+		},
+	});
