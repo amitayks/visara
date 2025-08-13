@@ -6,14 +6,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# React Native
-.react-native-expo/
-
-# Expo
-.expo/
-dist/
-web-build/
-.expo-shared/
 
 # Metro
 .metro-health-check*

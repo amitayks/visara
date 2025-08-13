@@ -18,12 +18,12 @@
 		"baseUrl": ".",
 		"paths": {
 			"@/*": ["./*"],
-			"@components/*": ["./components/*"],
 			"@services/*": ["./services/*"],
 			"@stores/*": ["./stores/*"],
 			"@utils/*": ["./utils/*"],
 			"@hooks/*": ["./hooks/*"],
-			"@constants/*": ["./constants/*"]
+			"@constants/*": ["./constants/*"],
+			"@types/*": ["./types/*"]
 		}
 	},
 	"exclude": [

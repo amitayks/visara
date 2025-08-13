@@ -1,4 +1,7 @@
 {
 	"name": "VisaraApp",
-	"displayName": "Visara"
+	"displayName": "Visara",
+	"description": "Document management system",
+	"version": "1.0.0",
+	"author": "Amitay Keisar"
 }

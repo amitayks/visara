@@ -117,9 +117,6 @@ export class ImagePreprocessor {
 	}
 
 	private static async applyBinarization(imageUri: string): Promise<string> {
-		// Since expo-image-manipulator doesn't support binarization,
-		// we'll return the original image and let the OCR engines handle it
-		// In a production app, you might use a native module for this
 		return imageUri;
 	}
 

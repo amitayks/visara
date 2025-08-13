@@ -1,7 +1,6 @@
 {
 	"permissions": {
 		"allow": [
-			"Bash(npx create-expo-app:*)",
 			"Bash(cd:*)",
 			"Bash(cd:*)",
 			"Bash(cd:*)",
