@@ -282,8 +282,8 @@ const styles = StyleSheet.create({
 		backgroundColor: "#FFFFFF",
 		borderTopLeftRadius: 24,
 		borderTopRightRadius: 24,
-		maxHeight: SCREEN_HEIGHT * 0.9,
-		minHeight: SCREEN_HEIGHT * 0.5,
+		// maxHeight: SCREEN_HEIGHT * 0.9,
+		minHeight: SCREEN_HEIGHT * 0.7,
 		marginTop: SCREEN_HEIGHT * 0.1,
 		shadowColor: "#000",
 		shadowOffset: {

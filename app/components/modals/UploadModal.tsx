@@ -120,8 +120,8 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 				/>
 
 				<Animated.View
-					entering={FadeIn.duration(350).easing(Easing.out(Easing.cubic))}
-					exiting={FadeOut.duration(300)}
+					entering={FadeIn.duration(250).easing(Easing.out(Easing.cubic))}
+					exiting={FadeOut.duration(200)}
 					style={styles.container}
 				>
 					{/* <View style={styles.handle} /> */}
@@ -208,7 +208,8 @@ const styles = StyleSheet.create({
 		borderTopRightRadius: 24,
 		paddingBottom: Platform.OS === "ios" ? 34 : 24,
 		marginTop: SCREEN_HEIGHT * 0.1,
-		maxHeight: SCREEN_HEIGHT * 0.9,
+		// maxHeight: SCREEN_HEIGHT * 0.9,
+		minHeight: SCREEN_HEIGHT * 0.7,
 		shadowColor: "#000",
 		shadowOffset: {
 			width: 0,
@@ -219,12 +220,12 @@ const styles = StyleSheet.create({
 		elevation: 15,
 	},
 	// handle: {
-	//   width: 40,
-	//   height: 4,
-	//   backgroundColor: '#DDD',
-	//   borderRadius: 2,
-	//   alignSelf: 'center',
-	//   marginTop: 12,
+	// 	width: 40,
+	// 	height: 4,
+	// 	backgroundColor: "#DDD",
+	// 	borderRadius: 2,
+	// 	alignSelf: "center",
+	// 	marginTop: 12,
 	// },
 	header: {
 		// flexDirection: 'row',
