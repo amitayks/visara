@@ -554,7 +554,7 @@ const createStyles = (theme: any) =>
 			bottom: 0,
 			left: 0,
 			right: 0,
-			// backgroundColor: theme.bac,
+			backgroundColor: theme.background,
 			borderTopWidth: 1,
 			borderTopColor: theme.border,
 			paddingBottom: Platform.OS === "ios" ? 20 : 10,
