@@ -318,6 +318,7 @@ const createStyles = (theme: any) =>
 			borderTopLeftRadius: 24,
 			borderTopRightRadius: 24,
 			minHeight: SCREEN_HEIGHT * 0.7,
+			maxHeight: SCREEN_HEIGHT * 0.9,
 			marginTop: SCREEN_HEIGHT * 0.1,
 			shadowColor: theme.shadow,
 			shadowOffset: {

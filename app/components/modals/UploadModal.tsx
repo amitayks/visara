@@ -226,6 +226,7 @@ const createStyles = (theme: any) =>
 			paddingBottom: Platform.OS === "ios" ? 34 : 24,
 			marginTop: SCREEN_HEIGHT * 0.1,
 			minHeight: SCREEN_HEIGHT * 0.7,
+			maxHeight: SCREEN_HEIGHT * 0.9,
 			shadowColor: theme.shadow,
 			shadowOffset: {
 				width: 0,
