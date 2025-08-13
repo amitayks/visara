@@ -305,8 +305,8 @@ export default function HomeScreen() {
 
 	// Handle settings navigation
 	const handleSettingsPress = useCallback(() => {
-		Alert.alert("Settings", "Settings page not yet implemented");
-	}, []);
+		navigation.navigate("Settings");
+	}, [navigation]);
 
 	// Handle chip removal
 	const handleRemoveChip = useCallback(

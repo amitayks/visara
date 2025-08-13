@@ -9,6 +9,7 @@ import { galleryScanner } from "../services/gallery/GalleryScanner";
 import type { RootStackParamList } from "../types/navigation";
 import DocumentScreen from "./document/[id]";
 import HomeScreen from "./index";
+import SettingsScreen from "./settings";
 
 // Load icon font
 Icon.loadFont();
@@ -92,6 +93,14 @@ export default function RootLayout() {
 							title: "Document",
 							headerBackTitleVisible: false,
 							headerTintColor: "#0066FF",
+						}}
+					/>
+					<Stack.Screen
+						name="Settings"
+						component={SettingsScreen}
+						options={{
+							headerShown: false,
+							gestureEnabled: true,
 						}}
 					/>
 				</Stack.Navigator>
