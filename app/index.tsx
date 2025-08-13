@@ -111,7 +111,13 @@ export default function HomeScreen() {
 	// Real-time document updates
 	useEffect(() => {
 		const subscription = documentStorage.observeDocuments((docs) => {
-			const transformedDocs: Document[] = docs.map((doc) => ({
+			// Sort documents by creation date (newest first) - same as loadDocuments
+			const sortedDocs = docs.sort(
+				(a, b) =>
+					new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+			);
+
+			const transformedDocs: Document[] = sortedDocs.map((doc) => ({
 				id: doc.id,
 				imageUri: doc.imageUri,
 				documentType: doc.documentType,
