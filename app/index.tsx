@@ -218,21 +218,39 @@ export default function HomeScreen() {
 
 		// Then: Start background gallery scan separately
 		try {
-			setIsScanning(true);
-			const scanSuccess = await performGalleryScan((progress) => {
-				setScanProgress(progress);
-				console.log(
-					`Background scan progress: ${progress.processedImages}/${progress.totalImages}`,
-				);
-			});
-
-			if (scanSuccess) {
-				showToast({
-					type: "success",
-					message: "Gallery scan completed successfully",
-					icon: "checkmark-circle",
-				});
+			// Check permissions first - don't set scanning state until after permissions
+			const hasPermission = await galleryScanner.hasPermissions();
+			if (!hasPermission) {
+				const granted = await galleryScanner.requestPermissions();
+				if (!granted) {
+					// Don't show alert for refresh - silently skip scanning if no permission
+					return;
+				}
 			}
+
+			// Only set scanning state after permissions are confirmed
+			setIsScanning(true);
+
+			// Start the scan (permissions already checked)
+			await galleryScanner.startScan(
+				{
+					batchSize: 15,
+					smartFilterEnabled: true,
+					batterySaver: true,
+				},
+				(progress) => {
+					setScanProgress(progress);
+					console.log(
+						`Background scan progress: ${progress.processedImages}/${progress.totalImages}`,
+					);
+				},
+			);
+
+			showToast({
+				type: "success",
+				message: "Gallery scan completed successfully",
+				icon: "checkmark-circle",
+			});
 		} catch (error) {
 			console.error("Background scan error:", error);
 			showToast({
@@ -315,26 +333,46 @@ export default function HomeScreen() {
 
 	// Handle manual background scan (initiated by user via button)
 	const handleStartBackgroundScan = useCallback(async () => {
-		setIsScanning(true);
 		try {
-			// Use the extracted scan logic
-			const scanSuccess = await performGalleryScan((progress) => {
-				setScanProgress(progress);
-				console.log(
-					`Manual scan progress: ${progress.processedImages}/${progress.totalImages}`,
-				);
-			});
-
-			if (scanSuccess) {
-				// Refresh documents once scan is complete
-				await loadDocuments();
-
-				showToast({
-					type: "success",
-					message: "Scan completed successfully",
-					icon: "checkmark-circle",
-				});
+			// Check permissions first - don't set scanning state until after permissions
+			const hasPermission = await galleryScanner.hasPermissions();
+			if (!hasPermission) {
+				const granted = await galleryScanner.requestPermissions();
+				if (!granted) {
+					Alert.alert(
+						"Permission Required",
+						"Gallery access is needed to scan for documents. Please enable it in settings.",
+					);
+					return; // Exit early if permission denied - no UI state change
+				}
 			}
+
+			// Only set scanning state after permissions are confirmed
+			setIsScanning(true);
+
+			// Start the scan (permissions already checked)
+			await galleryScanner.startScan(
+				{
+					batchSize: 15,
+					smartFilterEnabled: true,
+					batterySaver: true,
+				},
+				(progress) => {
+					setScanProgress(progress);
+					console.log(
+						`Manual scan progress: ${progress.processedImages}/${progress.totalImages}`,
+					);
+				},
+			);
+
+			// Refresh documents once scan is complete
+			await loadDocuments();
+
+			showToast({
+				type: "success",
+				message: "Scan completed successfully",
+				icon: "checkmark-circle",
+			});
 		} catch (error) {
 			console.error("Background scan error:", error);
 			showToast({
@@ -346,7 +384,7 @@ export default function HomeScreen() {
 			setIsScanning(false);
 			setScanProgress(null);
 		}
-	}, [performGalleryScan, loadDocuments]);
+	}, [loadDocuments]);
 
 	// Handle manual upload
 	const handleManualUpload = useCallback(() => {
