@@ -138,27 +138,27 @@ const createStyles = (theme: any) =>
 		content: {
 			flex: 1,
 		},
-		comingSoon: {
-			flex: 1,
-			alignItems: "center",
-			justifyContent: "center",
-			paddingHorizontal: 40,
-			minHeight: SCREEN_HEIGHT * 0.3,
-			marginTop: 60,
-		},
-		comingSoonTitle: {
-			fontSize: 24,
-			fontWeight: "600",
-			color: theme.text,
-			marginTop: 20,
-			marginBottom: 12,
-		},
-		comingSoonText: {
-			fontSize: 16,
-			color: theme.textSecondary,
-			textAlign: "center",
-			lineHeight: 24,
-		},
+		// comingSoon: {
+		// 	flex: 1,
+		// 	alignItems: "center",
+		// 	justifyContent: "center",
+		// 	paddingHorizontal: 40,
+		// 	minHeight: SCREEN_HEIGHT * 0.3,
+		// 	marginTop: 60,
+		// },
+		// comingSoonTitle: {
+		// 	fontSize: 24,
+		// 	fontWeight: "600",
+		// 	color: theme.text,
+		// 	marginTop: 20,
+		// 	marginBottom: 12,
+		// },
+		// comingSoonText: {
+		// 	fontSize: 16,
+		// 	color: theme.textSecondary,
+		// 	textAlign: "center",
+		// 	lineHeight: 24,
+		// },
 		footer: {
 			borderTopWidth: 1,
 			// borderTopColor: theme.borderLight,
