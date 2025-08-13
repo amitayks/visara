@@ -1,4 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
+import React from "react";
 import {
 	Dimensions,
 	Platform,
@@ -11,11 +12,18 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
+import { ThemeToggle } from "./components/settings/ThemeToggle";
+import { SettingsSectionHeader } from "./components/settings/SettingsSectionHeader";
+import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
+import { useSettingsStore } from "../stores/settingsStore";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function SettingsScreen() {
 	const navigation = useNavigation();
+	const { theme, isDark } = useTheme();
+	const { isLoading } = useSettingsStore();
+	const styles = useThemedStyles(createStyles);
 
 	const handleGoBack = () => {
 		navigation.goBack();
@@ -23,7 +31,10 @@ export default function SettingsScreen() {
 
 	return (
 		<SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
-			<StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+			<StatusBar 
+				barStyle={isDark ? "light-content" : "dark-content"} 
+				backgroundColor={theme.background} 
+			/>
 
 			{/* Header */}
 			<View style={styles.header}>
@@ -32,19 +43,26 @@ export default function SettingsScreen() {
 					onPress={handleGoBack}
 					activeOpacity={0.7}
 				>
-					<Icon name="chevron-back" size={24} color="#333" />
+					<Icon name="chevron-back" size={24} color={theme.text} />
 				</TouchableOpacity>
 				<Text style={styles.headerTitle}>Settings</Text>
 				<View style={styles.headerSpacer} />
 			</View>
 
 			<ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+				{/* Appearance Section */}
+				<SettingsSectionHeader 
+					title="Appearance" 
+					subtitle="Customize how Visara looks and feels" 
+				/>
+				<ThemeToggle />
+				
 				{/* Main content area - will be implemented later */}
 				<View style={styles.comingSoon}>
-					<Icon name="construct-outline" size={64} color="#CCC" />
-					<Text style={styles.comingSoonTitle}>Coming Soon</Text>
+					<Icon name="construct-outline" size={64} color={theme.textTertiary} />
+					<Text style={styles.comingSoonTitle}>More Settings Coming Soon</Text>
 					<Text style={styles.comingSoonText}>
-						Settings features will be available in the next update.
+						Additional settings like auto-scan, notifications, and privacy options will be available in the next update.
 					</Text>
 				</View>
 			</ScrollView>
@@ -61,11 +79,11 @@ export default function SettingsScreen() {
 
 					<View style={styles.infoRow}>
 						<View style={styles.infoItem}>
-							<Icon name="shield-checkmark-outline" size={16} color="#666" />
+							<Icon name="shield-checkmark-outline" size={16} color={theme.textSecondary} />
 							<Text style={styles.infoText}>Privacy First</Text>
 						</View>
 						<View style={styles.infoItem}>
-							<Icon name="phone-portrait-outline" size={16} color="#666" />
+							<Icon name="phone-portrait-outline" size={16} color={theme.textSecondary} />
 							<Text style={styles.infoText}>On-Device AI</Text>
 						</View>
 					</View>
@@ -79,10 +97,10 @@ export default function SettingsScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: "#FFFFFF",
+		backgroundColor: theme.background,
 	},
 	header: {
 		flexDirection: "row",
@@ -90,7 +108,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingVertical: 12,
 		borderBottomWidth: 1,
-		borderBottomColor: "#F0F0F0",
+		borderBottomColor: theme.borderLight,
 	},
 	backButton: {
 		padding: 8,
@@ -100,7 +118,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 		fontSize: 20,
 		fontWeight: "600",
-		color: "#333",
+		color: theme.text,
 		textAlign: "center",
 		marginRight: 40, // Compensate for back button width
 	},
@@ -115,25 +133,26 @@ const styles = StyleSheet.create({
 		alignItems: "center",
 		justifyContent: "center",
 		paddingHorizontal: 40,
-		minHeight: SCREEN_HEIGHT * 0.5,
+		minHeight: SCREEN_HEIGHT * 0.3,
+		marginTop: 60,
 	},
 	comingSoonTitle: {
 		fontSize: 24,
 		fontWeight: "600",
-		color: "#333",
+		color: theme.text,
 		marginTop: 20,
 		marginBottom: 12,
 	},
 	comingSoonText: {
 		fontSize: 16,
-		color: "#666",
+		color: theme.textSecondary,
 		textAlign: "center",
 		lineHeight: 24,
 	},
 	footer: {
 		borderTopWidth: 1,
-		borderTopColor: "#F0F0F0",
-		backgroundColor: "#FAFAFA",
+		borderTopColor: theme.borderLight,
+		backgroundColor: theme.surfaceSecondary,
 	},
 	versionSection: {
 		alignItems: "center",
@@ -143,17 +162,17 @@ const styles = StyleSheet.create({
 	appName: {
 		fontSize: 20,
 		fontWeight: "600",
-		color: "#333",
+		color: theme.text,
 		marginBottom: 4,
 	},
 	version: {
 		fontSize: 16,
-		color: "#666",
+		color: theme.textSecondary,
 		marginBottom: 2,
 	},
 	buildInfo: {
 		fontSize: 14,
-		color: "#999",
+		color: theme.textTertiary,
 		marginBottom: 16,
 	},
 	infoRow: {
@@ -168,12 +187,12 @@ const styles = StyleSheet.create({
 	},
 	infoText: {
 		fontSize: 13,
-		color: "#666",
+		color: theme.textSecondary,
 		fontWeight: "500",
 	},
 	copyright: {
 		fontSize: 12,
-		color: "#999",
+		color: theme.textTertiary,
 		textAlign: "center",
 	},
 });

@@ -10,8 +10,16 @@ import {
 	TouchableOpacity,
 	View,
 } from "react-native";
-import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, {
+	Easing,
+	FadeIn,
+	FadeOut,
+	SlideInDown,
+	SlideOutDown,
+} from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
+import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { useIconColors } from "../../../utils/iconColors";
 import { Document } from "../gallery/DocumentGrid";
 import { showToast } from "./Toast";
 
@@ -31,12 +39,23 @@ interface InfoRowProps {
 	value?: string | null;
 }
 
-const InfoRow: React.FC<InfoRowProps> = ({ icon, label, value }) => {
+const InfoRow: React.FC<InfoRowProps & { styles: any; iconColors: any }> = ({
+	icon,
+	label,
+	value,
+	styles,
+	iconColors,
+}) => {
 	if (!value) return null;
 
 	return (
 		<View style={styles.infoRow}>
-			<Icon name={icon} size={20} color="#666" style={styles.infoIcon} />
+			<Icon
+				name={icon}
+				size={20}
+				color={iconColors.secondary}
+				style={styles.infoIcon}
+			/>
 			<View style={styles.infoContent}>
 				<Text style={styles.infoLabel}>{label}</Text>
 				<Text style={styles.infoValue}>{value}</Text>
@@ -52,11 +71,12 @@ interface ActionButtonProps {
 	color: string;
 }
 
-const ActionButton: React.FC<ActionButtonProps> = ({
+const ActionButton: React.FC<ActionButtonProps & { styles: any }> = ({
 	icon,
 	label,
 	onPress,
 	color,
+	styles,
 }) => (
 	<TouchableOpacity
 		style={[styles.actionButton, { backgroundColor: `${color}15` }]}
@@ -68,7 +88,7 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 	</TouchableOpacity>
 );
 
-const DocumentSkeleton: React.FC = () => (
+const DocumentSkeleton: React.FC<{ styles: any }> = ({ styles }) => (
 	<View style={styles.skeleton}>
 		{/* <View style={styles.skeletonImage} /> */}
 		<View style={styles.skeletonInfo}>
@@ -86,6 +106,10 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	onDelete,
 	onShare,
 }) => {
+	const { theme, isDark } = useTheme();
+	const iconColors = useIconColors();
+	const styles = useThemedStyles(createStyles);
+
 	const [loading, setLoading] = useState(true);
 	// const [imageLoaded, setImageLoaded] = useState(false);
 	const [deleting, setDeleting] = useState(false);
@@ -191,7 +215,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 						showsVerticalScrollIndicator={false}
 					>
 						{loading ? (
-							<DocumentSkeleton />
+							<DocumentSkeleton styles={styles} />
 						) : (
 							<>
 								{/* <View style={styles.imageContainer}>
@@ -215,21 +239,29 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 										icon="document-text"
 										label="Type"
 										value={document?.documentType}
+										styles={styles}
+										iconColors={iconColors}
 									/>
 									<InfoRow
 										icon="business"
 										label="Vendor"
 										value={document?.vendor || "Unknown"}
+										styles={styles}
+										iconColors={iconColors}
 									/>
 									<InfoRow
 										icon="calendar"
 										label="Date"
 										value={formatDate(document?.date)}
+										styles={styles}
+										iconColors={iconColors}
 									/>
 									<InfoRow
 										icon="cash"
 										label="Amount"
 										value={formatCurrency(document?.totalAmount)}
+										styles={styles}
+										iconColors={iconColors}
 									/>
 								</View>
 							</>
@@ -244,13 +276,15 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 									icon="share-social"
 									label="Share"
 									onPress={handleShare}
-									color="#6366F1"
+									color={theme.accent}
+									styles={styles}
 								/>
 								<ActionButton
 									icon="trash"
 									label="Delete"
 									onPress={handleDelete}
-									color="#EF4444"
+									color={theme.error}
+									styles={styles}
 								/>
 							</>
 						) : (
@@ -272,162 +306,160 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	);
 };
 
-const styles = StyleSheet.create({
-	backdrop: {
-		flex: 1,
-		backgroundColor: "rgba(0, 0, 0, 0.5)",
-		justifyContent: "flex-end",
-	},
-	container: {
-		backgroundColor: "#FFFFFF",
-		borderTopLeftRadius: 24,
-		borderTopRightRadius: 24,
-		// maxHeight: SCREEN_HEIGHT * 0.9,
-		minHeight: SCREEN_HEIGHT * 0.7,
-		marginTop: SCREEN_HEIGHT * 0.1,
-		shadowColor: "#000",
-		shadowOffset: {
-			width: 0,
-			height: -10,
+const createStyles = (theme: any) =>
+	StyleSheet.create({
+		backdrop: {
+			flex: 1,
+			backgroundColor: theme.overlay,
+			justifyContent: "flex-end",
 		},
-		shadowOpacity: 0.25,
-		shadowRadius: 20,
-		elevation: 15,
-	},
-	// handle: {
-	//   width: 40,
-	//   height: 4,
-	//   backgroundColor: '#DDD',
-	//   borderRadius: 2,
-	//   alignSelf: 'center',
-	//   marginTop: 12,
-	// },
-	header: {
-		// flexDirection: 'row',
-		alignItems: "center",
-		// justifyContent: 'space-between',
-		paddingHorizontal: 20,
-		paddingVertical: 16,
-		borderBottomWidth: 1,
-		borderBottomColor: "#F0F0F0",
-	},
-	title: {
-		fontSize: 20,
-		fontWeight: "600",
-		color: "#333",
-	},
-	// closeButton: {
-	//   padding: 8,
-	// },
-	content: {
-		flexGrow: 1,
-	},
-	// imageContainer: {
-	//   height: 300,
-	//   backgroundColor: '#F5F5F5',
-	//   margin: 20,
-	//   borderRadius: 12,
-	//   overflow: 'hidden',
-	//   alignItems: 'center',
-	//   justifyContent: 'center',
-	// },
-	// image: {
-	//   width: '100%',
-	//   height: '100%',
-	// },
-	// imageLoader: {
-	//   position: 'absolute',
-	// },
-	infoSection: {
-		paddingHorizontal: 20,
-		paddingBottom: 20,
-	},
-	infoRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		paddingVertical: 12,
-		// borderBottomWidth: 0.5,
-		// borderBottomColor: '#F0F0F0',
-	},
-	infoIcon: {
-		marginRight: 16,
-	},
-	infoContent: {
-		flex: 1,
-	},
-	infoLabel: {
-		fontSize: 12,
-		color: "#999",
-		marginBottom: 2,
-	},
-	infoValue: {
-		fontSize: 16,
-		color: "#333",
-		fontWeight: "500",
-	},
-	actionBar: {
-		flexDirection: "row",
-		paddingHorizontal: 20,
-		paddingVertical: 16,
-		paddingBottom: 20,
-		gap: 12,
-		backgroundColor: "#FFFFFF",
-		// borderTopWidth: 1,
-		borderTopColor: "#F0F0F0",
-	},
-	actions: {
-		flexDirection: "row",
-		paddingHorizontal: 20,
-		paddingBottom: 20,
-		gap: 12,
-	},
-	actionButton: {
-		flex: 1,
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
-		paddingVertical: 14,
-		borderRadius: 12,
-		gap: 8,
-	},
-	actionLabel: {
-		fontSize: 16,
-		fontWeight: "600",
-	},
-	skeleton: {
-		padding: 20,
-	},
-	skeletonImage: {
-		height: 300,
-		backgroundColor: "#F0F0F0",
-		borderRadius: 12,
-		marginBottom: 20,
-	},
-	skeletonInfo: {
-		gap: 16,
-	},
-	skeletonRow: {
-		height: 50,
-		backgroundColor: "#F0F0F0",
-		borderRadius: 8,
-	},
-	deletingOverlay: {
-		...StyleSheet.absoluteFillObject,
-		backgroundColor: "rgba(0, 0, 0, 0.5)",
-		borderTopLeftRadius: 24,
-		borderTopRightRadius: 24,
-		alignItems: "center",
-		justifyContent: "center",
-	},
-	actionBarSkeleton: {
-		flexDirection: "row",
-		gap: 12,
-		flex: 1,
-	},
-	actionButtonSkeleton: {
-		flex: 1,
-		height: 52, // Match exact height with padding (24 icon + 14*2 padding)
-		backgroundColor: "#F0F0F0",
-		borderRadius: 12,
-	},
-});
+		container: {
+			backgroundColor: theme.surface,
+			borderTopLeftRadius: 24,
+			borderTopRightRadius: 24,
+			minHeight: SCREEN_HEIGHT * 0.7,
+			marginTop: SCREEN_HEIGHT * 0.1,
+			shadowColor: theme.shadow,
+			shadowOffset: {
+				width: 0,
+				height: -10,
+			},
+			shadowOpacity: 0.25,
+			shadowRadius: 20,
+			elevation: 15,
+		},
+		// handle: {
+		//   width: 40,
+		//   height: 4,
+		//   backgroundColor: '#DDD',
+		//   borderRadius: 2,
+		//   alignSelf: 'center',
+		//   marginTop: 12,
+		// },
+		header: {
+			alignItems: "center",
+			paddingHorizontal: 20,
+			paddingVertical: 16,
+			borderBottomWidth: 1,
+			borderBottomColor: theme.borderLight,
+		},
+		title: {
+			fontSize: 20,
+			fontWeight: "600",
+			color: theme.text,
+		},
+		// closeButton: {
+		//   padding: 8,
+		// },
+		content: {
+			flexGrow: 1,
+		},
+		// imageContainer: {
+		//   height: 300,
+		//   backgroundColor: '#F5F5F5',
+		//   margin: 20,
+		//   borderRadius: 12,
+		//   overflow: 'hidden',
+		//   alignItems: 'center',
+		//   justifyContent: 'center',
+		// },
+		// image: {
+		//   width: '100%',
+		//   height: '100%',
+		// },
+		// imageLoader: {
+		//   position: 'absolute',
+		// },
+		infoSection: {
+			paddingHorizontal: 20,
+			paddingBottom: 20,
+		},
+		infoRow: {
+			flexDirection: "row",
+			alignItems: "center",
+			paddingVertical: 12,
+			// borderBottomWidth: 0.5,
+			// borderBottomColor: '#F0F0F0',
+		},
+		infoIcon: {
+			marginRight: 16,
+		},
+		infoContent: {
+			flex: 1,
+		},
+		infoLabel: {
+			fontSize: 12,
+			color: theme.textTertiary,
+			marginBottom: 2,
+		},
+		infoValue: {
+			fontSize: 16,
+			color: theme.text,
+			fontWeight: "500",
+		},
+		actionBar: {
+			flexDirection: "row",
+			paddingHorizontal: 20,
+			paddingVertical: 16,
+			paddingBottom: 20,
+			gap: 12,
+			backgroundColor: theme.surface,
+			borderTopWidth: 1,
+			borderTopColor: theme.borderLight,
+		},
+		actions: {
+			flexDirection: "row",
+			paddingHorizontal: 20,
+			paddingBottom: 20,
+			gap: 12,
+		},
+		actionButton: {
+			flex: 1,
+			flexDirection: "row",
+			alignItems: "center",
+			justifyContent: "center",
+			paddingVertical: 14,
+			borderRadius: 12,
+			gap: 8,
+		},
+		actionLabel: {
+			fontSize: 16,
+			fontWeight: "600",
+		},
+		skeleton: {
+			padding: 20,
+		},
+		skeletonImage: {
+			height: 300,
+			backgroundColor: theme.skeleton,
+			borderRadius: 12,
+			marginBottom: 20,
+		},
+		skeletonInfo: {
+			gap: 16,
+		},
+		skeletonRow: {
+			height: 50,
+			backgroundColor: theme.skeleton,
+			borderRadius: 8,
+		},
+		deletingOverlay: {
+			...StyleSheet.absoluteFillObject,
+			backgroundColor: theme.overlay,
+			borderTopLeftRadius: 24,
+			borderTopRightRadius: 24,
+			alignItems: "center",
+			justifyContent: "center",
+		},
+		actionBarSkeleton: {
+			flexDirection: "row",
+			gap: 12,
+			flex: 1,
+		},
+		actionButtonSkeleton: {
+			flex: 1,
+			height: 52,
+			backgroundColor: theme.skeleton,
+			borderRadius: 12,
+		},
+	});

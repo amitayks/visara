@@ -9,6 +9,7 @@ import {
 	View,
 	ViewStyle,
 } from "react-native";
+import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { DocumentCard } from "./DocumentCard";
 import { SkeletonGrid } from "./SkeletonGrid";
 
@@ -47,6 +48,8 @@ export const DocumentGrid = memo(
 		ListEmptyComponent,
 		contentContainerStyle,
 	}: DocumentGridProps) => {
+		const { theme, isDark } = useTheme();
+		const styles = useThemedStyles(createStyles);
 		const [imageHeights, setImageHeights] = useState<{ [key: string]: number }>(
 			{},
 		);
@@ -164,8 +167,8 @@ export const DocumentGrid = memo(
 						<RefreshControl
 							refreshing={refreshing}
 							onRefresh={onRefresh}
-							colors={["#6366F1"]}
-							tintColor="#6366F1"
+							colors={[theme.accent]}
+							tintColor={theme.accent}
 						/>
 					}
 					contentContainerStyle={[
@@ -187,8 +190,8 @@ export const DocumentGrid = memo(
 					<RefreshControl
 						refreshing={refreshing}
 						onRefresh={onRefresh}
-						colors={["#6366F1"]}
-						tintColor="#6366F1"
+						colors={[theme.accent]}
+						tintColor={theme.accent}
 					/>
 				}
 				contentContainerStyle={[styles.container, contentContainerStyle]}
@@ -203,7 +206,7 @@ export const DocumentGrid = memo(
 	},
 );
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
 	container: {
 		paddingHorizontal: CONTAINER_PADDING,
 		paddingTop: 16,
@@ -237,12 +240,12 @@ const styles = StyleSheet.create({
 	emptyTitle: {
 		fontSize: 18,
 		fontWeight: "600",
-		color: "#333",
+		color: theme.text,
 		marginBottom: 8,
 	},
 	emptySubtitle: {
 		fontSize: 14,
-		color: "#999",
+		color: theme.textSecondary,
 		textAlign: "center",
 	},
 });

@@ -4,6 +4,7 @@ import React, { useEffect } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/MaterialIcons";
+import { ThemeProvider } from "../contexts/ThemeContext";
 import { initializeDatabase } from "../services/database";
 import { galleryScanner } from "../services/gallery/GalleryScanner";
 import type { RootStackParamList } from "../types/navigation";
@@ -69,8 +70,9 @@ export default function RootLayout() {
 
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
-			<QueryClientProvider client={queryClient}>
-				<Stack.Navigator
+			<ThemeProvider>
+				<QueryClientProvider client={queryClient}>
+					<Stack.Navigator
 					initialRouteName="Home"
 					screenOptions={{
 						headerShown: false,
@@ -104,7 +106,8 @@ export default function RootLayout() {
 						}}
 					/>
 				</Stack.Navigator>
-			</QueryClientProvider>
+				</QueryClientProvider>
+			</ThemeProvider>
 		</GestureHandlerRootView>
 	);
 }

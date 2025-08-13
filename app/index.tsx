@@ -17,6 +17,8 @@ import Animated, {
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
+
 // Import our new components
 import { EmptyState } from "./components/common/LoadingStates";
 import { Document, DocumentGrid } from "./components/gallery/DocumentGrid";
@@ -45,6 +47,8 @@ type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 export default function HomeScreen() {
 	const navigation = useNavigation<NavigationProp>();
+	const { theme, isDark } = useTheme();
+	const styles = useThemedStyles(createStyles);
 
 	// Document state
 	const [documents, setDocuments] = useState<Document[]>([]);
@@ -328,8 +332,11 @@ export default function HomeScreen() {
 	}, [loadDocuments]);
 
 	return (
-		<SafeAreaView style={styles.container} edges={["top"]}>
-			<StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]} edges={["top"]}>
+			<StatusBar 
+				barStyle={isDark ? "light-content" : "dark-content"} 
+				backgroundColor={theme.background} 
+			/>
 
 			{/* Header */}
 			<AppHeader
@@ -429,19 +436,19 @@ export default function HomeScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: "#FFFFFF",
+		backgroundColor: theme.background,
 	},
 	searchContainer: {
 		position: "absolute",
 		bottom: 0,
 		left: 0,
 		right: 0,
-		backgroundColor: "#FFFFFF",
+		backgroundColor: theme.surface,
 		borderTopWidth: 1,
-		borderTopColor: "#E0E0E0",
+		borderTopColor: theme.border,
 		paddingBottom: Platform.OS === "ios" ? 20 : 10,
 	},
 	queryChips: {
@@ -449,6 +456,6 @@ const styles = StyleSheet.create({
 		paddingTop: 12,
 		paddingBottom: 8,
 		borderBottomWidth: 1,
-		borderBottomColor: "#F0F0F0",
+		borderBottomColor: theme.borderLight,
 	},
 });

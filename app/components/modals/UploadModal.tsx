@@ -17,8 +17,16 @@ import {
 	MediaType,
 	PhotoQuality,
 } from "react-native-image-picker";
-import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, {
+	Easing,
+	FadeIn,
+	FadeOut,
+	SlideInDown,
+	SlideOutDown,
+} from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
+import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { useIconColors } from "../../../utils/iconColors";
 import { showToast } from "./Toast";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -34,6 +42,10 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 	onClose,
 	onUploadComplete,
 }) => {
+	const { theme, isDark } = useTheme();
+	const iconColors = useIconColors();
+	const styles = useThemedStyles(createStyles);
+
 	const [processing, setProcessing] = useState(false);
 	const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
@@ -142,7 +154,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 									resizeMode="contain"
 								/>
 							)}
-							<ActivityIndicator size="large" color="#6366F1" />
+							<ActivityIndicator size="large" color={theme.accent} />
 							<Text style={styles.processingText}>Processing document...</Text>
 						</View>
 					) : (
@@ -158,7 +170,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 									activeOpacity={0.7}
 								>
 									<View style={styles.optionIcon}>
-										<Icon name="images" size={32} color="#6366F1" />
+										<Icon name="images" size={32} color={iconColors.accent} />
 									</View>
 									<Text style={styles.optionTitle}>Gallery</Text>
 									<Text style={styles.optionDescription}>
@@ -182,7 +194,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 							</View>
 
 							<View style={styles.tipContainer}>
-								<Icon name="information-circle" size={20} color="#999" />
+								<Icon
+									name="information-circle"
+									size={20}
+									color={iconColors.tertiary}
+								/>
 								<Text style={styles.tipText}>
 									For best results, ensure the document is well-lit and clearly
 									visible
@@ -196,125 +212,126 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 	);
 };
 
-const styles = StyleSheet.create({
-	backdrop: {
-		flex: 1,
-		backgroundColor: "rgba(0, 0, 0, 0.5)",
-		justifyContent: "flex-end",
-	},
-	container: {
-		backgroundColor: "#FFFFFF",
-		borderTopLeftRadius: 24,
-		borderTopRightRadius: 24,
-		paddingBottom: Platform.OS === "ios" ? 34 : 24,
-		marginTop: SCREEN_HEIGHT * 0.1,
-		// maxHeight: SCREEN_HEIGHT * 0.9,
-		minHeight: SCREEN_HEIGHT * 0.7,
-		shadowColor: "#000",
-		shadowOffset: {
-			width: 0,
-			height: -10,
+const createStyles = (theme: any) =>
+	StyleSheet.create({
+		backdrop: {
+			flex: 1,
+			backgroundColor: theme.overlay,
+			justifyContent: "flex-end",
 		},
-		shadowOpacity: 0.25,
-		shadowRadius: 20,
-		elevation: 15,
-	},
-	// handle: {
-	// 	width: 40,
-	// 	height: 4,
-	// 	backgroundColor: "#DDD",
-	// 	borderRadius: 2,
-	// 	alignSelf: "center",
-	// 	marginTop: 12,
-	// },
-	header: {
-		// flexDirection: 'row',
-		alignItems: "center",
-		// justifyContent: 'space-between',
-		paddingHorizontal: 20,
-		paddingVertical: 16,
-		borderBottomWidth: 1,
-		borderBottomColor: "#F0F0F0",
-	},
-	title: {
-		fontSize: 20,
-		fontWeight: "600",
-		color: "#333",
-	},
-	// closeButton: {
-	//   padding: 8,
-	// },
-	content: {
-		padding: 20,
-	},
-	subtitle: {
-		fontSize: 16,
-		color: "#666",
-		textAlign: "center",
-		marginBottom: 24,
-	},
-	options: {
-		flexDirection: "row",
-		gap: 16,
-		marginBottom: 24,
-	},
-	optionButton: {
-		flex: 1,
-		backgroundColor: "#F8F8FA",
-		borderRadius: 16,
-		padding: 20,
-		alignItems: "center",
-		borderWidth: 2,
-		borderColor: "#F0F0F0",
-	},
-	optionIcon: {
-		width: 64,
-		height: 64,
-		borderRadius: 32,
-		backgroundColor: "#F0F0FF",
-		alignItems: "center",
-		justifyContent: "center",
-		marginBottom: 12,
-	},
-	optionTitle: {
-		fontSize: 16,
-		fontWeight: "600",
-		color: "#333",
-		marginBottom: 4,
-	},
-	optionDescription: {
-		fontSize: 13,
-		color: "#999",
-		textAlign: "center",
-	},
-	tipContainer: {
-		flexDirection: "row",
-		alignItems: "center",
-		backgroundColor: "#F8F8FA",
-		padding: 12,
-		borderRadius: 12,
-		gap: 8,
-	},
-	tipText: {
-		flex: 1,
-		fontSize: 13,
-		color: "#666",
-		lineHeight: 18,
-	},
-	processingContainer: {
-		padding: 40,
-		alignItems: "center",
-	},
-	previewImage: {
-		width: 200,
-		height: 200,
-		marginBottom: 24,
-		borderRadius: 12,
-		backgroundColor: "#F5F5F5",
-	},
-	processingText: {
-		marginTop: 16,
-		fontSize: 16,
-		color: "#666",
-	},
-});
+		container: {
+			backgroundColor: theme.surface,
+			borderTopLeftRadius: 24,
+			borderTopRightRadius: 24,
+			paddingBottom: Platform.OS === "ios" ? 34 : 24,
+			marginTop: SCREEN_HEIGHT * 0.1,
+			minHeight: SCREEN_HEIGHT * 0.7,
+			shadowColor: theme.shadow,
+			shadowOffset: {
+				width: 0,
+				height: -10,
+			},
+			shadowOpacity: 0.25,
+			shadowRadius: 20,
+			elevation: 15,
+		},
+		// handle: {
+		// 	width: 40,
+		// 	height: 4,
+		// 	backgroundColor: "#DDD",
+		// 	borderRadius: 2,
+		// 	alignSelf: "center",
+		// 	marginTop: 12,
+		// },
+		header: {
+			alignItems: "center",
+			paddingHorizontal: 20,
+			paddingVertical: 16,
+			borderBottomWidth: 1,
+			borderBottomColor: theme.borderLight,
+		},
+		title: {
+			fontSize: 20,
+			fontWeight: "600",
+			color: theme.text,
+		},
+		// closeButton: {
+		//   padding: 8,
+		// },
+		content: {
+			flex: 1,
+			justifyContent: "space-around",
+			// alignItems: "center",
+			padding: 20,
+		},
+		subtitle: {
+			fontSize: 16,
+			color: theme.textSecondary,
+			textAlign: "center",
+			marginBottom: 24,
+		},
+		options: {
+			flexDirection: "row",
+			gap: 16,
+			marginBottom: 24,
+		},
+		optionButton: {
+			flex: 1,
+			backgroundColor: theme.surfaceSecondary,
+			borderRadius: 16,
+			padding: 20,
+			alignItems: "center",
+			borderWidth: 2,
+			borderColor: theme.borderLight,
+		},
+		optionIcon: {
+			width: 64,
+			height: 64,
+			borderRadius: 32,
+			backgroundColor: theme.accentLight,
+			alignItems: "center",
+			justifyContent: "center",
+			marginBottom: 12,
+		},
+		optionTitle: {
+			fontSize: 16,
+			fontWeight: "600",
+			color: theme.text,
+			marginBottom: 4,
+		},
+		optionDescription: {
+			fontSize: 13,
+			color: theme.textSecondary,
+			textAlign: "center",
+		},
+		tipContainer: {
+			flexDirection: "row",
+			alignItems: "center",
+			backgroundColor: theme.surfaceSecondary,
+			padding: 12,
+			borderRadius: 12,
+			gap: 8,
+		},
+		tipText: {
+			flex: 1,
+			fontSize: 13,
+			color: theme.textSecondary,
+			lineHeight: 18,
+		},
+		processingContainer: {
+			padding: 40,
+			alignItems: "center",
+		},
+		previewImage: {
+			width: 200,
+			height: 200,
+			marginBottom: 24,
+			borderRadius: 12,
+			backgroundColor: theme.surfaceSecondary,
+		},
+		processingText: {
+			marginTop: 16,
+			fontSize: 16,
+			color: theme.textSecondary,
+		},
+	});

@@ -8,6 +8,7 @@ import Animated, {
 	withSpring,
 	withTiming,
 } from "react-native-reanimated";
+import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 
 interface ScanProgressBarProps {
 	current: number;
@@ -20,6 +21,8 @@ export const ScanProgressBar: React.FC<ScanProgressBarProps> = ({
 	total,
 	animated = true,
 }) => {
+	const { theme } = useTheme();
+	const styles = useThemedStyles(createStyles);
 	const progress = current / total;
 	const animatedProgress = useSharedValue(0);
 	const pulseAnimation = useSharedValue(0);
@@ -66,13 +69,13 @@ export const ScanProgressBar: React.FC<ScanProgressBarProps> = ({
 	);
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
 	container: {
-		backgroundColor: "#F8F8F8",
+		backgroundColor: theme.surfaceSecondary,
 		paddingHorizontal: 16,
 		paddingVertical: 12,
 		borderBottomWidth: 1,
-		borderBottomColor: "#E0E0E0",
+		borderBottomColor: theme.border,
 	},
 	header: {
 		flexDirection: "row",
@@ -82,21 +85,21 @@ const styles = StyleSheet.create({
 	title: {
 		fontSize: 14,
 		fontWeight: "500",
-		color: "#666",
+		color: theme.textSecondary,
 	},
 	count: {
 		fontSize: 14,
-		color: "#999",
+		color: theme.textTertiary,
 	},
 	progressBar: {
 		height: 4,
-		backgroundColor: "#E0E0E0",
+		backgroundColor: theme.border,
 		borderRadius: 2,
 		overflow: "hidden",
 	},
 	progressFill: {
 		height: "100%",
-		backgroundColor: "#6366F1",
+		backgroundColor: theme.accent,
 		borderRadius: 2,
 	},
 });

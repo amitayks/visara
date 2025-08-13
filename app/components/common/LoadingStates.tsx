@@ -17,6 +17,8 @@ import Animated, {
 	withTiming,
 } from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
+import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { useIconColors } from "../../../utils/iconColors";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -110,9 +112,12 @@ interface FullScreenLoadingProps {
 export const FullScreenLoading: React.FC<FullScreenLoadingProps> = ({
 	message = "Loading...",
 }) => {
+	const { theme } = useTheme();
+	const styles = useThemedStyles(createStyles);
+	
 	return (
 		<View style={styles.fullScreenContainer}>
-			<ActivityIndicator size="large" color="#6366F1" />
+			<ActivityIndicator size="large" color={theme.accent} />
 			<Text style={styles.loadingText}>{message}</Text>
 		</View>
 	);
@@ -127,9 +132,12 @@ export const InlineLoading: React.FC<InlineLoadingProps> = ({
 	message,
 	size = "small",
 }) => {
+	const { theme } = useTheme();
+	const styles = useThemedStyles(createStyles);
+	
 	return (
 		<View style={styles.inlineContainer}>
-			<ActivityIndicator size={size} color="#6366F1" />
+			<ActivityIndicator size={size} color={theme.accent} />
 			{message && <Text style={styles.inlineText}>{message}</Text>}
 		</View>
 	);
@@ -151,6 +159,9 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 	message,
 	action,
 }) => {
+	const { theme } = useTheme();
+	const iconColors = useIconColors();
+	const styles = useThemedStyles(createStyles);
 	const bounce = useSharedValue(0);
 
 	useEffect(() => {
@@ -171,7 +182,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 	return (
 		<View style={styles.emptyContainer}>
 			<Animated.View style={animatedStyle}>
-				<Icon name={icon} size={64} color="#CCC" />
+				<Icon name={icon} size={64} color={iconColors.tertiary} />
 			</Animated.View>
 			<Text style={styles.emptyTitle}>{title}</Text>
 			{message && <Text style={styles.emptyMessage}>{message}</Text>}
@@ -197,10 +208,13 @@ interface ProgressBarProps {
 
 export const ProgressBar: React.FC<ProgressBarProps> = ({
 	progress,
-	color = "#6366F1",
+	color,
 	height = 4,
 	animated = true,
 }) => {
+	const { theme } = useTheme();
+	const styles = useThemedStyles(createStyles);
+	const effectiveColor = color || theme.accent;
 	const animatedProgress = useSharedValue(0);
 
 	useEffect(() => {
@@ -223,7 +237,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 			<Animated.View
 				style={[
 					styles.progressBar,
-					{ backgroundColor: color, height },
+					{ backgroundColor: effectiveColor, height },
 					progressStyle,
 				]}
 			/>
@@ -231,7 +245,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 	);
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
 	dotsContainer: {
 		flexDirection: "row",
 		alignItems: "center",
@@ -245,12 +259,12 @@ const styles = StyleSheet.create({
 		flex: 1,
 		alignItems: "center",
 		justifyContent: "center",
-		backgroundColor: "#FFFFFF",
+		backgroundColor: theme.background,
 	},
 	loadingText: {
 		marginTop: 16,
 		fontSize: 16,
-		color: "#666",
+		color: theme.textSecondary,
 	},
 	inlineContainer: {
 		flexDirection: "row",
@@ -261,7 +275,7 @@ const styles = StyleSheet.create({
 	},
 	inlineText: {
 		fontSize: 14,
-		color: "#666",
+		color: theme.textSecondary,
 	},
 	emptyContainer: {
 		flex: 1,
@@ -272,12 +286,12 @@ const styles = StyleSheet.create({
 	emptyTitle: {
 		fontSize: 20,
 		fontWeight: "600",
-		color: "#333",
+		color: theme.text,
 		marginTop: 24,
 	},
 	emptyMessage: {
 		fontSize: 14,
-		color: "#999",
+		color: theme.textSecondary,
 		marginTop: 8,
 		textAlign: "center",
 		lineHeight: 20,
@@ -286,7 +300,7 @@ const styles = StyleSheet.create({
 		marginTop: 24,
 		paddingHorizontal: 24,
 		paddingVertical: 12,
-		backgroundColor: "#6366F1",
+		backgroundColor: theme.accent,
 		borderRadius: 24,
 	},
 	emptyActionText: {
@@ -296,7 +310,7 @@ const styles = StyleSheet.create({
 	},
 	progressContainer: {
 		width: "100%",
-		backgroundColor: "#E0E0E0",
+		backgroundColor: theme.border,
 		borderRadius: 2,
 		overflow: "hidden",
 	},

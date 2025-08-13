@@ -7,6 +7,7 @@ import Animated, {
 	withRepeat,
 	withTiming,
 } from "react-native-reanimated";
+import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -15,9 +16,11 @@ interface SkeletonGridProps {
 	count: number;
 }
 
-const SkeletonCard: React.FC<{ width: number; height: number }> = ({
+const SkeletonCard: React.FC<{ width: number; height: number; styles: any; theme: any }> = ({
 	width,
 	height,
+	styles,
+	theme,
 }) => {
 	const shimmer = useSharedValue(0);
 
@@ -46,6 +49,8 @@ export const SkeletonGrid: React.FC<SkeletonGridProps> = ({
 	columns,
 	count,
 }) => {
+	const { theme, isDark } = useTheme();
+	const styles = useThemedStyles(createStyles);
 	const spacing = 15; // Match DocumentGrid spacing
 	const containerPadding = 16;
 	const itemWidth = (SCREEN_WIDTH - containerPadding * 2 - spacing) / columns;
@@ -93,7 +98,7 @@ export const SkeletonGrid: React.FC<SkeletonGridProps> = ({
 		>
 			{columnItems.map((item) => (
 				<View key={item.index} style={styles.cardContainer}>
-					<SkeletonCard width={itemWidth} height={item.height} />
+					<SkeletonCard width={itemWidth} height={item.height} styles={styles} theme={theme} />
 				</View>
 			))}
 		</View>
@@ -109,7 +114,7 @@ export const SkeletonGrid: React.FC<SkeletonGridProps> = ({
 	);
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
 	container: {
 		paddingHorizontal: 16,
 		paddingTop: 16,
@@ -131,10 +136,10 @@ const styles = StyleSheet.create({
 		marginBottom: 15, // Match DocumentGrid spacing
 	},
 	card: {
-		backgroundColor: "#FFFFFF",
+		backgroundColor: theme.surface,
 		borderRadius: 12,
 		overflow: "hidden",
-		shadowColor: "#000",
+		shadowColor: theme.shadow,
 		shadowOffset: {
 			width: 0,
 			height: 2,
@@ -145,7 +150,7 @@ const styles = StyleSheet.create({
 		position: "relative",
 	},
 	image: {
-		backgroundColor: "#F0F0F0",
+		backgroundColor: theme.skeleton,
 	},
 	typeBadge: {
 		position: "absolute",
@@ -161,14 +166,14 @@ const styles = StyleSheet.create({
 	badgeIcon: {
 		width: 12,
 		height: 12,
-		backgroundColor: "#D0D0D0",
+		backgroundColor: theme.skeleton,
 		borderRadius: 2,
 		marginRight: 4,
 	},
 	badgeText: {
 		width: 40,
 		height: 11,
-		backgroundColor: "#D0D0D0",
+		backgroundColor: theme.skeleton,
 		borderRadius: 2,
 	},
 });

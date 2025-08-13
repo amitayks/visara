@@ -9,6 +9,8 @@ import {
 	ViewStyle,
 } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
+import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { useIconColors } from "../../../utils/iconColors";
 import { Document } from "./DocumentGrid";
 
 interface DocumentCardProps {
@@ -21,6 +23,9 @@ interface DocumentCardProps {
 
 export const DocumentCard = memo(
 	({ document, onPress, style, width, height }: DocumentCardProps) => {
+		const { theme, isDark } = useTheme();
+		const iconColors = useIconColors();
+		const styles = useThemedStyles(createStyles);
 		const [imageLoading, setImageLoading] = useState(true);
 		const [imageError, setImageError] = useState(false);
 		const [imageHeight, setImageHeight] = useState(height || width * 1.4);
@@ -64,7 +69,7 @@ export const DocumentCard = memo(
 				<View style={styles.imageContainer}>
 					{imageError ? (
 						<View style={styles.errorContainer}>
-							<Icon name="image-outline" size={32} color="#CCC" />
+							<Icon name="image-outline" size={32} color={iconColors.tertiary} />
 						</View>
 					) : (
 						<>
@@ -98,7 +103,7 @@ export const DocumentCard = memo(
 							/>
 							{imageLoading && (
 								<View style={styles.loadingContainer}>
-									<ActivityIndicator size="small" color="#6366F1" />
+									<ActivityIndicator size="small" color={theme.accent} />
 								</View>
 							)}
 						</>
@@ -141,12 +146,12 @@ export const DocumentCard = memo(
 	},
 );
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
 	container: {
-		backgroundColor: "#FFFFFF",
+		backgroundColor: theme.surface,
 		borderRadius: 12,
 		overflow: "hidden",
-		shadowColor: "#000",
+		shadowColor: theme.shadow,
 		shadowOffset: {
 			width: 0,
 			height: 2,
@@ -157,14 +162,14 @@ const styles = StyleSheet.create({
 	},
 	imageContainer: {
 		position: "relative",
-		backgroundColor: "#F5F5F5",
+		backgroundColor: theme.surfaceSecondary,
 	},
 	image: {
-		backgroundColor: "#F5F5F5",
+		backgroundColor: theme.surfaceSecondary,
 	},
 	loadingContainer: {
 		...StyleSheet.absoluteFillObject,
-		backgroundColor: "#F5F5F5",
+		backgroundColor: theme.surfaceSecondary,
 		alignItems: "center",
 		justifyContent: "center",
 	},
@@ -172,7 +177,7 @@ const styles = StyleSheet.create({
 		height: 200,
 		alignItems: "center",
 		justifyContent: "center",
-		backgroundColor: "#F5F5F5",
+		backgroundColor: theme.surfaceSecondary,
 	},
 	typeBadge: {
 		position: "absolute",

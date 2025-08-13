@@ -13,6 +13,8 @@ import Animated, {
 	Layout,
 } from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
+import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { useIconColors } from "../../../utils/iconColors";
 
 export interface QueryChip {
 	id: string;
@@ -31,6 +33,10 @@ export const QueryChips: React.FC<QueryChipsProps> = ({
 	onRemoveChip,
 	style,
 }) => {
+	const { theme, isDark } = useTheme();
+	const iconColors = useIconColors();
+	const styles = useThemedStyles(createStyles);
+	
 	const getChipColor = (type: QueryChip["type"]) => {
 		switch (type) {
 			case "search":
@@ -119,9 +125,9 @@ export const QueryChips: React.FC<QueryChipsProps> = ({
 	);
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
 	container: {
-		backgroundColor: "#FFFFFF",
+		backgroundColor: theme.surface,
 	},
 	scrollContent: {
 		paddingHorizontal: 16,

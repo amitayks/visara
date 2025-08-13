@@ -4,19 +4,19 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 interface AppSettings {
 	autoScan: boolean;
-	notifications: boolean;
-	biometricLock: boolean;
-	scanQuality: "low" | "medium" | "high";
-	encryptSensitiveDocuments: boolean;
-	darkMode: boolean;
-	language: string;
-	storageLimit: number; // in GB
 	scanFrequency: "hourly" | "daily" | "weekly" | "manual";
-	scanWifiOnly: boolean;
-	batterySaver: boolean;
-	scanNewOnly: boolean;
-	smartFilterEnabled: boolean;
-	maxScanBatchSize: number;
+	darkMode: boolean;
+	// notifications: boolean;
+	// biometricLock: boolean;
+	// scanQuality: "low" | "medium" | "high";
+	// encryptSensitiveDocuments: boolean;
+	// language: string;
+	// storageLimit: number; // in GB
+	// scanWifiOnly: boolean;
+	// batterySaver: boolean;
+	// scanNewOnly: boolean;
+	// smartFilterEnabled: boolean;
+	// maxScanBatchSize: number;
 }
 
 interface SettingsStore {
@@ -35,19 +35,19 @@ interface SettingsStore {
 
 const defaultSettings: AppSettings = {
 	autoScan: true,
-	notifications: false,
-	biometricLock: false,
-	scanQuality: "medium",
-	encryptSensitiveDocuments: false,
 	darkMode: false,
-	language: "en",
-	storageLimit: 5,
 	scanFrequency: "daily",
-	scanWifiOnly: true,
-	batterySaver: true,
-	scanNewOnly: false,
-	smartFilterEnabled: true,
-	maxScanBatchSize: 20,
+	// notifications: false,
+	// biometricLock: false,
+	// scanQuality: "medium",
+	// encryptSensitiveDocuments: false,
+	// language: "en",
+	// storageLimit: 5,
+	// scanWifiOnly: true,
+	// batterySaver: true,
+	// scanNewOnly: false,
+	// smartFilterEnabled: true,
+	// maxScanBatchSize: 20,
 };
 
 // Custom storage using React Native Keychain
@@ -105,7 +105,7 @@ export const useSettingsStore = create<SettingsStore>()(
 					// Settings are automatically loaded by persist middleware
 					// This method can be used for any additional loading logic
 				} catch (error) {
-					console.error("Error loading settings:", error);
+					// console.error("Error loading settings:", error);
 				} finally {
 					set({ isLoading: false });
 				}

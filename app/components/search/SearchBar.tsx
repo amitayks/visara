@@ -12,6 +12,8 @@ import Animated, {
 	withSpring,
 } from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
+import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { useIconColors } from "../../../utils/iconColors";
 
 interface SearchBarProps {
 	value: string;
@@ -30,6 +32,10 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 	showSendButton,
 	autoFocus = false,
 }) => {
+	const { theme, isDark } = useTheme();
+	const iconColors = useIconColors();
+	const styles = useThemedStyles(createStyles);
+	
 	const inputRef = useRef<TextInput>(null);
 	const buttonScale = useSharedValue(showSendButton ? 1 : 0);
 	const buttonWidth = useSharedValue(showSendButton ? 56 : 0);
@@ -74,9 +80,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 					style={styles.input}
 					returnKeyType="search"
 					onSubmitEditing={handleSubmit}
-					placeholderTextColor="#999"
+					placeholderTextColor={iconColors.placeholder}
 					autoFocus={autoFocus}
-					selectionColor="#6366F1"
+					selectionColor={theme.accent}
 					autoCapitalize="none"
 					autoCorrect={false}
 				/>
@@ -98,26 +104,26 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 					disabled={!showSendButton}
 					style={styles.sendButton}
 				>
-					<Icon name="send" size={22} color="#979797" />
+					<Icon name="send" size={22} color={iconColors.accent} />
 				</TouchableOpacity>
 			</Animated.View>
 		</View>
 	);
 };
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any) => StyleSheet.create({
 	container: {
 		flexDirection: "row",
 		alignItems: "center",
 		paddingHorizontal: 16,
 		paddingVertical: 12,
-		backgroundColor: "#FFFFFF",
+		backgroundColor: theme.surface,
 	},
 	inputContainer: {
 		flex: 1,
 		flexDirection: "row",
 		alignItems: "center",
-		backgroundColor: "#F5F5F5",
+		backgroundColor: theme.surfaceSecondary,
 		borderRadius: 24,
 		paddingHorizontal: 16,
 		height: 44,
@@ -128,7 +134,7 @@ const styles = StyleSheet.create({
 	input: {
 		flex: 1,
 		fontSize: 16,
-		color: "#333",
+		color: theme.text,
 		paddingVertical: 0,
 	},
 	// clearButton: {
@@ -143,7 +149,7 @@ const styles = StyleSheet.create({
 		width: 44,
 		height: 44,
 		borderRadius: 22,
-		backgroundColor: "#F5F5F5",
+		backgroundColor: theme.surfaceSecondary,
 		alignItems: "center",
 		justifyContent: "center",
 	},
