@@ -84,6 +84,9 @@ export class GalleryScanner {
 	private scanStartTime = 0;
 	private documentsFoundInScan = 0;
 	private progressSubject = new BehaviorSubject<ScanProgress>(this.progress);
+	private lastProgressUpdateTime = 0;
+	private pendingProgressUpdate = false;
+	private readonly PROGRESS_UPDATE_THROTTLE = 150; // 150ms throttle for UI updates
 
 	constructor() {
 		this.loadProgress();
@@ -140,6 +143,10 @@ export class GalleryScanner {
 		this.onProgressCallback = onProgress;
 		this.scanStartTime = Date.now();
 		this.documentsFoundInScan = 0;
+		
+		// Reset throttling state for new scan
+		this.lastProgressUpdateTime = 0;
+		this.pendingProgressUpdate = false;
 
 		// Configure smart filter if enabled
 		if (scanOptions.smartFilterEnabled && scanOptions.smartFilterOptions) {
@@ -164,7 +171,8 @@ export class GalleryScanner {
 		} finally {
 			this.stopMemoryMonitoring();
 			this.isScanning = false;
-			this.updateProgress({ isScanning: false });
+			// Force immediate final update to show scan completion
+			this.updateProgressThrottled({ isScanning: false }, true);
 			await this.saveProgress();
 		}
 	}
@@ -230,22 +238,13 @@ export class GalleryScanner {
 			// Apply smart filtering to prioritize assets
 			if (options.smartFilterEnabled) {
 				const prioritizedBatch = await this.prioritizeBatch(batch, options);
-				await this.processBatch(prioritizedBatch, options);
+				await this.processBatch(prioritizedBatch, options, i);
 			} else {
-				await this.processBatch(batch, options);
+				await this.processBatch(batch, options, i);
 			}
 
-			this.updateProgress({
-				processedImages: Math.min(i + batchSize, uniqueAssets.length),
-				lastProcessedAssetId: (batch[batch.length - 1] as any).image.uri,
-			});
-
-			// Save progress after each batch
+			// Save progress after each batch (progress updates happen per image now)
 			await this.saveProgress();
-
-			if (this.onProgressCallback) {
-				this.onProgressCallback(this.progress);
-			}
 
 			// Dynamic batch size adjustment based on processing time
 			if (i > startIndex && memoryInfo.availableMemory > 200) {
@@ -257,13 +256,19 @@ export class GalleryScanner {
 			}
 		}
 
-		this.updateProgress({ lastScanDate: new Date() });
+		// Force final progress update (no throttling) to ensure completion is shown immediately
+		this.updateProgressThrottled({ 
+			lastScanDate: new Date(),
+			processedImages: uniqueAssets.length // Ensure final count is accurate
+		}, true); // Force immediate update
+		
 		await this.saveProgress();
 	}
 
-	private async processBatch(assets: any[], options: ScanOptions) {
+	private async processBatch(assets: any[], options: ScanOptions, startingIndex: number) {
 		// Process sequentially with comprehensive memory monitoring
 		for (let i = 0; i < assets.length; i++) {
+			const currentGlobalIndex = startingIndex + i;
 			if (this.shouldStop) {
 				console.log(
 					"[GalleryScanner] Stop requested, breaking batch processing",
@@ -305,6 +310,12 @@ export class GalleryScanner {
 
 			// Process one image at a time with full cleanup
 			await this.processAssetWithCleanup(assets[i], options);
+
+			// Update progress after each individual image (throttled for performance)
+			this.updateProgressThrottled({
+				processedImages: currentGlobalIndex + 1,
+				lastProcessedAssetId: assets[i].image.uri,
+			});
 
 			// Clean old temp files after EVERY image (1 second old)
 			await memoryManager.cleanOldTempFiles(1000); // 1 second old
@@ -829,6 +840,41 @@ export class GalleryScanner {
 		// Also call the legacy callback if it exists
 		if (this.onProgressCallback) {
 			this.onProgressCallback(this.progress);
+		}
+	}
+
+	// Throttled progress update for individual image processing
+	private updateProgressThrottled(updates: Partial<ScanProgress>, force = false) {
+		// Always update internal progress immediately
+		this.progress = { ...this.progress, ...updates };
+		
+		const now = Date.now();
+		
+		// Force immediate update or check throttle
+		if (force || now - this.lastProgressUpdateTime >= this.PROGRESS_UPDATE_THROTTLE) {
+			this.lastProgressUpdateTime = now;
+			this.pendingProgressUpdate = false;
+			
+			// Send to observers
+			this.progressSubject.next(this.progress);
+			
+			// Call legacy callback
+			if (this.onProgressCallback) {
+				this.onProgressCallback(this.progress);
+			}
+		} else if (!this.pendingProgressUpdate) {
+			// Schedule delayed update if not already scheduled
+			this.pendingProgressUpdate = true;
+			setTimeout(() => {
+				if (this.pendingProgressUpdate) {
+					this.pendingProgressUpdate = false;
+					this.lastProgressUpdateTime = Date.now();
+					this.progressSubject.next(this.progress);
+					if (this.onProgressCallback) {
+						this.onProgressCallback(this.progress);
+					}
+				}
+			}, this.PROGRESS_UPDATE_THROTTLE - (now - this.lastProgressUpdateTime));
 		}
 	}
 
