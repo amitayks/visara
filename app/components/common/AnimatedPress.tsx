@@ -22,6 +22,7 @@ interface AnimatedPressProps extends PressableProps {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
+// not used at the app //
 export const AnimatedPress: React.FC<AnimatedPressProps> = ({
   children,
   style,
