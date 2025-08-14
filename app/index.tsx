@@ -19,7 +19,7 @@ import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
 
 // Import our new components
 import { AppHeader } from "./components/AppHeader";
-import { EmptyState } from "./components/common/LoadingStates";
+import { EmptyState } from "./components/EmptyState";
 import { Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
 import { ScanProgressBar } from "./components/ScanProgressBar";
