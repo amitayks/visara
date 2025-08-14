@@ -59,17 +59,6 @@ const InfoRow: React.FC<InfoRowProps & { styles: any; iconColors: any }> = ({
 	);
 };
 
-const DocumentSkeleton: React.FC<{ styles: any }> = ({ styles }) => (
-	<View style={styles.skeleton}>
-		{/* <View style={styles.skeletonImage} /> */}
-		<View style={styles.skeletonInfo}>
-			<View style={styles.skeletonRow} />
-			<View style={styles.skeletonRow} />
-			<View style={styles.skeletonRow} />
-		</View>
-	</View>
-);
-
 export const DocumentModal: React.FC<DocumentModalProps> = ({
 	visible,
 	document,
@@ -77,22 +66,21 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	onDelete,
 	onShare,
 }) => {
-	const { theme, isDark } = useTheme();
+	const { theme } = useTheme();
 	const iconColors = useIconColors();
 	const styles = useThemedStyles(createStyles);
 
-	const [loading, setLoading] = useState(true);
-	// const [imageLoaded, setImageLoaded] = useState(false);
+	// const [loading, setLoading] = useState(true);
 	const [deleting, setDeleting] = useState(false);
 
-	useEffect(() => {
-		if (visible && document) {
-			setLoading(true);
-			// setImageLoaded(false);
-			// Wait for animation to complete before loading content
-			setTimeout(() => setLoading(false), 400);
-		}
-	}, [visible, document]);
+	// useEffect(() => {
+	// 	if (visible && document) {
+	// 		setLoading(true);
+	// 		// setImageLoaded(false);
+	// 		// Wait for animation to complete before loading content
+	// 		setTimeout(() => setLoading(false), 400);
+	// 	}
+	// }, [visible, document]);
 
 	const handleOpenInGallery = useCallback(async () => {
 		if (!document?.imageUri) return;
@@ -237,7 +225,9 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 						]}
 						onPress={handleOpenInGallery}
 					>
-						<Text style={styles.galleryButtonText}>open image in gallery</Text>
+						<Text style={[styles.galleryButtonText, { color: theme.primary }]}>
+							open image in gallery
+						</Text>
 					</TouchableOpacity>
 
 					{/* Fixed Action Bar at Bottom */}

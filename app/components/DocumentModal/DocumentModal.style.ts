@@ -89,23 +89,6 @@ export const createStyles = (theme: any) =>
 			// borderTopColor: theme.borderLight,
 		},
 
-		skeleton: {
-			padding: 20,
-		},
-		skeletonImage: {
-			height: 300,
-			backgroundColor: theme.skeleton,
-			borderRadius: 12,
-			marginBottom: 20,
-		},
-		skeletonInfo: {
-			gap: 16,
-		},
-		skeletonRow: {
-			height: 50,
-			backgroundColor: theme.skeleton,
-			borderRadius: 8,
-		},
 		galleryButton: {
 			marginHorizontal: 20,
 			marginVertical: 16,
