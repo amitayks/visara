@@ -24,7 +24,7 @@ import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
 import { EmptyState } from "./components/common/LoadingStates";
 import { Document, DocumentGrid } from "./components/DocumentGrid";
 import { SkeletonGrid } from "./components/SkeletonGrid/SkeletonGrid";
-import { AppHeader } from "./components/layout/AppHeader";
+import { AppHeader } from "./components/AppHeader";
 import { ScanProgressBar } from "./components/layout/ScanProgressBar";
 import { DocumentModal } from "./components/modals/DocumentModal";
 import { ToastContainer, showToast } from "./components/modals/Toast";
