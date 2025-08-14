@@ -3,7 +3,6 @@ import type { StackNavigationProp } from "@react-navigation/stack";
 import React, { useCallback, useEffect, useState } from "react";
 import {
 	Alert,
-	Dimensions,
 	Keyboard,
 	StatusBar,
 	StyleSheet,
@@ -12,7 +11,6 @@ import {
 import Animated, {
 	useAnimatedKeyboard,
 	useAnimatedStyle,
-	useSharedValue,
 	withSpring,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -26,7 +24,7 @@ import { Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
 import { ScanProgressBar } from "./components/ScanProgressBar";
 import { QueryChip, SearchContainer } from "./components/SearchContainer";
-import { SkeletonGrid } from "./components/SkeletonGrid/SkeletonGrid";
+import { SkeletonGrid } from "./components/SkeletonGrid";
 import { ToastContainer, showToast } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
 
