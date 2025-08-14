@@ -27,7 +27,7 @@ import Animated, {
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useIconColors } from "../../../utils/iconColors";
-import { showToast } from "../modals/Toast";
+import { showToast } from "../Toast/Toast";
 import { createStyles } from "./UploadModal.style";
 
 interface UploadModalProps {

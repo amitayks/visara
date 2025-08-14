@@ -150,7 +150,10 @@ export const SearchContainer: React.FC<SearchContainerProps> = ({
 										style={styles.chipIcon}
 									/>
 									<Text
-										style={[styles.chipText, { color: getChipColor(chip.type) }]}
+										style={[
+											styles.chipText,
+											{ color: getChipColor(chip.type) },
+										]}
 										numberOfLines={1}
 									>
 										{chip.text}

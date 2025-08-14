@@ -1,9 +1,9 @@
 import React from "react";
-import { Animated, Platform, StyleSheet, Text } from "react-native";
+import { Animated, Text } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
-import { SCREEN_WIDTH } from "../../../constants/dimensions";
+import { styles } from "./Toast.style";
 
-export interface ToastConfig {
+interface ToastConfig {
 	type: "success" | "error" | "info";
 	message: string;
 	icon?: string;
@@ -86,7 +86,7 @@ export class ToastContainer extends React.Component<{}, ToastState> {
 	getBackgroundColor = (type: ToastConfig["type"]) => {
 		switch (type) {
 			case "success":
-				return "#10B981";
+				return "#323232";
 			case "error":
 				return "#EF4444";
 			case "info":
@@ -140,37 +140,3 @@ export class ToastContainer extends React.Component<{}, ToastState> {
 		);
 	}
 }
-
-const styles = StyleSheet.create({
-	container: {
-		position: "absolute",
-		top: Platform.OS === "ios" ? 50 : 30,
-		left: 20,
-		right: 20,
-		maxWidth: SCREEN_WIDTH - 40,
-		flexDirection: "row",
-		alignItems: "center",
-		paddingHorizontal: 16,
-		paddingVertical: 14,
-		borderRadius: 12,
-		shadowColor: "#000",
-		shadowOffset: {
-			width: 0,
-			height: 4,
-		},
-		shadowOpacity: 0.3,
-		shadowRadius: 4.65,
-		elevation: 8,
-		zIndex: 10000,
-	},
-	icon: {
-		marginRight: 12,
-	},
-	message: {
-		color: "#FFFFFF",
-		fontSize: 16,
-		fontWeight: "500",
-		flex: 1,
-		lineHeight: 20,
-	},
-});
