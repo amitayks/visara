@@ -30,7 +30,7 @@ import { ScanProgressBar } from "./components/ScanProgressBar";
 import {
 	QueryChip,
 	SearchContainer,
-} from "./components/search/SearchContainer";
+} from "./components/SearchContainer/SearchContainer";
 import { SkeletonGrid } from "./components/SkeletonGrid/SkeletonGrid";
 
 // Import services
