@@ -1,24 +1,18 @@
 import React, { memo, useCallback, useEffect, useState } from "react";
 import {
-	Dimensions,
 	Image,
 	Keyboard,
 	RefreshControl,
 	ScrollView,
-	StyleSheet,
 	Text,
 	View,
 	ViewStyle,
 } from "react-native";
+import { COLUMNS, ITEM_WIDTH, SPACING } from "./documentGridConst";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
-import { DocumentCard } from "./DocumentCard";
-import { SkeletonGrid } from "./SkeletonGrid";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const COLUMNS = 2;
-const SPACING = 15;
-const CONTAINER_PADDING = 16;
-const ITEM_WIDTH = (SCREEN_WIDTH - CONTAINER_PADDING * 2 - SPACING) / COLUMNS;
+import { DocumentCard } from "../DocumentCard";
+import { SkeletonGrid } from "../SkeletonGrid/SkeletonGrid";
+import { createStyles } from "./DocumentGrid.style";
 
 export interface Document {
 	id: string;
@@ -210,47 +204,3 @@ export const DocumentGrid = memo(
 		);
 	},
 );
-
-const createStyles = (theme: any) => StyleSheet.create({
-	container: {
-		paddingHorizontal: CONTAINER_PADDING,
-		paddingTop: 16,
-	},
-	emptyListContainer: {
-		flex: 1,
-		justifyContent: "center",
-	},
-	masonryContainer: {
-		flexDirection: "row",
-		alignItems: "flex-start",
-	},
-	column: {
-		flex: 1,
-	},
-	leftColumn: {
-		marginRight: SPACING / 2,
-	},
-	rightColumn: {
-		marginLeft: SPACING / 2,
-	},
-	cardContainer: {
-		marginBottom: SPACING,
-	},
-	emptyContainer: {
-		flex: 1,
-		alignItems: "center",
-		justifyContent: "center",
-		paddingVertical: 60,
-	},
-	emptyTitle: {
-		fontSize: 18,
-		fontWeight: "600",
-		color: theme.text,
-		marginBottom: 8,
-	},
-	emptySubtitle: {
-		fontSize: 14,
-		color: theme.textSecondary,
-		textAlign: "center",
-	},
-});

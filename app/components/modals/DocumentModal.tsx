@@ -20,7 +20,7 @@ import Animated, {
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useIconColors } from "../../../utils/iconColors";
-import { Document } from "../gallery/DocumentGrid";
+import { Document } from "../DocumentGrid/DocumentGrid";
 import { showToast } from "./Toast";
 
 const { height: SCREEN_HEIGHT } = Dimensions.get("window");

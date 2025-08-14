@@ -22,8 +22,8 @@ import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
 
 // Import our new components
 import { EmptyState } from "./components/common/LoadingStates";
-import { Document, DocumentGrid } from "./components/gallery/DocumentGrid";
-import { SkeletonGrid } from "./components/gallery/SkeletonGrid";
+import { Document, DocumentGrid } from "./components/DocumentGrid";
+import { SkeletonGrid } from "./components/SkeletonGrid/SkeletonGrid";
 import { AppHeader } from "./components/layout/AppHeader";
 import { ScanProgressBar } from "./components/layout/ScanProgressBar";
 import { DocumentModal } from "./components/modals/DocumentModal";
