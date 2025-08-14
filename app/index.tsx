@@ -5,7 +5,6 @@ import {
 	Alert,
 	Dimensions,
 	Keyboard,
-	Platform,
 	StatusBar,
 	StyleSheet,
 	TouchableWithoutFeedback,
@@ -21,18 +20,18 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
 
 // Import our new components
+import { AppHeader } from "./components/AppHeader";
 import { EmptyState } from "./components/common/LoadingStates";
 import { Document, DocumentGrid } from "./components/DocumentGrid";
-import { SkeletonGrid } from "./components/SkeletonGrid/SkeletonGrid";
-import { AppHeader } from "./components/AppHeader";
-import { ScanProgressBar } from "./components/ScanProgressBar/ScanProgressBar";
 import { DocumentModal } from "./components/modals/DocumentModal";
 import { ToastContainer, showToast } from "./components/modals/Toast";
 import { UploadModal } from "./components/modals/UploadModal";
+import { ScanProgressBar } from "./components/ScanProgressBar";
 import {
 	QueryChip,
 	SearchContainer,
 } from "./components/search/SearchContainer";
+import { SkeletonGrid } from "./components/SkeletonGrid/SkeletonGrid";
 
 // Import services
 import { database } from "../services/database";
