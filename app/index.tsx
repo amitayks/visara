@@ -506,6 +506,7 @@ export default function HomeScreen() {
 			/>
 
 			<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+				{/** biome-ignore lint/complexity/noUselessFragments: <explanation> */}
 				<>
 					{/* Header */}
 					<AppHeader
