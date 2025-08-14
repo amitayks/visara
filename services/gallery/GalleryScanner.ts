@@ -45,7 +45,7 @@ export interface ScanOptions {
 
 const DEFAULT_OPTIONS: ScanOptions = {
 	batchSize: 20,
-	minFileSize: 100, // 100KB minimum
+	minFileSize: 60, // 60KB minimum
 	maxFileSize: 50 * 1024, // 50MB maximum
 	maxAspectRatio: 3, // Skip panoramas
 	wifiOnly: false,
@@ -143,7 +143,7 @@ export class GalleryScanner {
 		this.onProgressCallback = onProgress;
 		this.scanStartTime = Date.now();
 		this.documentsFoundInScan = 0;
-		
+
 		// Reset throttling state for new scan
 		this.lastProgressUpdateTime = 0;
 		this.pendingProgressUpdate = false;
@@ -257,15 +257,22 @@ export class GalleryScanner {
 		}
 
 		// Force final progress update (no throttling) to ensure completion is shown immediately
-		this.updateProgressThrottled({ 
-			lastScanDate: new Date(),
-			processedImages: uniqueAssets.length // Ensure final count is accurate
-		}, true); // Force immediate update
-		
+		this.updateProgressThrottled(
+			{
+				lastScanDate: new Date(),
+				processedImages: uniqueAssets.length, // Ensure final count is accurate
+			},
+			true,
+		); // Force immediate update
+
 		await this.saveProgress();
 	}
 
-	private async processBatch(assets: any[], options: ScanOptions, startingIndex: number) {
+	private async processBatch(
+		assets: any[],
+		options: ScanOptions,
+		startingIndex: number,
+	) {
 		// Process sequentially with comprehensive memory monitoring
 		for (let i = 0; i < assets.length; i++) {
 			const currentGlobalIndex = startingIndex + i;
@@ -844,20 +851,26 @@ export class GalleryScanner {
 	}
 
 	// Throttled progress update for individual image processing
-	private updateProgressThrottled(updates: Partial<ScanProgress>, force = false) {
+	private updateProgressThrottled(
+		updates: Partial<ScanProgress>,
+		force = false,
+	) {
 		// Always update internal progress immediately
 		this.progress = { ...this.progress, ...updates };
-		
+
 		const now = Date.now();
-		
+
 		// Force immediate update or check throttle
-		if (force || now - this.lastProgressUpdateTime >= this.PROGRESS_UPDATE_THROTTLE) {
+		if (
+			force ||
+			now - this.lastProgressUpdateTime >= this.PROGRESS_UPDATE_THROTTLE
+		) {
 			this.lastProgressUpdateTime = now;
 			this.pendingProgressUpdate = false;
-			
+
 			// Send to observers
 			this.progressSubject.next(this.progress);
-			
+
 			// Call legacy callback
 			if (this.onProgressCallback) {
 				this.onProgressCallback(this.progress);
@@ -865,16 +878,19 @@ export class GalleryScanner {
 		} else if (!this.pendingProgressUpdate) {
 			// Schedule delayed update if not already scheduled
 			this.pendingProgressUpdate = true;
-			setTimeout(() => {
-				if (this.pendingProgressUpdate) {
-					this.pendingProgressUpdate = false;
-					this.lastProgressUpdateTime = Date.now();
-					this.progressSubject.next(this.progress);
-					if (this.onProgressCallback) {
-						this.onProgressCallback(this.progress);
+			setTimeout(
+				() => {
+					if (this.pendingProgressUpdate) {
+						this.pendingProgressUpdate = false;
+						this.lastProgressUpdateTime = Date.now();
+						this.progressSubject.next(this.progress);
+						if (this.onProgressCallback) {
+							this.onProgressCallback(this.progress);
+						}
 					}
-				}
-			}, this.PROGRESS_UPDATE_THROTTLE - (now - this.lastProgressUpdateTime));
+				},
+				this.PROGRESS_UPDATE_THROTTLE - (now - this.lastProgressUpdateTime),
+			);
 		}
 	}
 

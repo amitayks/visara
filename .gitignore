@@ -132,3 +132,6 @@ coverage/
 
 # Gradle Wrapper
 !gradle/wrapper/gradle-wrapper.jar
+
+#local lists
+*.txt

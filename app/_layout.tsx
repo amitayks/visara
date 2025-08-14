@@ -1,6 +1,6 @@
 import { createStackNavigator } from "@react-navigation/stack";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/MaterialIcons";
@@ -8,7 +8,6 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { initializeDatabase } from "../services/database";
 import { galleryScanner } from "../services/gallery/GalleryScanner";
 import type { RootStackParamList } from "../types/navigation";
-// import DocumentScreen from "./document/[id]";
 import HomeScreen from "./index";
 import SettingsScreen from "./settings";
 

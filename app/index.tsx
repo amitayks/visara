@@ -1,6 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import type { StackNavigationProp } from "@react-navigation/stack";
-import React, { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
 	Alert,
 	Keyboard,
@@ -17,17 +17,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
 
-// Import our new components
-import { AppHeader } from "./components/AppHeader";
-import { EmptyState } from "./components/EmptyState";
-import { Document, DocumentGrid } from "./components/DocumentGrid";
-import { DocumentModal } from "./components/DocumentModal";
-import { ScanProgressBar } from "./components/ScanProgressBar";
-import { QueryChip, SearchContainer } from "./components/SearchContainer";
-import { SkeletonGrid } from "./components/SkeletonGrid";
-import { ToastContainer, showToast } from "./components/Toast";
-import { UploadModal } from "./components/UploadModal";
-
 // Import services
 import { database } from "../services/database";
 import { documentStorage } from "../services/database/documentStorage";
@@ -38,7 +27,16 @@ import {
 import { SearchOrchestrator } from "../services/search/searchOrchestrator";
 import type { RootStackParamList } from "../types/navigation";
 
-// const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+// Import our new components
+import { AppHeader } from "./components/AppHeader";
+import { Document, DocumentGrid } from "./components/DocumentGrid";
+import { DocumentModal } from "./components/DocumentModal";
+import { EmptyState } from "./components/EmptyState";
+import { ScanProgressBar } from "./components/ScanProgressBar";
+import { QueryChip, SearchContainer } from "./components/SearchContainer";
+import { SkeletonGrid } from "./components/SkeletonGrid";
+import { showToast, ToastContainer } from "./components/Toast";
+import { UploadModal } from "./components/UploadModal";
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
