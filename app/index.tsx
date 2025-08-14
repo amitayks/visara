@@ -25,7 +25,7 @@ import { EmptyState } from "./components/common/LoadingStates";
 import { Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
 import { ToastContainer, showToast } from "./components/modals/Toast";
-import { UploadModal } from "./components/modals/UploadModal";
+import { UploadModal } from "./components/UploadModal";
 import { ScanProgressBar } from "./components/ScanProgressBar";
 import {
 	QueryChip,
