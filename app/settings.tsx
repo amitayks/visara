@@ -15,8 +15,6 @@ import { useSettingsStore } from "../stores/settingsStore";
 import { SettingsSectionHeader } from "./components/SettingsSectionHeader";
 import { ToggleBar } from "./components/ToggleBar";
 
-// const { height: SCREEN_HEIGHT } = Dimensions.get("window");
-
 export default function SettingsScreen() {
 	const navigation = useNavigation();
 	const { theme, isDark, toggleTheme } = useTheme();
@@ -50,10 +48,7 @@ export default function SettingsScreen() {
 
 			<ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
 				{/* Appearance Section */}
-				<SettingsSectionHeader
-					title="Appearance"
-					// subtitle="Customize how Visara looks and feels"
-				/>
+				<SettingsSectionHeader title="Appearance" />
 				<ToggleBar
 					onPress={toggleTheme}
 					isChange={isDark}
