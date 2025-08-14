@@ -24,14 +24,11 @@ import { AppHeader } from "./components/AppHeader";
 import { EmptyState } from "./components/common/LoadingStates";
 import { Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
+import { ScanProgressBar } from "./components/ScanProgressBar";
+import { QueryChip, SearchContainer } from "./components/SearchContainer";
+import { SkeletonGrid } from "./components/SkeletonGrid/SkeletonGrid";
 import { ToastContainer, showToast } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
-import { ScanProgressBar } from "./components/ScanProgressBar";
-import {
-	QueryChip,
-	SearchContainer,
-} from "./components/SearchContainer/SearchContainer";
-import { SkeletonGrid } from "./components/SkeletonGrid/SkeletonGrid";
 
 // Import services
 import { database } from "../services/database";
@@ -43,7 +40,7 @@ import {
 import { SearchOrchestrator } from "../services/search/searchOrchestrator";
 import type { RootStackParamList } from "../types/navigation";
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+// const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -75,7 +72,7 @@ export default function HomeScreen() {
 
 	// Animation values
 	const keyboard = useAnimatedKeyboard();
-	const searchBarTranslateY = useSharedValue(0);
+	// const searchBarTranslateY = useSharedValue(0);
 
 	// Load documents
 	const loadDocuments = useCallback(async () => {
