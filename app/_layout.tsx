@@ -8,7 +8,7 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { initializeDatabase } from "../services/database";
 import { galleryScanner } from "../services/gallery/GalleryScanner";
 import type { RootStackParamList } from "../types/navigation";
-import DocumentScreen from "./document/[id]";
+// import DocumentScreen from "./document/[id]";
 import HomeScreen from "./index";
 import SettingsScreen from "./settings";
 
@@ -73,21 +73,22 @@ export default function RootLayout() {
 			<ThemeProvider>
 				<QueryClientProvider client={queryClient}>
 					<Stack.Navigator
-					initialRouteName="Home"
-					screenOptions={{
-						headerShown: false,
-						gestureEnabled: true,
-						gestureDirection: Platform.OS === "ios" ? "horizontal" : "vertical",
-					}}
-				>
-					<Stack.Screen
-						name="Home"
-						component={HomeScreen}
-						options={{
-							gestureEnabled: false, // Disable swipe back on home screen
+						initialRouteName="Home"
+						screenOptions={{
+							headerShown: false,
+							gestureEnabled: true,
+							gestureDirection:
+								Platform.OS === "ios" ? "horizontal" : "vertical",
 						}}
-					/>
-					<Stack.Screen
+					>
+						<Stack.Screen
+							name="Home"
+							component={HomeScreen}
+							options={{
+								gestureEnabled: false, // Disable swipe back on home screen
+							}}
+						/>
+						{/* <Stack.Screen
 						name="Document"
 						component={DocumentScreen}
 						options={{
@@ -96,16 +97,16 @@ export default function RootLayout() {
 							headerBackTitleVisible: false,
 							headerTintColor: "#0066FF",
 						}}
-					/>
-					<Stack.Screen
-						name="Settings"
-						component={SettingsScreen}
-						options={{
-							headerShown: false,
-							gestureEnabled: true,
-						}}
-					/>
-				</Stack.Navigator>
+					/> */}
+						<Stack.Screen
+							name="Settings"
+							component={SettingsScreen}
+							options={{
+								headerShown: false,
+								gestureEnabled: true,
+							}}
+						/>
+					</Stack.Navigator>
 				</QueryClientProvider>
 			</ThemeProvider>
 		</GestureHandlerRootView>

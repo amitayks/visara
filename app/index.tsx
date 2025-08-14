@@ -29,7 +29,10 @@ import { ScanProgressBar } from "./components/layout/ScanProgressBar";
 import { DocumentModal } from "./components/modals/DocumentModal";
 import { ToastContainer, showToast } from "./components/modals/Toast";
 import { UploadModal } from "./components/modals/UploadModal";
-import { QueryChip, SearchContainer } from "./components/search/SearchContainer";
+import {
+	QueryChip,
+	SearchContainer,
+} from "./components/search/SearchContainer";
 
 // Import services
 import { database } from "../services/database";
@@ -276,19 +279,22 @@ export default function HomeScreen() {
 			type: "search",
 		};
 		setQueryChips((prev) => [...prev, newChip]);
-		
+
 		// Clear search input immediately
 		setSearchQuery("");
 
 		// Small delay to let chip animation complete before showing loading
-		await new Promise(resolve => setTimeout(resolve, 200));
-		
+		await new Promise((resolve) => setTimeout(resolve, 200));
+
 		setIsSearching(true);
 		try {
 			// Build combined search query from all chips (including new one)
-			const allSearchTerms = [...queryChips.map(chip => chip.text), newChip.text];
+			const allSearchTerms = [
+				...queryChips.map((chip) => chip.text),
+				newChip.text,
+			];
 			const combinedQuery = allSearchTerms.join(" ");
-			
+
 			const result = await searchOrchestrator.search(combinedQuery, {
 				useSemanticSearch: true,
 				usePhoneticMatching: true,
@@ -312,7 +318,7 @@ export default function HomeScreen() {
 		} catch (error) {
 			console.error("Search error:", error);
 			// Remove the chip if search failed
-			setQueryChips((prev) => prev.filter(chip => chip.id !== newChip.id));
+			setQueryChips((prev) => prev.filter((chip) => chip.id !== newChip.id));
 			showToast({
 				type: "error",
 				message: "Search failed",
@@ -446,8 +452,8 @@ export default function HomeScreen() {
 			// Re-search with remaining chips
 			try {
 				setIsSearching(true);
-				const combinedQuery = updatedChips.map(chip => chip.text).join(" ");
-				
+				const combinedQuery = updatedChips.map((chip) => chip.text).join(" ");
+
 				const result = await searchOrchestrator.search(combinedQuery, {
 					useSemanticSearch: true,
 					usePhoneticMatching: true,
@@ -460,7 +466,9 @@ export default function HomeScreen() {
 					imageUri: scored.document.imageUri,
 					documentType: scored.document.documentType,
 					vendor: scored.document.vendor,
-					date: scored.document.date ? new Date(scored.document.date) : undefined,
+					date: scored.document.date
+						? new Date(scored.document.date)
+						: undefined,
 					totalAmount: scored.document.totalAmount,
 					metadata: scored.document.metadata,
 					createdAt: new Date(scored.document.createdAt),
