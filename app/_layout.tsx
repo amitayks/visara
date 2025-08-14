@@ -88,16 +88,6 @@ export default function RootLayout() {
 								gestureEnabled: false, // Disable swipe back on home screen
 							}}
 						/>
-						{/* <Stack.Screen
-						name="Document"
-						component={DocumentScreen}
-						options={{
-							headerShown: true,
-							title: "Document",
-							headerBackTitleVisible: false,
-							headerTintColor: "#0066FF",
-						}}
-					/> */}
 						<Stack.Screen
 							name="Settings"
 							component={SettingsScreen}
