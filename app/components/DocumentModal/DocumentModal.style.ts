@@ -46,28 +46,11 @@ export const createStyles = (theme: any) =>
 			fontWeight: "600",
 			color: theme.text,
 		},
-		// closeButton: {
-		//   padding: 8,
-		// },
+
 		content: {
 			flexGrow: 1,
 		},
-		// imageContainer: {
-		//   height: 300,
-		//   backgroundColor: '#F5F5F5',
-		//   margin: 20,
-		//   borderRadius: 12,
-		//   overflow: 'hidden',
-		//   alignItems: 'center',
-		//   justifyContent: 'center',
-		// },
-		// image: {
-		//   width: '100%',
-		//   height: '100%',
-		// },
-		// imageLoader: {
-		//   position: 'absolute',
-		// },
+
 		infoSection: {
 			paddingHorizontal: 20,
 			paddingBottom: 20,
@@ -77,7 +60,7 @@ export const createStyles = (theme: any) =>
 			alignItems: "center",
 			paddingVertical: 12,
 			// borderBottomWidth: 0.5,
-			// borderBottomColor: '#F0F0F0',
+			// borderBottomColor: "#F0F0F0",
 		},
 		infoIcon: {
 			marginRight: 16,
@@ -98,32 +81,14 @@ export const createStyles = (theme: any) =>
 		actionBar: {
 			flexDirection: "row",
 			paddingHorizontal: 20,
-			paddingVertical: 16,
+			paddingVertical: 0,
 			paddingBottom: 20,
 			gap: 12,
-			backgroundColor: theme.surface,
-			borderTopWidth: 1,
-			borderTopColor: theme.borderLight,
+			// backgroundColor: theme.surface,
+			// borderTopWidth: 1,
+			// borderTopColor: theme.borderLight,
 		},
-		actions: {
-			flexDirection: "row",
-			paddingHorizontal: 20,
-			paddingBottom: 20,
-			gap: 12,
-		},
-		actionButton: {
-			flex: 1,
-			flexDirection: "row",
-			alignItems: "center",
-			justifyContent: "center",
-			paddingVertical: 14,
-			borderRadius: 12,
-			gap: 8,
-		},
-		actionLabel: {
-			fontSize: 16,
-			fontWeight: "600",
-		},
+
 		skeleton: {
 			padding: 20,
 		},
@@ -141,6 +106,17 @@ export const createStyles = (theme: any) =>
 			backgroundColor: theme.skeleton,
 			borderRadius: 8,
 		},
+		galleryButton: {
+			marginHorizontal: 20,
+			marginVertical: 16,
+			paddingVertical: 14,
+			borderRadius: 12,
+			alignItems: "center",
+		},
+		galleryButtonText: {
+			fontSize: 16,
+			color: "#e0e0e0ff",
+		},
 		deletingOverlay: {
 			...StyleSheet.absoluteFillObject,
 			backgroundColor: theme.overlay,
@@ -148,16 +124,5 @@ export const createStyles = (theme: any) =>
 			borderTopRightRadius: 24,
 			alignItems: "center",
 			justifyContent: "center",
-		},
-		actionBarSkeleton: {
-			flexDirection: "row",
-			gap: 12,
-			flex: 1,
-		},
-		actionButtonSkeleton: {
-			flex: 1,
-			height: 52,
-			backgroundColor: theme.skeleton,
-			borderRadius: 12,
 		},
 	});

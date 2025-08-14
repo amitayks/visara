@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
 	ActivityIndicator,
-	Dimensions,
+	Alert,
+	Linking,
 	Modal,
 	ScrollView,
 	Share,
@@ -14,6 +15,7 @@ import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useIconColors } from "../../../utils/iconColors";
+import { ActionButton } from "../ActionButton";
 import { Document } from "../DocumentGrid/DocumentGrid";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./DocumentModal.style";
@@ -57,30 +59,6 @@ const InfoRow: React.FC<InfoRowProps & { styles: any; iconColors: any }> = ({
 	);
 };
 
-interface ActionButtonProps {
-	icon: string;
-	label: string;
-	onPress: () => void;
-	color: string;
-}
-
-const ActionButton: React.FC<ActionButtonProps & { styles: any }> = ({
-	icon,
-	label,
-	onPress,
-	color,
-	styles,
-}) => (
-	<TouchableOpacity
-		style={[styles.actionButton, { backgroundColor: `${color}15` }]}
-		onPress={onPress}
-		activeOpacity={0.7}
-	>
-		<Icon name={icon} size={24} color={color} />
-		<Text style={[styles.actionLabel, { color }]}>{label}</Text>
-	</TouchableOpacity>
-);
-
 const DocumentSkeleton: React.FC<{ styles: any }> = ({ styles }) => (
 	<View style={styles.skeleton}>
 		{/* <View style={styles.skeletonImage} /> */}
@@ -115,6 +93,22 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 			setTimeout(() => setLoading(false), 400);
 		}
 	}, [visible, document]);
+
+	const handleOpenInGallery = useCallback(async () => {
+		if (!document?.imageUri) return;
+
+		try {
+			const canOpen = await Linking.canOpenURL(document.imageUri);
+			if (canOpen) {
+				await Linking.openURL(document.imageUri);
+			} else {
+				Alert.alert("Error", "Cannot open this image in gallery");
+			}
+		} catch (error) {
+			console.error("Failed to open in gallery:", error);
+			Alert.alert("Error", "Failed to open image in gallery");
+		}
+	}, [document]);
 
 	const handleDelete = async () => {
 		if (!document) return;
@@ -198,94 +192,68 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 
 					<View style={styles.header}>
 						<Text style={styles.title}>Document Details</Text>
-						{/* <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <Icon name="close" size={24} color="#333" />
-            </TouchableOpacity> */}
 					</View>
 
 					<ScrollView
 						style={styles.content}
 						showsVerticalScrollIndicator={false}
 					>
-						{loading ? (
-							<DocumentSkeleton styles={styles} />
-						) : (
-							<>
-								{/* <View style={styles.imageContainer}>
-                  <Image
-                    source={{ uri: document?.imageUri }}
-                    style={styles.image}
-                    onLoad={() => setImageLoaded(true)}
-                    resizeMode="contain"
-                  />
-                  {!imageLoaded && (
-                    <ActivityIndicator
-                      style={styles.imageLoader}
-                      size="large"
-                      color="#6366F1"
-                    />
-                  )}
-                </View> */}
-
-								<View style={styles.infoSection}>
-									<InfoRow
-										icon="document-text"
-										label="Type"
-										value={document?.documentType}
-										styles={styles}
-										iconColors={iconColors}
-									/>
-									<InfoRow
-										icon="business"
-										label="Vendor"
-										value={document?.vendor || "Unknown"}
-										styles={styles}
-										iconColors={iconColors}
-									/>
-									<InfoRow
-										icon="calendar"
-										label="Date"
-										value={formatDate(document?.date)}
-										styles={styles}
-										iconColors={iconColors}
-									/>
-									<InfoRow
-										icon="cash"
-										label="Amount"
-										value={formatCurrency(document?.totalAmount)}
-										styles={styles}
-										iconColors={iconColors}
-									/>
-								</View>
-							</>
-						)}
+						<View style={styles.infoSection}>
+							<InfoRow
+								icon="document-text"
+								label="Type"
+								value={document?.documentType}
+								styles={styles}
+								iconColors={iconColors}
+							/>
+							<InfoRow
+								icon="business"
+								label="Vendor"
+								value={document?.vendor || "Unknown"}
+								styles={styles}
+								iconColors={iconColors}
+							/>
+							<InfoRow
+								icon="calendar"
+								label="Date"
+								value={formatDate(document?.date)}
+								styles={styles}
+								iconColors={iconColors}
+							/>
+							<InfoRow
+								icon="cash"
+								label="Amount"
+								value={formatCurrency(document?.totalAmount)}
+								styles={styles}
+								iconColors={iconColors}
+							/>
+						</View>
 					</ScrollView>
+
+					<TouchableOpacity
+						style={[
+							styles.galleryButton,
+							{ backgroundColor: `${theme.secondary}20` },
+						]}
+						onPress={handleOpenInGallery}
+					>
+						<Text style={styles.galleryButtonText}>open image in gallery</Text>
+					</TouchableOpacity>
 
 					{/* Fixed Action Bar at Bottom */}
 					<View style={styles.actionBar}>
-						{!loading ? (
-							<>
-								<ActionButton
-									icon="share-social"
-									label="Share"
-									onPress={handleShare}
-									color={theme.accent}
-									styles={styles}
-								/>
-								<ActionButton
-									icon="trash"
-									label="Delete"
-									onPress={handleDelete}
-									color={theme.error}
-									styles={styles}
-								/>
-							</>
-						) : (
-							<>
-								<View style={styles.actionButtonSkeleton} />
-								<View style={styles.actionButtonSkeleton} />
-							</>
-						)}
+						<ActionButton
+							icon="share-social"
+							label="Share"
+							onPress={handleShare}
+							color={theme.accent}
+						/>
+						<ActionButton
+							icon="trash"
+							label="Delete"
+							onPress={handleDelete}
+							color={theme.error}
+						/>
 					</View>
 
 					{deleting && (
