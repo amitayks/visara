@@ -2,7 +2,6 @@ import React, { memo, useState } from "react";
 import {
 	ActivityIndicator,
 	Image,
-	StyleSheet,
 	Text,
 	TouchableOpacity,
 	View,

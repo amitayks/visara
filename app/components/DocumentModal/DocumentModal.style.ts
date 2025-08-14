@@ -1,6 +1,7 @@
 import { Dimensions, StyleSheet } from "react-native";
+import { SCREEN_HEIGHT } from "../../../constants/dimensions";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+// const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export const createStyles = (theme: any) =>
 	StyleSheet.create({

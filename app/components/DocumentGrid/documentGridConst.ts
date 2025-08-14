@@ -1,6 +1,5 @@
-import { Dimensions } from "react-native";
+import { SCREEN_WIDTH } from "../../../constants/dimensions";
 
-export const { width: SCREEN_WIDTH } = Dimensions.get("window");
 export const COLUMNS = 2;
 export const SPACING = 15;
 export const CONTAINER_PADDING = 16;

@@ -1,8 +1,7 @@
 import React from "react";
-import { Animated, Dimensions, Platform, StyleSheet, Text } from "react-native";
+import { Animated, Platform, StyleSheet, Text } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+import { SCREEN_WIDTH } from "../../../constants/dimensions";
 
 export interface ToastConfig {
 	type: "success" | "error" | "info";
