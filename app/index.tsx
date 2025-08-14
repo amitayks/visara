@@ -23,7 +23,7 @@ import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
 import { AppHeader } from "./components/AppHeader";
 import { EmptyState } from "./components/common/LoadingStates";
 import { Document, DocumentGrid } from "./components/DocumentGrid";
-import { DocumentModal } from "./components/modals/DocumentModal";
+import { DocumentModal } from "./components/DocumentModal";
 import { ToastContainer, showToast } from "./components/modals/Toast";
 import { UploadModal } from "./components/modals/UploadModal";
 import { ScanProgressBar } from "./components/ScanProgressBar";
