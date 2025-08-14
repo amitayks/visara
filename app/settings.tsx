@@ -1,7 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import React from "react";
 import {
-	Dimensions,
 	Platform,
 	ScrollView,
 	StatusBar,
@@ -12,16 +10,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
-import { ThemeToggle } from "./components/settings/ThemeToggle";
-import { SettingsSectionHeader } from "./components/settings/SettingsSectionHeader";
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
 import { useSettingsStore } from "../stores/settingsStore";
+import { SettingsSectionHeader } from "./components/SettingsSectionHeader";
+import { ToggleBar } from "./components/ToggleBar";
 
-const { height: SCREEN_HEIGHT } = Dimensions.get("window");
+// const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 export default function SettingsScreen() {
 	const navigation = useNavigation();
-	const { theme, isDark } = useTheme();
+	const { theme, isDark, toggleTheme } = useTheme();
+
 	const { isLoading } = useSettingsStore();
 	const styles = useThemedStyles(createStyles);
 
@@ -55,17 +54,13 @@ export default function SettingsScreen() {
 					title="Appearance"
 					// subtitle="Customize how Visara looks and feels"
 				/>
-				<ThemeToggle />
-
-				{/* Main content area - will be implemented later */}
-				{/* <View style={styles.comingSoon}>
-					<Icon name="construct-outline" size={64} color={theme.textTertiary} />
-					<Text style={styles.comingSoonTitle}>More Settings Coming Soon</Text>
-					<Text style={styles.comingSoonText}>
-						Additional settings like auto-scan, notifications, and privacy
-						options will be available in the next update.
-					</Text>
-				</View> */}
+				<ToggleBar
+					onPress={toggleTheme}
+					isChange={isDark}
+					title={["Dark Mode", "Light Mode"]}
+					subtitle={["Switch to light theme", "Switch to dark theme"]}
+					iconsName={["moon", "sunny"]}
+				/>
 			</ScrollView>
 
 			{/* Version Info Section at Bottom */}
