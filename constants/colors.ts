@@ -8,7 +8,7 @@ export const Colors = {
 		// Background colors
 		background: "#FAFAFA",
 		surface: "#FFFFFF",
-		surfaceSecondary: "#F8F8FA",
+		surfaceSecondary: "#eaeaeaff",
 		overlay: "rgba(0, 0, 0, 0.5)",
 
 		// Text colors
@@ -44,8 +44,8 @@ export const Colors = {
 
 		// Background colors
 		background: "#000000",
-		surface: "#1C1C1E",
-		surfaceSecondary: "#2C2C2E",
+		surface: "#111111ff",
+		surfaceSecondary: "#1c1c1cff",
 		overlay: "rgba(0, 0, 0, 0.8)",
 
 		// Text colors

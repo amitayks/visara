@@ -52,7 +52,7 @@ export const createStyles = (theme: any) =>
 		// },
 		content: {
 			flex: 1,
-			justifyContent: "space-around",
+			justifyContent: "space-between",
 			// alignItems: "center",
 			padding: 20,
 		},
@@ -73,8 +73,6 @@ export const createStyles = (theme: any) =>
 			borderRadius: 16,
 			padding: 20,
 			alignItems: "center",
-			borderWidth: 2,
-			borderColor: theme.borderLight,
 		},
 		optionIcon: {
 			width: 64,
