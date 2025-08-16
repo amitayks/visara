@@ -31,7 +31,6 @@ export const copyToClipboard = async (text: string, label: string = "Text") => {
 			message: `Copied ${label} to clipboard`,
 			icon: "checkmark-circle",
 		});
-		// Alert.alert("Copied", `${label} copied to clipboard`);
 	} catch (error) {
 		console.error("Error copying to clipboard:", error);
 		showToast({
@@ -39,6 +38,5 @@ export const copyToClipboard = async (text: string, label: string = "Text") => {
 			message: "Failed to copy to clipboard",
 			icon: "alert-circle",
 		});
-		// Alert.alert("Error", "Failed to copy to clipboard");
 	}
 };

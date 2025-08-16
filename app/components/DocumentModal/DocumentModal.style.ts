@@ -92,7 +92,6 @@ export const createStyles = (theme: any) =>
 			flexDirection: "row",
 			gap: 12,
 		},
-
 		deletingOverlay: {
 			...StyleSheet.absoluteFillObject,
 			backgroundColor: theme.overlay,
