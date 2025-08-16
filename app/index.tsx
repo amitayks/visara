@@ -11,6 +11,7 @@ import {
 import Animated, {
 	useAnimatedKeyboard,
 	useAnimatedStyle,
+	withClamp,
 	withSpring,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -60,7 +61,7 @@ export default function HomeScreen() {
 		removeQueryChip,
 		clearSearch,
 	} = useSearchStore();
-	
+
 	const { settings } = useSettingsStore();
 
 	// Local UI state
@@ -97,14 +98,7 @@ export default function HomeScreen() {
 	// Keyboard animation
 	const searchBarStyle = useAnimatedStyle(() => {
 		return {
-			transform: [
-				{
-					translateY: withSpring(keyboard.height.value * -1, {
-						damping: 50,
-						stiffness: 600,
-					}),
-				},
-			],
+			transform: [{ translateY: keyboard.height.value * -1 }],
 		};
 	});
 
@@ -166,7 +160,6 @@ export default function HomeScreen() {
 		}
 	}, [loadDocuments]);
 
-	// Handle search
 	const handleSearch = useCallback(async () => {
 		try {
 			const docs = await addQueryChip(searchQuery);
@@ -199,19 +192,18 @@ export default function HomeScreen() {
 		[deleteDocument],
 	);
 
-	// Handle manual background scan (initiated by user via button)
 	const handleStartBackgroundScan = useCallback(async () => {
 		try {
-			// Check permissions first - don't set scanning state until after permissions
 			const hasPermission = await galleryScanner.hasPermissions();
 			if (!hasPermission) {
 				const granted = await galleryScanner.requestPermissions();
 				if (!granted) {
-					Alert.alert(
-						"Permission Required",
-						"Gallery access is needed to scan for documents. Please enable it in settings.",
-					);
-					return; // Exit early if permission denied - no UI state change
+					showToast({
+						type: "error",
+						message: `Permission Required Gallery access is needed to scan for documents.`,
+						icon: "alert-circle",
+					});
+					return;
 				}
 			}
 
@@ -235,12 +227,6 @@ export default function HomeScreen() {
 
 			// Refresh documents once scan is complete
 			await loadDocuments();
-
-			showToast({
-				type: "success",
-				message: "Scan completed successfully",
-				icon: "checkmark-circle",
-			});
 		} catch (error) {
 			console.error("Background scan error:", error);
 			showToast({
