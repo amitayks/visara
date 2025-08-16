@@ -24,7 +24,7 @@ export interface AssetInfo {
 
 export class SmartFilter {
 	private static defaultOptions: SmartFilterOptions = {
-		minFileSize: 100, // 100KB minimum
+		minFileSize: 60, // 60KB minimum
 		maxFileSize: 50 * 1024, // 50MB maximum
 		maxAspectRatio: 3, // Skip panoramas
 		priorityKeywords: [
@@ -62,7 +62,7 @@ export class SmartFilter {
 			/twitter/i,
 			/telegram/i,
 		],
-		includeScreenshots: false,
+		includeScreenshots: true,
 	};
 
 	private options: SmartFilterOptions;
@@ -119,7 +119,13 @@ export class SmartFilter {
 		}
 
 		// Check for document-related folders
-		const documentFolders = ["documents", "downloads", "scans", "receipts"];
+		const documentFolders = [
+			"documents",
+			"document",
+			"downloads",
+			"scans",
+			"receipts",
+		];
 		for (const folder of documentFolders) {
 			if (path.includes(`/${folder}/`)) {
 				priority += 2;

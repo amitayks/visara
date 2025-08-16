@@ -9,14 +9,14 @@ interface AppSettings {
 	scanWifiOnly: boolean;
 	batterySaver: boolean;
 	smartFilterEnabled: boolean;
-	// notifications: boolean;
-	// biometricLock: boolean;
-	// scanQuality: "low" | "medium" | "high";
-	// encryptSensitiveDocuments: boolean;
-	// language: string;
-	// storageLimit: number; // in GB
-	// scanNewOnly: boolean;
-	// maxScanBatchSize: number;
+	notifications: boolean;
+	biometricLock: boolean;
+	scanQuality: "low" | "medium" | "high";
+	encryptSensitiveDocuments: boolean;
+	language: string;
+	storageLimit: number; // in GB
+	scanNewOnly: boolean;
+	maxScanBatchSize: number;
 }
 
 interface SettingsStore {
@@ -40,14 +40,14 @@ const defaultSettings: AppSettings = {
 	scanWifiOnly: true,
 	batterySaver: true,
 	smartFilterEnabled: true,
-	// notifications: false,
-	// biometricLock: false,
-	// scanQuality: "medium",
-	// encryptSensitiveDocuments: false,
-	// language: "en",
-	// storageLimit: 5,
-	// scanNewOnly: false,
-	// maxScanBatchSize: 20,
+	notifications: false,
+	biometricLock: false,
+	scanQuality: "medium",
+	encryptSensitiveDocuments: false,
+	language: "en",
+	storageLimit: 5,
+	scanNewOnly: false,
+	maxScanBatchSize: 20,
 };
 
 // Custom storage using React Native Keychain

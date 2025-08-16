@@ -599,14 +599,14 @@ export class GalleryScanner {
 		}
 	}
 
-	private async generateAssetHash(assetInfo: any): Promise<string> {
-		// IMPORTANT: Don't calculate hash from URI properties
-		// This should match the hash calculation in documentProcessor
-		// For now, return a unique ID that won't match anything
-		// The actual hash will be calculated during document processing
-		const uniqueId = `${assetInfo.id}-${assetInfo.creationTime}-${Math.random()}`;
-		return CryptoJS.SHA256(uniqueId).toString();
-	}
+	// private async generateAssetHash(assetInfo: any): Promise<string> {
+	// 	// IMPORTANT: Don't calculate hash from URI properties
+	// 	// This should match the hash calculation in documentProcessor
+	// 	// For now, return a unique ID that won't match anything
+	// 	// The actual hash will be calculated during document processing
+	// 	const uniqueId = `${assetInfo.id}-${assetInfo.creationTime}-${Math.random()}`;
+	// 	return CryptoJS.SHA256(uniqueId).toString();
+	// }
 
 	private async loadProgress() {
 		try {
@@ -746,7 +746,7 @@ export class GalleryScanner {
 		console.log(`Retrying ${failedUris.length} failed images`);
 
 		// Clear failed images and try processing them again
-		const tempFailedImages = new Map(this.failedImages);
+		// const tempFailedImages = new Map(this.failedImages);
 		this.failedImages.clear();
 
 		for (const uri of failedUris) {
