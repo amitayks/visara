@@ -48,7 +48,8 @@ export const createStyles = (theme: any) =>
 		},
 
 		content: {
-			flexGrow: 1,
+			flex: 1,
+			// justifyContent: "space-between",
 		},
 
 		infoSection: {
@@ -59,8 +60,6 @@ export const createStyles = (theme: any) =>
 			flexDirection: "row",
 			alignItems: "center",
 			paddingVertical: 12,
-			// borderBottomWidth: 0.5,
-			// borderBottomColor: "#F0F0F0",
 		},
 		infoIcon: {
 			marginRight: 16,
@@ -79,9 +78,7 @@ export const createStyles = (theme: any) =>
 			fontWeight: "500",
 		},
 		actionBar: {
-			flex: 1,
 			paddingHorizontal: 12,
-			// paddingVertical: 100,
 			gap: 12,
 		},
 		leftActionBar: {

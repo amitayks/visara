@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useRef } from "react";
 import {
 	ScrollView,
 	Text,
@@ -7,13 +7,7 @@ import {
 	View,
 	ViewStyle,
 } from "react-native";
-import Animated, {
-	SlideInUp,
-	SlideOutUp,
-	useAnimatedStyle,
-	useSharedValue,
-	withSpring,
-} from "react-native-reanimated";
+import Animated, { SlideInDown, SlideOutUp } from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useIconColors } from "../../../utils/iconColors";
@@ -53,74 +47,19 @@ export const SearchContainer: React.FC<SearchContainerProps> = ({
 	const styles = useThemedStyles(createStyles);
 
 	const inputRef = useRef<TextInput>(null);
-	const buttonScale = useSharedValue(showSendButton ? 1 : 0);
-	const buttonWidth = useSharedValue(showSendButton ? 56 : 0);
-
-	const buttonStyle = useAnimatedStyle(() => ({
-		transform: [
-			{
-				scale: withSpring(buttonScale.value, {
-					damping: 20,
-					stiffness: 120,
-				}),
-			},
-		],
-		opacity: buttonScale.value,
-		width: withSpring(buttonWidth.value, {
-			damping: 20,
-			stiffness: 120,
-		}),
-	}));
-
-	useEffect(() => {
-		buttonScale.value = showSendButton ? 1 : 0;
-		buttonWidth.value = showSendButton ? 56 : 0;
-	}, [showSendButton]);
 
 	const handleSubmit = () => {
 		if (searchValue.trim()) {
 			onSubmit();
-			// Keep keyboard open for multiple searches - it will be dismissed on scroll
-		}
-	};
-
-	const getChipColor = (type: QueryChip["type"]) => {
-		switch (type) {
-			case "search":
-				return "#6366F1";
-			case "filter":
-				return "#10B981";
-			case "date":
-				return "#F59E0B";
-			case "amount":
-				return "#EC4899";
-			default:
-				return "#6366F1";
-		}
-	};
-
-	const getChipIcon = (type: QueryChip["type"]) => {
-		switch (type) {
-			case "search":
-				return "search";
-			case "filter":
-				return "filter";
-			case "date":
-				return "calendar";
-			case "amount":
-				return "cash";
-			default:
-				return "search";
 		}
 	};
 
 	return (
 		<View style={[styles.container, style]}>
-			{/* Query Chips - Animated container that slides up/down */}
 			{queryChips.length > 0 && (
 				<Animated.View
-					entering={SlideInUp.duration(300)}
-					exiting={SlideOutUp.duration(300)}
+					// entering={SlideInDown.duration(300)}
+					// exiting={SlideOutDown.duration(300)}
 					style={styles.chipsContainer}
 				>
 					<ScrollView
@@ -132,42 +71,20 @@ export const SearchContainer: React.FC<SearchContainerProps> = ({
 						{queryChips.map((chip) => (
 							<Animated.View
 								key={chip.id}
-								entering={SlideInUp.delay(100)}
+								entering={SlideInDown.delay(300)}
 								exiting={SlideOutUp}
 								style={styles.chipWrapper}
 							>
-								<View
-									style={[
-										styles.chip,
-										{ backgroundColor: `${getChipColor(chip.type)}15` },
-									]}
-								>
-									<Icon
-										name={getChipIcon(chip.type)}
-										size={14}
-										color={getChipColor(chip.type)}
-										style={styles.chipIcon}
-									/>
-									<Text
-										style={[
-											styles.chipText,
-											{ color: getChipColor(chip.type) },
-										]}
-										numberOfLines={1}
-									>
+								<View style={styles.chip}>
+									<Text style={[styles.chipText]} numberOfLines={1}>
 										{chip.text}
 									</Text>
 									<TouchableOpacity
 										onPress={() => onRemoveChip(chip.id)}
-										activeOpacity={0.7}
 										style={styles.removeButton}
 										hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
 									>
-										<Icon
-											name="close-circle"
-											size={16}
-											color={getChipColor(chip.type)}
-										/>
+										<Icon name="close-circle" size={16} />
 									</TouchableOpacity>
 								</View>
 							</Animated.View>
@@ -195,7 +112,7 @@ export const SearchContainer: React.FC<SearchContainerProps> = ({
 					/>
 				</View>
 
-				<Animated.View style={[styles.sendButtonContainer, buttonStyle]}>
+				<Animated.View style={[styles.sendButtonContainer]}>
 					<TouchableOpacity
 						onPress={handleSubmit}
 						activeOpacity={0.7}

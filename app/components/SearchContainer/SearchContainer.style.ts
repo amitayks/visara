@@ -27,6 +27,7 @@ export const createStyles = (theme: any) =>
 			paddingHorizontal: 12,
 			paddingVertical: 6,
 			borderRadius: 16,
+			backgroundColor: theme.surfaceSecondary,
 		},
 		chipIcon: {
 			marginRight: 6,

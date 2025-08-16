@@ -234,45 +234,44 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 								iconColors={iconColors}
 							/>
 						</View>
+
+						<View style={styles.actionBar}>
+							<View style={styles.leftActionBar}>
+								<ActionButton
+									icon="image"
+									label="Open"
+									onPress={handleOpenInGallery}
+									color={theme.primary}
+								/>
+								<ActionButton
+									icon="share-social"
+									label="Share"
+									onPress={handleShare}
+									color={theme.primary}
+								/>
+							</View>
+							<View style={styles.rightActionBar}>
+								<ActionButton
+									icon="copy"
+									label="Copy"
+									onPress={handleClipBoard}
+									color={theme.accent}
+								/>
+								<ActionButton
+									icon="trash"
+									label="Delete"
+									onPress={handleDelete}
+									color={theme.error}
+								/>
+							</View>
+						</View>
+
+						{deleting && (
+							<View style={styles.deletingOverlay}>
+								<ActivityIndicator size="large" color="#FFFFFF" />
+							</View>
+						)}
 					</ScrollView>
-
-					{/* Fixed Action Bar at Bottom */}
-					<View style={styles.actionBar}>
-						<View style={styles.leftActionBar}>
-							<ActionButton
-								icon="image"
-								label="Open"
-								onPress={handleOpenInGallery}
-								color={theme.primary}
-							/>
-							<ActionButton
-								icon="share-social"
-								label="Share"
-								onPress={handleShare}
-								color={theme.primary}
-							/>
-						</View>
-						<View style={styles.rightActionBar}>
-							<ActionButton
-								icon="copy"
-								label="Copy"
-								onPress={handleClipBoard}
-								color={theme.accent}
-							/>
-							<ActionButton
-								icon="trash"
-								label="Delete"
-								onPress={handleDelete}
-								color={theme.error}
-							/>
-						</View>
-					</View>
-
-					{deleting && (
-						<View style={styles.deletingOverlay}>
-							<ActivityIndicator size="large" color="#FFFFFF" />
-						</View>
-					)}
 				</Animated.View>
 			</View>
 		</Modal>
