@@ -241,7 +241,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 						<View style={styles.leftActionBar}>
 							<ActionButton
 								icon="image"
-								label="Open Gallery"
+								label="Open"
 								onPress={handleOpenInGallery}
 								color={theme.primary}
 							/>
@@ -249,7 +249,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 								icon="share-social"
 								label="Share"
 								onPress={handleShare}
-								color={theme.accent}
+								color={theme.primary}
 							/>
 						</View>
 						<View style={styles.rightActionBar}>
@@ -257,7 +257,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 								icon="copy"
 								label="Copy"
 								onPress={handleClipBoard}
-								color={theme.success}
+								color={theme.accent}
 							/>
 							<ActionButton
 								icon="trash"
