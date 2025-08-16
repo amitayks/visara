@@ -75,8 +75,15 @@ export default function SettingsScreen() {
 					isChange={settings.smartFilterEnabled}
 					title={["Smart Filter On", "Smart Filter Off"]}
 					subtitle={["Filter out non-documents", "Scan all images"]}
-					iconsName={["filter", "filter-outline"]}
+					iconsName={["list", "list"]}
 				/>
+				{/* <ToggleBar
+					onPress={() => updateSetting("scanWifiOnly", !settings.scanWifiOnly)}
+					isChange={settings.scanWifiOnly}
+					title={["WiFi Only", "Celolular Allowed"]}
+					subtitle={["Scan only on WiFi", "Scan on any connection"]}
+					iconsName={["wifi", "cellular"]}
+				/> */}
 			</ScrollView>
 
 			{/* Version Info Section at Bottom */}

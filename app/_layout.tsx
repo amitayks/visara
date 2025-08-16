@@ -7,6 +7,7 @@ import Icon from "react-native-vector-icons/MaterialIcons";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { initializeDatabase } from "../services/database";
 import { galleryScanner } from "../services/gallery/GalleryScanner";
+import { useSettingsStore } from "../stores/settingsStore";
 import type { RootStackParamList } from "../types/navigation";
 import HomeScreen from "./index";
 import SettingsScreen from "./settings";
@@ -18,6 +19,8 @@ const Stack = createStackNavigator<RootStackParamList>();
 const queryClient = new QueryClient();
 
 export default function RootLayout() {
+	const { settings } = useSettingsStore();
+	
 	useEffect(() => {
 		// Initialize permissions and background scanning on app mount
 		const initializeApp = async () => {
@@ -44,13 +47,13 @@ export default function RootLayout() {
 				if (shouldStartScan) {
 					console.log("Starting background scan on app launch");
 
-					// Start scan with conservative settings
+					// Start scan with user settings
 					galleryScanner
 						.startScan({
-							batchSize: 10,
-							smartFilterEnabled: true,
-							batterySaver: true,
-							wifiOnly: false,
+							batchSize: settings.maxScanBatchSize,
+							smartFilterEnabled: settings.smartFilterEnabled,
+							batterySaver: settings.batterySaver,
+							wifiOnly: settings.scanWifiOnly,
 						})
 						.catch((error) => {
 							console.error("Background scan failed:", error);
