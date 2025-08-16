@@ -19,6 +19,7 @@ import { ActionButton } from "../ActionButton";
 import { Document } from "../DocumentGrid/DocumentGrid";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./DocumentModal.style";
+import { copyToClipboard } from "../../../utils/clipboard";
 
 interface DocumentModalProps {
 	visible: boolean;
@@ -152,6 +153,13 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 		}
 	};
 
+	const handleClipBoard = async () => {
+		if (!document?.metadata) return;
+
+		copyToClipboard(document.metadata, "Metadata");
+		onClose();
+	};
+
 	const formatDate = (date?: Date) => {
 		if (!date) return "No date";
 		return new Date(date).toLocaleDateString("en-US", {
@@ -228,32 +236,36 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 						</View>
 					</ScrollView>
 
-					<TouchableOpacity
-						style={[
-							styles.galleryButton,
-							{ backgroundColor: `${theme.secondary}20` },
-						]}
-						onPress={handleOpenInGallery}
-					>
-						<Text style={[styles.galleryButtonText, { color: theme.primary }]}>
-							open image in gallery
-						</Text>
-					</TouchableOpacity>
-
 					{/* Fixed Action Bar at Bottom */}
 					<View style={styles.actionBar}>
-						<ActionButton
-							icon="share-social"
-							label="Share"
-							onPress={handleShare}
-							color={theme.accent}
-						/>
-						<ActionButton
-							icon="trash"
-							label="Delete"
-							onPress={handleDelete}
-							color={theme.error}
-						/>
+						<View style={styles.leftActionBar}>
+							<ActionButton
+								icon="image"
+								label="Open Gallery"
+								onPress={handleOpenInGallery}
+								color={theme.primary}
+							/>
+							<ActionButton
+								icon="share-social"
+								label="Share"
+								onPress={handleShare}
+								color={theme.accent}
+							/>
+						</View>
+						<View style={styles.rightActionBar}>
+							<ActionButton
+								icon="copy"
+								label="Copy"
+								onPress={handleClipBoard}
+								color={theme.success}
+							/>
+							<ActionButton
+								icon="trash"
+								label="Delete"
+								onPress={handleDelete}
+								color={theme.error}
+							/>
+						</View>
 					</View>
 
 					{deleting && (

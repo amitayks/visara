@@ -330,12 +330,12 @@ export default function HomeScreen() {
 	// Handle document deletion
 	const handleDeleteDocument = useCallback(async (doc: Document) => {
 		try {
+			// showToast({
+			// 	type: "success",
+			// 	message: "Document deleted",
+			// 	icon: "checkmark-circle",
+			// });
 			await documentStorage.deleteDocument(doc.id);
-			showToast({
-				type: "success",
-				message: "Document deleted",
-				icon: "checkmark-circle",
-			});
 		} catch (error) {
 			console.error("Delete error:", error);
 			throw error;

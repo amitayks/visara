@@ -79,27 +79,20 @@ export const createStyles = (theme: any) =>
 			fontWeight: "500",
 		},
 		actionBar: {
-			flexDirection: "row",
-			paddingHorizontal: 20,
-			paddingVertical: 0,
-			paddingBottom: 20,
+			flex: 1,
+			paddingHorizontal: 12,
+			// paddingVertical: 100,
 			gap: 12,
-			// backgroundColor: theme.surface,
-			// borderTopWidth: 1,
-			// borderTopColor: theme.borderLight,
+		},
+		leftActionBar: {
+			flexDirection: "row",
+			gap: 12,
+		},
+		rightActionBar: {
+			flexDirection: "row",
+			gap: 12,
 		},
 
-		galleryButton: {
-			marginHorizontal: 20,
-			marginVertical: 16,
-			paddingVertical: 14,
-			borderRadius: 12,
-			alignItems: "center",
-		},
-		galleryButtonText: {
-			fontSize: 16,
-			color: "#e0e0e0ff",
-		},
 		deletingOverlay: {
 			...StyleSheet.absoluteFillObject,
 			backgroundColor: theme.overlay,
