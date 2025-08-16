@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
+import { useSettingsStore } from "../stores/settingsStore";
 import { SettingsSectionHeader } from "./components/SettingsSectionHeader";
 import { ToggleBar } from "./components/ToggleBar";
 import { createStyles } from "./settings.style";
@@ -17,8 +18,7 @@ import { createStyles } from "./settings.style";
 export default function SettingsScreen() {
 	const navigation = useNavigation();
 	const { theme, isDark, toggleTheme } = useTheme();
-
-	// const { isLoading } = useSettingsStore();
+	const { settings, updateSetting } = useSettingsStore();
 	const styles = useThemedStyles(createStyles);
 
 	const handleGoBack = () => {
@@ -54,6 +54,28 @@ export default function SettingsScreen() {
 					title={["Dark Mode", "Light Mode"]}
 					subtitle={["Switch to light theme", "Switch to dark theme"]}
 					iconsName={["moon", "sunny"]}
+				/>
+
+				{/* Scanning Section */}
+				<SettingsSectionHeader title="Scanning" />
+				<ToggleBar
+					onPress={() => updateSetting("batterySaver", !settings.batterySaver)}
+					isChange={settings.batterySaver}
+					title={["Battery Saver On", "Battery Saver Off"]}
+					subtitle={[
+						"Stop scanning in low battery",
+						"Normal scanning frequency",
+					]}
+					iconsName={["battery-half", "battery-full"]}
+				/>
+				<ToggleBar
+					onPress={() =>
+						updateSetting("smartFilterEnabled", !settings.smartFilterEnabled)
+					}
+					isChange={settings.smartFilterEnabled}
+					title={["Smart Filter On", "Smart Filter Off"]}
+					subtitle={["Filter out non-documents", "Scan all images"]}
+					iconsName={["filter", "filter-outline"]}
 				/>
 			</ScrollView>
 

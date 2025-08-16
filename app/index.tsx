@@ -16,24 +16,22 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
+import { useDocumentStore } from "../stores/documentStore";
+import { useSearchStore } from "../stores/searchStore";
+import { useSettingsStore } from "../stores/settingsStore";
 
-// Import services
-import { database } from "../services/database";
-import { documentStorage } from "../services/database/documentStorage";
 import {
 	galleryScanner,
 	type ScanProgress,
 } from "../services/gallery/GalleryScanner";
-import { SearchOrchestrator } from "../services/search/searchOrchestrator";
 import type { RootStackParamList } from "../types/navigation";
 
-// Import our new components
 import { AppHeader } from "./components/AppHeader";
 import { Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
 import { EmptyState } from "./components/EmptyState";
 import { ScanProgressBar } from "./components/ScanProgressBar";
-import { QueryChip, SearchContainer } from "./components/SearchContainer";
+import { SearchContainer } from "./components/SearchContainer";
 import { SkeletonGrid } from "./components/SkeletonGrid";
 import { showToast, ToastContainer } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
@@ -44,20 +42,31 @@ export default function HomeScreen() {
 	const navigation = useNavigation<NavigationProp>();
 	const { theme, isDark } = useTheme();
 	const styles = useThemedStyles(createStyles);
+	const {
+		documents,
+		filteredDocuments,
+		loadDocuments,
+		setFilteredDocuments,
+		deleteDocument,
+		initializeRealTimeUpdates,
+	} = useDocumentStore();
 
-	// Document state
-	const [documents, setDocuments] = useState<Document[]>([]);
-	const [filteredDocuments, setFilteredDocuments] = useState<Document[]>([]);
+	const {
+		searchQuery,
+		queryChips,
+		isSearching,
+		setSearchQuery,
+		addQueryChip,
+		removeQueryChip,
+		clearSearch,
+	} = useSearchStore();
+	
+	const { settings } = useSettingsStore();
+
+	// Local UI state
 	const [selectedDocument, setSelectedDocument] = useState<Document | null>(
 		null,
 	);
-
-	// Search state
-	const [searchQuery, setSearchQuery] = useState("");
-	const [queryChips, setQueryChips] = useState<QueryChip[]>([]);
-	const [searchResults, setSearchResults] = useState<Document[]>([]);
-	const [isSearching, setIsSearching] = useState(false);
-	const [searchOrchestrator] = useState(() => new SearchOrchestrator(database));
 
 	// UI state
 	const [isRefreshing, setIsRefreshing] = useState(false);
@@ -68,70 +77,12 @@ export default function HomeScreen() {
 
 	// Animation values
 	const keyboard = useAnimatedKeyboard();
-	// const searchBarTranslateY = useSharedValue(0);
-
-	// Load documents
-	const loadDocuments = useCallback(async () => {
-		try {
-			const docs = await documentStorage.getAllDocuments();
-			const sortedDocs = docs.sort(
-				(a, b) =>
-					new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-			);
-
-			// Transform database documents to our Document interface
-			const transformedDocs: Document[] = sortedDocs.map((doc) => ({
-				id: doc.id,
-				imageUri: doc.imageUri,
-				documentType: doc.documentType,
-				vendor: doc.vendor,
-				date: doc.date ? new Date(doc.date) : undefined,
-				totalAmount: doc.totalAmount,
-				metadata: doc.metadata,
-				createdAt: new Date(doc.createdAt),
-			}));
-
-			setDocuments(transformedDocs);
-			setFilteredDocuments(transformedDocs);
-		} catch (error) {
-			console.error("Failed to load documents:", error);
-			showToast({
-				type: "error",
-				message: "Failed to load documents",
-				icon: "alert-circle",
-			});
-		}
-	}, []);
 
 	// Real-time document updates
 	useEffect(() => {
-		const subscription = documentStorage.observeDocuments((docs) => {
-			// Sort documents by creation date (newest first) - same as loadDocuments
-			const sortedDocs = docs.sort(
-				(a, b) =>
-					new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-			);
-
-			const transformedDocs: Document[] = sortedDocs.map((doc) => ({
-				id: doc.id,
-				imageUri: doc.imageUri,
-				documentType: doc.documentType,
-				vendor: doc.vendor,
-				date: doc.date ? new Date(doc.date) : undefined,
-				totalAmount: doc.totalAmount,
-				metadata: doc.metadata,
-				createdAt: new Date(doc.createdAt),
-			}));
-
-			setDocuments(transformedDocs);
-			// Only update filtered documents if not currently showing search results
-			if (queryChips.length === 0) {
-				setFilteredDocuments(transformedDocs);
-			}
-		});
-
-		return () => subscription?.unsubscribe?.();
-	}, [queryChips.length]);
+		const unsubscribe = initializeRealTimeUpdates();
+		return unsubscribe;
+	}, [initializeRealTimeUpdates]);
 
 	// Scan progress subscription
 	useEffect(() => {
@@ -157,48 +108,9 @@ export default function HomeScreen() {
 		};
 	});
 
-	// Core scan logic - extracted for reusability
-	const performGalleryScan = useCallback(
-		async (onProgress?: (progress: ScanProgress) => void) => {
-			// Check permissions first
-			const hasPermission = await galleryScanner.hasPermissions();
-			if (!hasPermission) {
-				const granted = await galleryScanner.requestPermissions();
-				if (!granted) {
-					Alert.alert(
-						"Permission Required",
-						"Gallery access is needed to scan for documents. Please enable it in settings.",
-					);
-					return false;
-				}
-			}
-
-			// Start the scan
-			await galleryScanner.startScan(
-				{
-					batchSize: 15,
-					smartFilterEnabled: true,
-					batterySaver: true,
-				},
-				onProgress ||
-					((progress) => {
-						setScanProgress(progress);
-						console.log(
-							`Scan progress: ${progress.processedImages}/${progress.totalImages}`,
-						);
-					}),
-			);
-
-			return true;
-		},
-		[],
-	);
-
-	// Handle refresh - loads documents first, then triggers background scan
 	const handleRefresh = useCallback(async () => {
 		setIsRefreshing(true);
 		try {
-			// First: Load existing documents (original refresh behavior)
 			await loadDocuments();
 		} catch (error) {
 			console.error("Refresh documents error:", error);
@@ -208,31 +120,25 @@ export default function HomeScreen() {
 				icon: "alert-circle",
 			});
 		} finally {
-			// End refresh indicator
 			setIsRefreshing(false);
 		}
 
-		// Then: Start background gallery scan separately
 		try {
-			// Check permissions first - don't set scanning state until after permissions
 			const hasPermission = await galleryScanner.hasPermissions();
 			if (!hasPermission) {
 				const granted = await galleryScanner.requestPermissions();
 				if (!granted) {
-					// Don't show alert for refresh - silently skip scanning if no permission
 					return;
 				}
 			}
 
-			// Only set scanning state after permissions are confirmed
 			setIsScanning(true);
 
-			// Start the scan (permissions already checked)
 			await galleryScanner.startScan(
 				{
-					batchSize: 15,
-					smartFilterEnabled: true,
-					batterySaver: true,
+					batchSize: settings.maxScanBatchSize,
+					smartFilterEnabled: settings.smartFilterEnabled,
+					batterySaver: settings.batterySaver,
 				},
 				(progress) => {
 					setScanProgress(progress);
@@ -244,7 +150,7 @@ export default function HomeScreen() {
 
 			showToast({
 				type: "success",
-				message: "Gallery scan completed successfully",
+				message: "Gallery refreshed successfully",
 				icon: "checkmark-circle",
 			});
 		} catch (error) {
@@ -258,68 +164,21 @@ export default function HomeScreen() {
 			setIsScanning(false);
 			setScanProgress(null);
 		}
-	}, [performGalleryScan, loadDocuments]);
+	}, [loadDocuments]);
 
 	// Handle search
 	const handleSearch = useCallback(async () => {
-		if (!searchQuery.trim()) return;
-
-		// First: Add chip immediately for better UX (before loading state)
-		const newChip: QueryChip = {
-			id: Date.now().toString(),
-			text: searchQuery,
-			type: "search",
-		};
-		setQueryChips((prev) => [...prev, newChip]);
-
-		// Clear search input immediately
-		setSearchQuery("");
-
-		// Small delay to let chip animation complete before showing loading
-		await new Promise((resolve) => setTimeout(resolve, 200));
-
-		setIsSearching(true);
 		try {
-			// Build combined search query from all chips (including new one)
-			const allSearchTerms = [
-				...queryChips.map((chip) => chip.text),
-				newChip.text,
-			];
-			const combinedQuery = allSearchTerms.join(" ");
-
-			const result = await searchOrchestrator.search(combinedQuery, {
-				useSemanticSearch: true,
-				usePhoneticMatching: true,
-				useFuzzyMatching: true,
-				maxResults: 50,
-			});
-
-			const docs: Document[] = result.documents.map((scored) => ({
-				id: scored.document.id,
-				imageUri: scored.document.imageUri,
-				documentType: scored.document.documentType,
-				vendor: scored.document.vendor,
-				date: scored.document.date ? new Date(scored.document.date) : undefined,
-				totalAmount: scored.document.totalAmount,
-				metadata: scored.document.metadata,
-				createdAt: new Date(scored.document.createdAt),
-			}));
-
-			setSearchResults(docs);
+			const docs = await addQueryChip(searchQuery);
 			setFilteredDocuments(docs);
 		} catch (error) {
-			console.error("Search error:", error);
-			// Remove the chip if search failed
-			setQueryChips((prev) => prev.filter((chip) => chip.id !== newChip.id));
 			showToast({
 				type: "error",
 				message: "Search failed",
 				icon: "alert-circle",
 			});
-		} finally {
-			setIsSearching(false);
 		}
-	}, [searchQuery, queryChips, searchOrchestrator]);
+	}, [searchQuery, addQueryChip, setFilteredDocuments]);
 
 	// Handle document press
 	const handleDocumentPress = useCallback((doc: Document) => {
@@ -328,19 +187,17 @@ export default function HomeScreen() {
 	}, []);
 
 	// Handle document deletion
-	const handleDeleteDocument = useCallback(async (doc: Document) => {
-		try {
-			// showToast({
-			// 	type: "success",
-			// 	message: "Document deleted",
-			// 	icon: "checkmark-circle",
-			// });
-			await documentStorage.deleteDocument(doc.id);
-		} catch (error) {
-			console.error("Delete error:", error);
-			throw error;
-		}
-	}, []);
+	const handleDeleteDocument = useCallback(
+		async (doc: Document) => {
+			try {
+				await deleteDocument(doc.id);
+			} catch (error) {
+				console.error("Delete error:", error);
+				throw error;
+			}
+		},
+		[deleteDocument],
+	);
 
 	// Handle manual background scan (initiated by user via button)
 	const handleStartBackgroundScan = useCallback(async () => {
@@ -364,9 +221,9 @@ export default function HomeScreen() {
 			// Start the scan (permissions already checked)
 			await galleryScanner.startScan(
 				{
-					batchSize: 15,
-					smartFilterEnabled: true,
-					batterySaver: true,
+					batchSize: settings.maxScanBatchSize,
+					smartFilterEnabled: settings.smartFilterEnabled,
+					batterySaver: settings.batterySaver,
 				},
 				(progress) => {
 					setScanProgress(progress);
@@ -430,56 +287,24 @@ export default function HomeScreen() {
 	// Handle chip removal
 	const handleRemoveChip = useCallback(
 		async (chipId: string) => {
-			const updatedChips = queryChips.filter((chip) => chip.id !== chipId);
-			setQueryChips(updatedChips);
-
-			// If this was the last chip, clear search state
-			if (updatedChips.length === 0) {
-				setFilteredDocuments(documents);
-				setSearchQuery("");
-				setSearchResults([]);
-				return;
-			}
-
-			// Re-search with remaining chips
 			try {
-				setIsSearching(true);
-				const combinedQuery = updatedChips.map((chip) => chip.text).join(" ");
-
-				const result = await searchOrchestrator.search(combinedQuery, {
-					useSemanticSearch: true,
-					usePhoneticMatching: true,
-					useFuzzyMatching: true,
-					maxResults: 50,
-				});
-
-				const docs: Document[] = result.documents.map((scored) => ({
-					id: scored.document.id,
-					imageUri: scored.document.imageUri,
-					documentType: scored.document.documentType,
-					vendor: scored.document.vendor,
-					date: scored.document.date
-						? new Date(scored.document.date)
-						: undefined,
-					totalAmount: scored.document.totalAmount,
-					metadata: scored.document.metadata,
-					createdAt: new Date(scored.document.createdAt),
-				}));
-
-				setSearchResults(docs);
-				setFilteredDocuments(docs);
+				const docs = await removeQueryChip(chipId);
+				if (docs.length === 0) {
+					// No chips left, show all documents
+					setFilteredDocuments(documents);
+				} else {
+					// Update with search results
+					setFilteredDocuments(docs);
+				}
 			} catch (error) {
-				console.error("Re-search error:", error);
 				showToast({
 					type: "error",
 					message: "Search failed",
 					icon: "alert-circle",
 				});
-			} finally {
-				setIsSearching(false);
 			}
 		},
-		[queryChips, documents, searchOrchestrator],
+		[removeQueryChip, documents, setFilteredDocuments],
 	);
 
 	// Initial load
@@ -560,7 +385,6 @@ export default function HomeScreen() {
 						// Only clear search results if user clears input AND there are no chips
 						if (!text.trim() && queryChips.length === 0) {
 							setFilteredDocuments(documents);
-							setSearchResults([]);
 						}
 					}}
 					onSubmit={handleSearch}
