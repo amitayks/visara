@@ -227,13 +227,14 @@ export class SearchOrchestrator {
 		// Apply amount filter
 		if (query.amount) {
 			switch (query.amount.operator) {
-				case "equals":
+				case "equals": {
 					const tolerance = query.amount.tolerance || 0.01;
 					conditions.push(
 						Q.where("total_amount", Q.gte(query.amount.value - tolerance)),
 						Q.where("total_amount", Q.lte(query.amount.value + tolerance)),
 					);
 					break;
+				}
 				case "greater":
 					conditions.push(Q.where("total_amount", Q.gt(query.amount.value)));
 					break;

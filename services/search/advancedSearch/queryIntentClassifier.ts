@@ -129,7 +129,7 @@ export class QueryIntentClassifier {
 				case "count":
 					intents.push("limit");
 					break;
-				case "amount":
+				case "amount": {
 					// Amount often implies comparison or filtering
 					const amountText = entity.originalText.toLowerCase();
 					if (
@@ -142,6 +142,7 @@ export class QueryIntentClassifier {
 					}
 					intents.push("filter");
 					break;
+				}
 				case "date":
 					intents.push("filter");
 					break;

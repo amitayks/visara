@@ -639,7 +639,7 @@ export class QualityAssurance {
 		documentType: DocumentType,
 	): number {
 		switch (documentType) {
-			case DocumentType.RECEIPT:
+			case DocumentType.RECEIPT: {
 				const receiptData = data as ReceiptData;
 				if (!receiptData || !("vendor" in receiptData)) return 0;
 				return (
@@ -647,8 +647,9 @@ export class QualityAssurance {
 					(receiptData.totals?.total > 0 ? 0.3 : 0) +
 					(receiptData.items?.length > 0 ? 0.4 : 0)
 				);
+			}
 
-			case DocumentType.INVOICE:
+			case DocumentType.INVOICE: {
 				const invoiceData = data as InvoiceData;
 				if (!invoiceData || !("vendor" in invoiceData)) return 0;
 				return (
@@ -658,9 +659,10 @@ export class QualityAssurance {
 					(invoiceData.totals?.total > 0 ? 0.2 : 0) +
 					(invoiceData.items?.length > 0 ? 0.2 : 0)
 				);
+			}
 
 			case DocumentType.ID_CARD:
-			case DocumentType.DRIVERS_LICENSE:
+			case DocumentType.DRIVERS_LICENSE: {
 				const idData = data as IDData;
 				if (
 					!idData ||
@@ -673,19 +675,22 @@ export class QualityAssurance {
 					(idData.personalInfo?.lastName?.length > 0 ? 0.3 : 0) +
 					(idData.documentInfo?.documentNumber?.length > 0 ? 0.4 : 0)
 				);
+			}
 
-			case DocumentType.PASSPORT:
+			case DocumentType.PASSPORT: {
 				const passportData = data as PassportData;
 				if (!passportData || !("validity" in passportData)) return 0;
 				return passportData.validity?.isValid ? 1.0 : 0.3;
+			}
 
-			default:
+			default: {
 				const genericData = data as GenericDocumentData;
 				return (
 					(genericData.content.length > 50 ? 0.4 : 0) +
 					(genericData.entities.length > 0 ? 0.3 : 0) +
 					(genericData.keyValuePairs.length > 0 ? 0.3 : 0)
 				);
+			}
 		}
 	}
 
@@ -725,7 +730,7 @@ export class QualityAssurance {
 		let penalty = 0;
 
 		switch (documentType) {
-			case DocumentType.RECEIPT:
+			case DocumentType.RECEIPT: {
 				const receiptData = data as ReceiptData;
 				// Check if items total matches subtotal
 				const itemsTotal = receiptData.items.reduce(
@@ -739,8 +744,9 @@ export class QualityAssurance {
 					penalty += 0.2;
 				}
 				break;
+			}
 
-			case DocumentType.INVOICE:
+			case DocumentType.INVOICE: {
 				const invoiceData = data as InvoiceData;
 				// Check if due date is after issue date
 				if (
@@ -750,14 +756,16 @@ export class QualityAssurance {
 					penalty += 0.1;
 				}
 				break;
+			}
 
-			case DocumentType.PASSPORT:
+			case DocumentType.PASSPORT: {
 				const passportData = data as PassportData;
 				// Check if MRZ data is consistent with visual data
 				if (!passportData.validity.isValid) {
 					penalty += 0.3;
 				}
 				break;
+			}
 		}
 
 		return penalty;

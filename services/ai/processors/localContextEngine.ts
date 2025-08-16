@@ -344,7 +344,7 @@ export class LocalContextEngine {
 
 	private extractEntities(text: string, blocks: TextBlock[]): Entity[] {
 		const entities: Entity[] = [];
-		let entityId = 0;
+		const entityId = 0;
 
 		// Extract entities using patterns
 		for (const [entityType, patterns] of this.entityPatterns) {
@@ -650,12 +650,13 @@ export class LocalContextEngine {
 					return value;
 				}
 
-			case EntityType.AMOUNT:
+			case EntityType.AMOUNT: {
 				const numMatch = value.match(/[\d,]+\.?\d*/);
 				if (numMatch) {
 					return parseFloat(numMatch[0].replace(/,/g, ""));
 				}
 				return value;
+			}
 
 			default:
 				return value;

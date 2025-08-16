@@ -57,15 +57,15 @@ export class PhoneticMatcher {
 	 * Compare two words phonetically
 	 */
 	static compare(word1: string, word2: string): boolean {
-		return this.soundex(word1) === this.soundex(word2);
+		return PhoneticMatcher.soundex(word1) === PhoneticMatcher.soundex(word2);
 	}
 
 	/**
 	 * Get phonetic similarity score
 	 */
 	static similarity(word1: string, word2: string): number {
-		const code1 = this.soundex(word1);
-		const code2 = this.soundex(word2);
+		const code1 = PhoneticMatcher.soundex(word1);
+		const code2 = PhoneticMatcher.soundex(word2);
 
 		if (code1 === code2) return 1;
 

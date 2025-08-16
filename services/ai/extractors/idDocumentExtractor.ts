@@ -241,11 +241,11 @@ export class IDDocumentExtractor implements DocumentExtractor<IDData> {
 
 		if (lines.length === 0) return undefined;
 
-		let street = lines[0];
+		const street = lines[0];
 		let city = "";
 		let state: string | undefined;
 		let postalCode = "";
-		let country = "USA"; // Default
+		const country = "USA"; // Default
 
 		// Parse last line for city, state, ZIP
 		if (lines.length > 1) {

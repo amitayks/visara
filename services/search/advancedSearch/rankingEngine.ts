@@ -311,11 +311,12 @@ export class RankingEngine {
 		const { value, operator, tolerance = 0 } = amountFilter;
 
 		switch (operator) {
-			case "equals":
+			case "equals": {
 				const diff = Math.abs(docAmount - value);
 				if (diff <= tolerance) return 1.0;
 				// Gradual decay for close matches
 				return Math.max(0, 1 - diff / value);
+			}
 
 			case "greater":
 				if (docAmount > value) {
@@ -402,17 +403,19 @@ export class RankingEngine {
 			let comparison = 0;
 
 			switch (sortBy) {
-				case "date":
+				case "date": {
 					const dateA = a.document.date || 0;
 					const dateB = b.document.date || 0;
 					comparison = dateA - dateB;
 					break;
+				}
 
-				case "amount":
+				case "amount": {
 					const amountA = a.document.totalAmount || 0;
 					const amountB = b.document.totalAmount || 0;
 					comparison = amountA - amountB;
 					break;
+				}
 
 				case "relevance":
 				default:

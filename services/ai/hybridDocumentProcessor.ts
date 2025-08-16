@@ -277,7 +277,7 @@ export class HybridDocumentProcessor
 			console.log("Starting OCR text extraction...");
 
 			// First, try regular multi-engine OCR
-			let result = await this.multiEngineOCR.extractText(imageUri);
+			const result = await this.multiEngineOCR.extractText(imageUri);
 
 			// Use standard result for English-only processing
 

@@ -92,7 +92,7 @@ export class EnhancedSearchService {
 			console.log("[EnhancedSearchService] Total documents:", documents.length);
 
 			// Apply filters first
-			let filteredDocs = await this.applyFilters(documents, parsedQuery);
+			const filteredDocs = await this.applyFilters(documents, parsedQuery);
 			console.log(
 				"[EnhancedSearchService] Filtered documents:",
 				filteredDocs.length,

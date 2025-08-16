@@ -10,10 +10,10 @@ export class PermissionChangeHandler {
 	private lastPermissionStatus: string | null = null;
 
 	static getInstance() {
-		if (!this.instance) {
-			this.instance = new PermissionChangeHandler();
+		if (!PermissionChangeHandler.instance) {
+			PermissionChangeHandler.instance = new PermissionChangeHandler();
 		}
-		return this.instance;
+		return PermissionChangeHandler.instance;
 	}
 
 	async initialize() {

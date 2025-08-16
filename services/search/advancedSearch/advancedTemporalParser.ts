@@ -360,8 +360,8 @@ export class AdvancedTemporalParser {
 	private parseSpecificDate(text: string): TemporalExpression | null {
 		// Parse specific date formats
 		const datePatterns = [
-			/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/, // MM/DD/YYYY or DD/MM/YYYY
-			/(\d{4})[\/\-\.](\d{1,2})[\/\-\.](\d{1,2})/, // YYYY/MM/DD
+			/(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})/, // MM/DD/YYYY or DD/MM/YYYY
+			/(\d{4})[/\-.](\d{1,2})[/\-.](\d{1,2})/, // YYYY/MM/DD
 			/(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{2,4})/i,
 			/(\d{1,2})\s+ב?(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר)\s+(\d{2,4})/,
 		];
