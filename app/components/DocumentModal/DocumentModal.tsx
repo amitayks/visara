@@ -90,11 +90,21 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 			if (canOpen) {
 				await Linking.openURL(document.imageUri);
 			} else {
-				Alert.alert("Error", "Cannot open this image in gallery");
+				showToast({
+					type: "error",
+					message: "Cannot open this image in gallery",
+					icon: "alert-circle",
+				});
+				onClose();
+				// Alert.alert("Error", "Cannot open this image in gallery");
 			}
 		} catch (error) {
 			console.error("Failed to open in gallery:", error);
-			Alert.alert("Error", "Failed to open image in gallery");
+			showToast({
+				type: "error",
+				message: "Cannot open this image in gallery",
+				icon: "alert-circle",
+			});
 		}
 	}, [document]);
 
