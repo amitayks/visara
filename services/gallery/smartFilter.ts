@@ -24,7 +24,7 @@ export interface AssetInfo {
 
 export class SmartFilter {
 	private static defaultOptions: SmartFilterOptions = {
-		minFileSize: 60, // 60KB minimum
+		minFileSize: 100, // 100KB minimum
 		maxFileSize: 50 * 1024, // 50MB maximum
 		maxAspectRatio: 3, // Skip panoramas
 		priorityKeywords: [
@@ -62,7 +62,7 @@ export class SmartFilter {
 			/twitter/i,
 			/telegram/i,
 		],
-		includeScreenshots: true,
+		includeScreenshots: false,
 	};
 
 	private options: SmartFilterOptions;

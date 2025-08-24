@@ -14,7 +14,6 @@ import {
 	type AssetInfo,
 	type SmartFilterOptions,
 } from "./smartFilter";
-import { FailedImagesManager } from "./FailedImagesManager";
 import { deviceInfo } from "../../utils/deviceInfo";
 import { galleryPermissions } from "../permissions/galleryPermissions";
 import { memoryManager } from "../memory/memoryManager";
@@ -74,7 +73,6 @@ export class GalleryScanner {
 	};
 	private processedHashes = new Set<string>();
 	private failedImages = new Map<string, number>(); // uri -> retry count
-	private failedImagesManager = new FailedImagesManager();
 	private memoryCheckInterval: NodeJS.Timeout | null = null;
 	private scanHistory: Array<{
 		date: Date;
@@ -93,7 +91,7 @@ export class GalleryScanner {
 	constructor() {
 		this.loadProgress();
 		this.loadProcessedHashes();
-		this.initializeFailedImages();
+		this.loadFailedImages();
 		this.loadScanHistory();
 	}
 
@@ -673,12 +671,25 @@ export class GalleryScanner {
 		await AsyncStorage.removeItem(SCAN_HISTORY_KEY);
 	}
 
-	private async initializeFailedImages() {
-		this.failedImages = await this.failedImagesManager.loadFailedImages();
+	private async loadFailedImages() {
+		try {
+			const saved = await AsyncStorage.getItem(FAILED_IMAGES_KEY);
+			if (saved) {
+				const entries = JSON.parse(saved);
+				this.failedImages = new Map(entries);
+			}
+		} catch (error) {
+			console.error("Failed to load failed images:", error);
+		}
 	}
 
 	private async saveFailedImages() {
-		await this.failedImagesManager.saveFailedImages(this.failedImages);
+		try {
+			const entries = Array.from(this.failedImages.entries());
+			await AsyncStorage.setItem(FAILED_IMAGES_KEY, JSON.stringify(entries));
+		} catch (error) {
+			console.error("Failed to save failed images:", error);
+		}
 	}
 
 	private async loadScanHistory() {
@@ -717,11 +728,32 @@ export class GalleryScanner {
 	}
 
 	async retryFailedImages(options: ScanOptions = {}) {
-		this.failedImages = await this.failedImagesManager.retryFailedImages(
-			this.failedImages,
-			(asset: any, options: ScanOptions) => this.processAsset(asset, options),
-			options,
-		);
+		const failedUris = Array.from(this.failedImages.keys());
+		if (failedUris.length === 0) {
+			console.log("No failed images to retry");
+			return;
+		}
+
+		console.log(`Retrying ${failedUris.length} failed images`);
+
+		// Clear failed images and try processing them again
+		const tempFailedImages = new Map(this.failedImages);
+		this.failedImages.clear();
+
+		for (const uri of failedUris) {
+			// Create a minimal asset structure for reprocessing
+			const asset = {
+				image: { uri },
+			};
+
+			try {
+				await this.processAsset(asset, options);
+			} catch (error) {
+				// If it fails again, it will be re-added to failedImages
+				console.error(`Retry failed for ${uri}:`, error);
+			}
+		}
+
 		await this.saveFailedImages();
 	}
 
