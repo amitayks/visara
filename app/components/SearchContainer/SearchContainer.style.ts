@@ -14,6 +14,10 @@ export const createStyles = (theme: any) =>
 			paddingTop: 12,
 			paddingBottom: 8,
 		},
+		CloseAllButton: {
+			marginRight: 8,
+			justifyContent: "center",
+		},
 		chipsScrollContent: {
 			paddingVertical: 4,
 			gap: 8,

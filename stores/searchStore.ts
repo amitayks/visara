@@ -17,6 +17,7 @@ interface SearchStore {
 	setSearchQuery: (query: string) => void;
 	addQueryChip: (text: string) => Promise<Document[]>;
 	removeQueryChip: (chipId: string) => Promise<Document[]>;
+	RemoveAllChips: () => Promise<Document[]>;
 	performSearch: () => Promise<Document[]>;
 	clearSearch: () => void;
 }
@@ -37,7 +38,7 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 
 	addQueryChip: async (text: string) => {
 		const { queryChips, searchOrchestrator } = get();
-		
+
 		// Add chip immediately for better UX
 		const newChip: QueryChip = {
 			id: Date.now().toString(),
@@ -127,6 +128,11 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 		}
 	},
 
+	RemoveAllChips: async () => {
+		set({ queryChips: [], searchQuery: "" });
+		return [];
+	},
+
 	performSearch: async () => {
 		const { searchQuery } = get();
 		if (!searchQuery.trim()) return [];
@@ -135,10 +141,10 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 	},
 
 	clearSearch: () => {
-		set({ 
-			searchQuery: "", 
-			queryChips: [], 
-			isSearching: false 
+		set({
+			searchQuery: "",
+			queryChips: [],
+			isSearching: false,
 		});
 	},
 }));

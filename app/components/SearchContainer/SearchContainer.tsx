@@ -25,6 +25,7 @@ interface SearchContainerProps {
 	onSubmit: () => void;
 	queryChips: QueryChip[];
 	onRemoveChip: (id: string) => void;
+	RemoveAllChips: () => void;
 	placeholder?: string;
 	showSendButton: boolean;
 	autoFocus?: boolean;
@@ -37,9 +38,11 @@ export const SearchContainer: React.FC<SearchContainerProps> = ({
 	onSubmit,
 	queryChips,
 	onRemoveChip,
+	RemoveAllChips,
 	placeholder = "Search documents...",
 	showSendButton,
 	autoFocus = false,
+
 	style,
 }) => {
 	const { theme } = useTheme();
@@ -68,6 +71,16 @@ export const SearchContainer: React.FC<SearchContainerProps> = ({
 						contentContainerStyle={styles.chipsScrollContent}
 						keyboardShouldPersistTaps="always"
 					>
+						<TouchableOpacity
+							style={styles.CloseAllButton}
+							onPress={() => RemoveAllChips()}
+						>
+							<Icon
+								name="close-circle"
+								style={{ color: theme.text }}
+								size={20}
+							/>
+						</TouchableOpacity>
 						{queryChips.map((chip) => (
 							<Animated.View
 								key={chip.id}

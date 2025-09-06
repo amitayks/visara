@@ -60,6 +60,7 @@ export default function HomeScreen() {
 		addQueryChip,
 		removeQueryChip,
 		clearSearch,
+		RemoveAllChips,
 	} = useSearchStore();
 
 	const { settings } = useSettingsStore();
@@ -293,6 +294,13 @@ export default function HomeScreen() {
 		[removeQueryChip, documents, setFilteredDocuments],
 	);
 
+	const handleClearSearch = useCallback(() => {
+		clearSearch();
+		RemoveAllChips();
+		setFilteredDocuments(documents);
+		Keyboard.dismiss();
+	}, [clearSearch, documents, setFilteredDocuments]);
+
 	// Initial load
 	useEffect(() => {
 		loadDocuments();
@@ -374,6 +382,7 @@ export default function HomeScreen() {
 						}
 					}}
 					onSubmit={handleSearch}
+					RemoveAllChips={handleClearSearch}
 					queryChips={queryChips}
 					onRemoveChip={handleRemoveChip}
 					showSendButton={searchQuery.length > 0}
