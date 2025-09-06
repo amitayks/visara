@@ -11,7 +11,6 @@ import {
 	View,
 } from "react-native";
 import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
-import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { copyToClipboard } from "../../../utils/clipboard";
 import { formatDate, formatCurrency } from "../../../utils/format";
@@ -20,6 +19,7 @@ import { ActionButton } from "../ActionButton";
 import { Document } from "../DocumentGrid/DocumentGrid";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./DocumentModal.style";
+import { InfoRow } from "../InfoRow";
 
 interface DocumentModalProps {
 	visible: boolean;
@@ -29,37 +29,6 @@ interface DocumentModalProps {
 	onShare?: (doc: Document) => void;
 }
 
-interface InfoRowProps {
-	icon: string;
-	label: string;
-	value?: string | null;
-}
-
-const InfoRow: React.FC<InfoRowProps & { styles: any; iconColors: any }> = ({
-	icon,
-	label,
-	value,
-	styles,
-	iconColors,
-}) => {
-	if (!value) return null;
-
-	return (
-		<View style={styles.infoRow}>
-			<Icon
-				name={icon}
-				size={20}
-				color={iconColors.secondary}
-				style={styles.infoIcon}
-			/>
-			<View style={styles.infoContent}>
-				<Text style={styles.infoLabel}>{label}</Text>
-				<Text style={styles.infoValue}>{value}</Text>
-			</View>
-		</View>
-	);
-};
-
 export const DocumentModal: React.FC<DocumentModalProps> = ({
 	visible,
 	document,
@@ -68,7 +37,6 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	onShare,
 }) => {
 	const { theme } = useTheme();
-	const iconColors = useIconColors();
 	const styles = useThemedStyles(createStyles);
 
 	// const [loading, setLoading] = useState(true);
@@ -184,29 +152,21 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 								icon="document-text"
 								label="Type"
 								value={document?.documentType}
-								styles={styles}
-								iconColors={iconColors}
 							/>
 							<InfoRow
 								icon="business"
 								label="Vendor"
 								value={document?.vendor || "Unknown"}
-								styles={styles}
-								iconColors={iconColors}
 							/>
 							<InfoRow
 								icon="calendar"
 								label="Date"
 								value={formatDate(document?.date)}
-								styles={styles}
-								iconColors={iconColors}
 							/>
 							<InfoRow
 								icon="cash"
 								label="Amount"
 								value={formatCurrency(document?.totalAmount)}
-								styles={styles}
-								iconColors={iconColors}
 							/>
 						</View>
 
