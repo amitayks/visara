@@ -1,16 +1,20 @@
-import React, { useRef } from "react";
+import React, { useCallback, useRef } from "react";
 import {
+	Keyboard,
 	ScrollView,
 	Text,
 	TextInput,
 	TouchableOpacity,
 	View,
-	ViewStyle,
 } from "react-native";
 import Animated, { SlideInDown, SlideOutUp } from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
+
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { useDocumentStore } from "../../../stores/documentStore";
+import { useSearchStore } from "../../../stores/searchStore";
 import { useIconColors } from "../../../utils/iconColors";
+import { showToast } from "../Toast";
 import { createStyles } from "./SearchContainer.style";
 
 export interface QueryChip {
@@ -19,61 +23,87 @@ export interface QueryChip {
 	type: "search" | "filter" | "date" | "amount";
 }
 
-interface SearchContainerProps {
-	searchValue: string;
-	onSearchChange: (text: string) => void;
-	onSubmit: () => void;
-	queryChips: QueryChip[];
-	onRemoveChip: (id: string) => void;
-	RemoveAllChips: () => void;
-	placeholder?: string;
-	showSendButton: boolean;
-	autoFocus?: boolean;
-	style?: ViewStyle;
-}
-
-export const SearchContainer: React.FC<SearchContainerProps> = ({
-	searchValue,
-	onSearchChange,
-	onSubmit,
-	queryChips,
-	onRemoveChip,
-	RemoveAllChips,
-	placeholder = "Search documents...",
-	showSendButton,
-	autoFocus = false,
-
-	style,
-}) => {
+export const SearchContainer: React.FC = () => {
 	const { theme } = useTheme();
 	const iconColors = useIconColors();
 	const styles = useThemedStyles(createStyles);
-
 	const inputRef = useRef<TextInput>(null);
 
-	const handleSubmit = () => {
-		if (searchValue.trim()) {
-			onSubmit();
+	const { documents, setFilteredDocuments } = useDocumentStore();
+	const {
+		queryChips,
+		addQueryChip,
+		removeQueryChip,
+		clearSearch,
+		searchQuery,
+		setSearchQuery,
+	} = useSearchStore();
+
+	const handleClearSearch = useCallback(() => {
+		clearSearch();
+		setFilteredDocuments(documents);
+		Keyboard.dismiss();
+	}, [clearSearch, documents, setFilteredDocuments]);
+
+	const handleRemoveChip = useCallback(
+		async (chipId: string) => {
+			try {
+				const docs = await removeQueryChip(chipId);
+				if (docs.length === 0) {
+					// No chips left, show all documents
+					setFilteredDocuments(documents);
+				} else {
+					// Update with search results
+					setFilteredDocuments(docs);
+				}
+			} catch (error) {
+				showToast({
+					type: "error",
+					message: "Search failed",
+					icon: "alert-circle",
+				});
+			}
+		},
+		[removeQueryChip, documents, setFilteredDocuments],
+	);
+
+	const handleSearch = useCallback(async () => {
+		if (searchQuery.trim()) {
+			try {
+				const docs = await addQueryChip(searchQuery);
+				setFilteredDocuments(docs);
+			} catch (error) {
+				showToast({
+					type: "error",
+					message: "Search failed",
+					icon: "alert-circle",
+				});
+			}
 		}
-	};
+	}, [searchQuery, addQueryChip, setFilteredDocuments]);
+
+	const handleInputChange = useCallback(
+		(text: string) => {
+			setSearchQuery(text);
+			if (!text.trim() && queryChips.length === 0) {
+				setFilteredDocuments(documents);
+			}
+		},
+		[setSearchQuery, setFilteredDocuments, documents],
+	);
 
 	return (
-		<View style={[styles.container, style]}>
+		<View style={[styles.container]}>
 			{queryChips.length > 0 && (
-				<Animated.View
-					// entering={SlideInDown.duration(300)}
-					// exiting={SlideOutDown.duration(300)}
-					style={styles.chipsContainer}
-				>
+				<Animated.View style={styles.chipsContainer}>
 					<ScrollView
 						horizontal
 						showsHorizontalScrollIndicator={false}
 						contentContainerStyle={styles.chipsScrollContent}
-						keyboardShouldPersistTaps="always"
 					>
 						<TouchableOpacity
 							style={styles.CloseAllButton}
-							onPress={() => RemoveAllChips()}
+							onPress={handleClearSearch}
 						>
 							<Icon
 								name="close-circle"
@@ -93,7 +123,7 @@ export const SearchContainer: React.FC<SearchContainerProps> = ({
 										{chip.text}
 									</Text>
 									<TouchableOpacity
-										onPress={() => onRemoveChip(chip.id)}
+										onPress={() => handleRemoveChip(chip.id)}
 										style={styles.removeButton}
 										hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
 									>
@@ -111,14 +141,14 @@ export const SearchContainer: React.FC<SearchContainerProps> = ({
 				<View style={styles.inputContainer}>
 					<TextInput
 						ref={inputRef}
-						value={searchValue}
-						onChangeText={onSearchChange}
-						placeholder={placeholder}
+						value={searchQuery}
+						onChangeText={handleInputChange}
+						placeholder="Search documents..."
+						placeholderTextColor={iconColors.placeholder}
 						style={styles.input}
 						returnKeyType="search"
-						onSubmitEditing={handleSubmit}
-						placeholderTextColor={iconColors.placeholder}
-						autoFocus={autoFocus}
+						onSubmitEditing={handleSearch}
+						autoFocus={false}
 						selectionColor={theme.accent}
 						autoCapitalize="none"
 						autoCorrect={false}
@@ -127,9 +157,9 @@ export const SearchContainer: React.FC<SearchContainerProps> = ({
 
 				<Animated.View style={[styles.sendButtonContainer]}>
 					<TouchableOpacity
-						onPress={handleSubmit}
+						onPress={handleSearch}
 						activeOpacity={0.7}
-						disabled={!showSendButton}
+						disabled={!(searchQuery.length > 0)}
 						style={styles.sendButton}
 					>
 						<Icon name="send" size={22} color={iconColors.accent} />

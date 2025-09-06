@@ -42,24 +42,10 @@ export default function HomeScreen() {
 	const navigation = useNavigation<NavigationProp>();
 	const { theme, isDark } = useTheme();
 	const styles = useThemedStyles(createStyles);
-	const {
-		documents,
-		filteredDocuments,
-		loadDocuments,
-		setFilteredDocuments,
-		deleteDocument,
-		initializeRealTimeUpdates,
-	} = useDocumentStore();
 
-	const {
-		searchQuery,
-		queryChips,
-		// isSearching,
-		setSearchQuery,
-		addQueryChip,
-		removeQueryChip,
-		clearSearch,
-	} = useSearchStore();
+	const { filteredDocuments, loadDocuments, initializeRealTimeUpdates } =
+		useDocumentStore();
+	const { searchQuery, queryChips } = useSearchStore();
 
 	const { settings } = useSettingsStore();
 
@@ -159,19 +145,6 @@ export default function HomeScreen() {
 		}
 	}, [loadDocuments]);
 
-	const handleSearch = useCallback(async () => {
-		try {
-			const docs = await addQueryChip(searchQuery);
-			setFilteredDocuments(docs);
-		} catch (error) {
-			showToast({
-				type: "error",
-				message: "Search failed",
-				icon: "alert-circle",
-			});
-		}
-	}, [searchQuery, addQueryChip, setFilteredDocuments]);
-
 	// Handle document press
 	const handleDocumentPress = useCallback((doc: Document) => {
 		setSelectedDocument(doc);
@@ -256,35 +229,6 @@ export default function HomeScreen() {
 		navigation.navigate("Settings");
 	}, [navigation]);
 
-	// Handle chip removal
-	const handleRemoveChip = useCallback(
-		async (chipId: string) => {
-			try {
-				const docs = await removeQueryChip(chipId);
-				if (docs.length === 0) {
-					// No chips left, show all documents
-					setFilteredDocuments(documents);
-				} else {
-					// Update with search results
-					setFilteredDocuments(docs);
-				}
-			} catch (error) {
-				showToast({
-					type: "error",
-					message: "Search failed",
-					icon: "alert-circle",
-				});
-			}
-		},
-		[removeQueryChip, documents, setFilteredDocuments],
-	);
-
-	const handleClearSearch = useCallback(() => {
-		clearSearch();
-		setFilteredDocuments(documents);
-		Keyboard.dismiss();
-	}, [clearSearch, documents, setFilteredDocuments]);
-
 	// Initial load
 	useEffect(() => {
 		loadDocuments();
@@ -353,21 +297,7 @@ export default function HomeScreen() {
 
 			{/* Search Section - Fixed at bottom */}
 			<Animated.View style={[styles.searchWrapper, searchBarStyle]}>
-				<SearchContainer
-					searchValue={searchQuery}
-					onSearchChange={(text) => {
-						setSearchQuery(text);
-						// Only clear search results if user clears input AND there are no chips
-						if (!text.trim() && queryChips.length === 0) {
-							setFilteredDocuments(documents);
-						}
-					}}
-					onSubmit={handleSearch}
-					RemoveAllChips={handleClearSearch}
-					queryChips={queryChips}
-					onRemoveChip={handleRemoveChip}
-					showSendButton={searchQuery.length > 0}
-				/>
+				<SearchContainer />
 			</Animated.View>
 
 			{/* Document Modal */}
