@@ -81,23 +81,19 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 		const updatedChips = queryChips.filter((chip) => chip.id !== chipId);
 		set({ queryChips: updatedChips });
 
-		// If no chips left, return empty array to signal clear search
 		if (updatedChips.length === 0) {
 			set({ searchQuery: "" });
 			return [];
 		}
 
-		// Re-search with remaining chips
 		try {
 			const combinedQuery = updatedChips.map((chip) => chip.text).join(" ");
-
 			const result = await searchOrchestrator.search(combinedQuery, {
 				useSemanticSearch: true,
 				usePhoneticMatching: true,
 				useFuzzyMatching: true,
 				maxResults: 50,
 			});
-
 			const docs: Document[] = result.documents.map((scored) => ({
 				id: scored.document.id,
 				imageUri: scored.document.imageUri,
@@ -108,7 +104,6 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 				metadata: scored.document.metadata,
 				createdAt: new Date(scored.document.createdAt),
 			}));
-
 			return docs;
 		} catch (error) {
 			console.error("Re-search error:", error);
