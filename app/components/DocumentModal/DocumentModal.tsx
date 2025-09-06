@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
 	ActivityIndicator,
-	Alert,
 	Linking,
 	Modal,
 	ScrollView,
@@ -14,12 +13,13 @@ import {
 import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { copyToClipboard } from "../../../utils/clipboard";
+import { formatDate, formatCurrency } from "../../../utils/format";
 import { useIconColors } from "../../../utils/iconColors";
 import { ActionButton } from "../ActionButton";
 import { Document } from "../DocumentGrid/DocumentGrid";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./DocumentModal.style";
-import { copyToClipboard } from "../../../utils/clipboard";
 
 interface DocumentModalProps {
 	visible: boolean;
@@ -74,15 +74,6 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	// const [loading, setLoading] = useState(true);
 	const [deleting, setDeleting] = useState(false);
 
-	// useEffect(() => {
-	// 	if (visible && document) {
-	// 		setLoading(true);
-	// 		// setImageLoaded(false);
-	// 		// Wait for animation to complete before loading content
-	// 		setTimeout(() => setLoading(false), 400);
-	// 	}
-	// }, [visible, document]);
-
 	const handleOpenInGallery = useCallback(async () => {
 		if (!document?.imageUri) return;
 
@@ -97,7 +88,6 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 					icon: "alert-circle",
 				});
 				onClose();
-				// Alert.alert("Error", "Cannot open this image in gallery");
 			}
 		} catch (error) {
 			console.error("Failed to open in gallery:", error);
@@ -158,21 +148,6 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 
 		copyToClipboard(document.metadata, "Metadata");
 		onClose();
-	};
-
-	const formatDate = (date?: Date) => {
-		if (!date) return "No date";
-		return new Date(date).toLocaleDateString("en-US", {
-			weekday: "short",
-			month: "long",
-			day: "numeric",
-			year: "numeric",
-		});
-	};
-
-	const formatCurrency = (amount?: number) => {
-		if (!amount) return null;
-		return `$${amount.toFixed(2)}`;
 	};
 
 	return (
