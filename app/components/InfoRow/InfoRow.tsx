@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { createStyles } from "./InfoRow.style";
-import { useIconColors } from "@/utils/iconColors";
+import { useIconColors } from "../../../utils/iconColors";
 
 interface InfoRowProps {
 	icon: string;
