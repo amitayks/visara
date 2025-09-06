@@ -1,10 +1,8 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import {
 	ActivityIndicator,
-	Dimensions,
 	Image,
 	Modal,
-	Platform,
 	StyleSheet,
 	Text,
 	TouchableOpacity,
@@ -17,15 +15,10 @@ import {
 	MediaType,
 	PhotoQuality,
 } from "react-native-image-picker";
-import Animated, {
-	Easing,
-	FadeIn,
-	FadeOut,
-	SlideInDown,
-	SlideOutDown,
-} from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { galleryScanner } from "../../../services/gallery/GalleryScanner";
 import { useIconColors } from "../../../utils/iconColors";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./UploadModal.style";
@@ -33,13 +26,11 @@ import { createStyles } from "./UploadModal.style";
 interface UploadModalProps {
 	visible: boolean;
 	onClose: () => void;
-	onUploadComplete: (imageUri: string) => void;
 }
 
 export const UploadModal: React.FC<UploadModalProps> = ({
 	visible,
 	onClose,
-	onUploadComplete,
 }) => {
 	const { theme, isDark } = useTheme();
 	const iconColors = useIconColors();
@@ -109,6 +100,25 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 			setProcessing(false);
 		}
 	};
+
+	const onUploadComplete = useCallback(async (imageUri: string) => {
+		try {
+			// Process the uploaded image
+			await galleryScanner.processImage(imageUri);
+			showToast({
+				type: "success",
+				message: "Document processed successfully",
+				icon: "checkmark-circle",
+			});
+		} catch (error) {
+			console.error("Upload processing error:", error);
+			showToast({
+				type: "error",
+				message: "Failed to process document",
+				icon: "alert-circle",
+			});
+		}
+	}, []);
 
 	const handleClose = () => {
 		setSelectedImage(null);

@@ -125,26 +125,6 @@ export default function HomeScreen() {
 		}
 	}, [loadDocuments]);
 
-	// Handle upload complete
-	const handleUploadComplete = useCallback(async (imageUri: string) => {
-		try {
-			// Process the uploaded image
-			await galleryScanner.processImage(imageUri);
-			showToast({
-				type: "success",
-				message: "Document processed successfully",
-				icon: "checkmark-circle",
-			});
-		} catch (error) {
-			console.error("Upload processing error:", error);
-			showToast({
-				type: "error",
-				message: "Failed to process document",
-				icon: "alert-circle",
-			});
-		}
-	}, []);
-
 	// Initial load
 	useEffect(() => {
 		loadDocuments();
@@ -206,7 +186,6 @@ export default function HomeScreen() {
 			<UploadModal
 				visible={showUploadModal}
 				onClose={() => setShowUploadModal(false)}
-				onUploadComplete={handleUploadComplete}
 			/>
 
 			{/* Toast Container */}
