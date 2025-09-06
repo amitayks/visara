@@ -5,10 +5,6 @@ export interface HeapStatus {
 	heapUsagePercent: number;
 }
 
-/**
- * Get current JavaScript heap status
- * Works in both browser and React Native environments
- */
 export const getHeapStatus = (): HeapStatus => {
 	// Check if performance.memory is available (Chrome/V8)
 	if (typeof global !== "undefined" && (global as any).performance?.memory) {

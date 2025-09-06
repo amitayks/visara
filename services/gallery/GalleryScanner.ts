@@ -2,24 +2,24 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import CryptoJS from "crypto-js";
 import { Platform } from "react-native";
-import RNFS from "react-native-fs";
 import BackgroundService from "react-native-background-actions";
+import RNFS from "react-native-fs";
+import { BehaviorSubject, Subscription } from "rxjs";
+import { deviceInfo } from "../../utils/deviceInfo";
+import { getHeapStatus } from "../../utils/heapMonitor";
 import {
-	documentProcessor,
 	type DocumentResult,
+	documentProcessor,
 } from "../ai/documentProcessor";
 import { documentStorage } from "../database/documentStorage";
+import { TempFileTracker } from "../memory/cleanupRegistry";
+import { memoryManager } from "../memory/memoryManager";
+import { galleryPermissions } from "../permissions/galleryPermissions";
 import {
-	smartFilter,
 	type AssetInfo,
 	type SmartFilterOptions,
+	smartFilter,
 } from "./smartFilter";
-import { deviceInfo } from "../../utils/deviceInfo";
-import { galleryPermissions } from "../permissions/galleryPermissions";
-import { memoryManager } from "../memory/memoryManager";
-import { TempFileTracker } from "../memory/cleanupRegistry";
-import { getHeapStatus } from "../../utils/heapMonitor";
-import { BehaviorSubject, Subscription } from "rxjs";
 
 export interface ScanProgress {
 	totalImages: number;

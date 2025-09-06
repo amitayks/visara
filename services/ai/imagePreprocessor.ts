@@ -1,3 +1,4 @@
+/** biome-ignore-all lint/complexity/noStaticOnlyClass: <explanation> */
 import ImageResizer from "@bam.tech/react-native-image-resizer";
 import CryptoJS from "crypto-js";
 import RNFS from "react-native-fs";

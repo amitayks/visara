@@ -169,7 +169,7 @@ export function getMemoryStats(): {
 /**
  * Force a memory cleanup (for debugging/testing)
  */
-export async function forceMemoryCleanup(): Promise<void> {
-	console.log("[MemoryManagement] Forcing memory cleanup");
-	await memoryManager.emergencyCleanup();
-}
+// export async function forceMemoryCleanup(): Promise<void> {
+// 	console.log("[MemoryManagement] Forcing memory cleanup");
+// 	await memoryManager.emergencyCleanup();
+// }
