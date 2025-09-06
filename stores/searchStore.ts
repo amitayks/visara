@@ -7,7 +7,6 @@ import type { QueryChip } from "../app/components/SearchContainer";
 interface SearchStore {
 	searchQuery: string;
 	queryChips: QueryChip[];
-	isSearching: boolean;
 	searchOrchestrator: SearchOrchestrator;
 
 	// Computed
@@ -47,10 +46,6 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 		};
 		set({ queryChips: [...queryChips, newChip], searchQuery: "" });
 
-		// Small delay for animation
-		await new Promise((resolve) => setTimeout(resolve, 200));
-
-		set({ isSearching: true });
 		try {
 			// Build combined search query from all chips
 			const allChips = [...queryChips, newChip];
@@ -81,7 +76,6 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 			set({ queryChips: queryChips });
 			throw error;
 		} finally {
-			set({ isSearching: false });
 		}
 	},
 
@@ -98,7 +92,6 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 
 		// Re-search with remaining chips
 		try {
-			set({ isSearching: true });
 			const combinedQuery = updatedChips.map((chip) => chip.text).join(" ");
 
 			const result = await searchOrchestrator.search(combinedQuery, {
@@ -124,7 +117,6 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 			console.error("Re-search error:", error);
 			throw error;
 		} finally {
-			set({ isSearching: false });
 		}
 	},
 
@@ -144,7 +136,6 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 		set({
 			searchQuery: "",
 			queryChips: [],
-			isSearching: false,
 		});
 	},
 }));

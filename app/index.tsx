@@ -55,7 +55,7 @@ export default function HomeScreen() {
 	const {
 		searchQuery,
 		queryChips,
-		isSearching,
+		// isSearching,
 		setSearchQuery,
 		addQueryChip,
 		removeQueryChip,
@@ -335,38 +335,35 @@ export default function HomeScreen() {
 					)}
 
 					{/* Document Grid */}
-					{isSearching ? (
-						<SkeletonGrid columns={2} count={6} />
-					) : (
-						<DocumentGrid
-							documents={filteredDocuments}
-							refreshing={isRefreshing}
-							onRefresh={handleRefresh}
-							onDocumentPress={handleDocumentPress}
-							ListEmptyComponent={
-								queryChips.length > 0 ? (
-									<EmptyState
-										icon="search-outline"
-										title="No results found"
-										message={`No documents found for "${queryChips[0]?.text || searchQuery}"`}
-									/>
-								) : (
-									<EmptyState
-										icon="folder-open-outline"
-										title="No documents yet"
-										message="Tap the scan button to find documents in your gallery"
-										action={{
-											label: "Start Scanning",
-											onPress: handleStartBackgroundScan,
-										}}
-									/>
-								)
-							}
-							contentContainerStyle={{
-								paddingBottom: 100,
-							}}
-						/>
-					)}
+
+					<DocumentGrid
+						documents={filteredDocuments}
+						refreshing={isRefreshing}
+						onRefresh={handleRefresh}
+						onDocumentPress={handleDocumentPress}
+						ListEmptyComponent={
+							queryChips.length > 0 ? (
+								<EmptyState
+									icon="search-outline"
+									title="No results found"
+									message={`No documents found for "${queryChips[0]?.text || searchQuery}"`}
+								/>
+							) : (
+								<EmptyState
+									icon="folder-open-outline"
+									title="No documents yet"
+									message="Tap the scan button to find documents in your gallery"
+									action={{
+										label: "Start Scanning",
+										onPress: handleStartBackgroundScan,
+									}}
+								/>
+							)
+						}
+						contentContainerStyle={{
+							paddingBottom: 100,
+						}}
+					/>
 				</>
 			</TouchableWithoutFeedback>
 
