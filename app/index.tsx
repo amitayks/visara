@@ -33,7 +33,6 @@ import { DocumentModal } from "./components/DocumentModal";
 import { EmptyState } from "./components/EmptyState";
 import { ScanProgressBar } from "./components/ScanProgressBar";
 import { SearchContainer } from "./components/SearchContainer";
-import { SkeletonGrid } from "./components/SkeletonGrid";
 import { showToast, ToastContainer } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
 
@@ -60,7 +59,6 @@ export default function HomeScreen() {
 		addQueryChip,
 		removeQueryChip,
 		clearSearch,
-		RemoveAllChips,
 	} = useSearchStore();
 
 	const { settings } = useSettingsStore();
@@ -296,7 +294,6 @@ export default function HomeScreen() {
 
 	const handleClearSearch = useCallback(() => {
 		clearSearch();
-		RemoveAllChips();
 		setFilteredDocuments(documents);
 		Keyboard.dismiss();
 	}, [clearSearch, documents, setFilteredDocuments]);
