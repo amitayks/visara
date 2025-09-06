@@ -178,19 +178,6 @@ export default function HomeScreen() {
 		setShowDocumentModal(true);
 	}, []);
 
-	// Handle document deletion
-	const handleDeleteDocument = useCallback(
-		async (doc: Document) => {
-			try {
-				await deleteDocument(doc.id);
-			} catch (error) {
-				console.error("Delete error:", error);
-				throw error;
-			}
-		},
-		[deleteDocument],
-	);
-
 	const handleStartBackgroundScan = useCallback(async () => {
 		try {
 			const hasPermission = await galleryScanner.hasPermissions();
@@ -391,7 +378,6 @@ export default function HomeScreen() {
 					setShowDocumentModal(false);
 					setSelectedDocument(null);
 				}}
-				onDelete={handleDeleteDocument}
 			/>
 
 			{/* Upload Modal */}

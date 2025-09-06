@@ -20,12 +20,12 @@ import { Document } from "../DocumentGrid/DocumentGrid";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./DocumentModal.style";
 import { InfoRow } from "../InfoRow";
+import { useDocumentStore } from "../../../stores/documentStore";
 
 interface DocumentModalProps {
 	visible: boolean;
 	document: Document | null;
 	onClose: () => void;
-	onDelete: (doc: Document) => Promise<void>;
 	onShare?: (doc: Document) => void;
 }
 
@@ -33,14 +33,13 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	visible,
 	document,
 	onClose,
-	onDelete,
 	onShare,
 }) => {
 	const { theme } = useTheme();
 	const styles = useThemedStyles(createStyles);
-
-	// const [loading, setLoading] = useState(true);
 	const [deleting, setDeleting] = useState(false);
+
+	const { deleteDocument } = useDocumentStore();
 
 	const handleOpenInGallery = useCallback(async () => {
 		if (!document?.imageUri) return;
@@ -72,7 +71,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 
 		setDeleting(true);
 		try {
-			await onDelete(document);
+			await deleteDocument(document.id);
 			showToast({
 				type: "success",
 				message: "Document deleted successfully",
