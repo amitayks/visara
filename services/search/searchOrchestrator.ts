@@ -142,44 +142,44 @@ export class SearchOrchestrator {
 		return result;
 	}
 
-	async searchWithRefinement(
-		baseQuery: string,
-		refinement: string,
-		options: SearchOptions = {},
-	): Promise<SearchResult> {
-		// Parse and merge queries
-		const parsedQuery = this.queryParser.parseAndRefine(baseQuery, refinement);
+	// async searchWithRefinement(
+	// 	baseQuery: string,
+	// 	refinement: string,
+	// 	options: SearchOptions = {},
+	// ): Promise<SearchResult> {
+	// 	// Parse and merge queries
+	// 	const parsedQuery = this.queryParser.parseAndRefine(baseQuery, refinement);
 
-		// Update query stack
-		if (!this.queryStack) {
-			this.queryStack = {
-				baseQuery: this.queryParser.parse(baseQuery),
-				refinements: [],
-				activeFilters: this.extractFilters(parsedQuery),
-			};
-		}
+	// 	// Update query stack
+	// 	if (!this.queryStack) {
+	// 		this.queryStack = {
+	// 			baseQuery: this.queryParser.parse(baseQuery),
+	// 			refinements: [],
+	// 			activeFilters: this.extractFilters(parsedQuery),
+	// 		};
+	// 	}
 
-		const refinedQuery = this.queryParser.parse(refinement);
-		this.queryStack.refinements.push(refinedQuery);
-		this.queryStack.activeFilters = this.extractFilters(parsedQuery);
+	// 	const refinedQuery = this.queryParser.parse(refinement);
+	// 	this.queryStack.refinements.push(refinedQuery);
+	// 	this.queryStack.activeFilters = this.extractFilters(parsedQuery);
 
-		// Perform search with merged query
-		const result = await this.search(parsedQuery.rawQuery, options);
+	// 	// Perform search with merged query
+	// 	const result = await this.search(parsedQuery.rawQuery, options);
 
-		// Add stack information to result
-		return {
-			...result,
-			filters: this.queryStack.activeFilters,
-		};
-	}
+	// 	// Add stack information to result
+	// 	return {
+	// 		...result,
+	// 		filters: this.queryStack.activeFilters,
+	// 	};
+	// }
 
-	clearQueryStack(): void {
-		this.queryStack = null;
-	}
+	// clearQueryStack(): void {
+	// 	this.queryStack = null;
+	// }
 
-	getQueryStack(): QueryStack | null {
-		return this.queryStack;
-	}
+	// getQueryStack(): QueryStack | null {
+	// 	return this.queryStack;
+	// }
 
 	private async fetchDocuments(
 		query: ParsedQuery,
@@ -554,84 +554,5 @@ export class SearchOrchestrator {
 
 	clearCache(): void {
 		this.cache.clear();
-	}
-
-	async getAggregatedData(query: ParsedQuery): Promise<any> {
-		const documents = await this.fetchDocuments(query, {});
-
-		if (query.intent.includes("count")) {
-			return {
-				count: documents.length,
-				documentTypes: this.groupByDocumentType(documents),
-				dateRange: this.getDateRange(documents),
-			};
-		}
-
-		if (query.intent.includes("aggregate")) {
-			return {
-				totalAmount: this.calculateTotalAmount(documents),
-				averageAmount: this.calculateAverageAmount(documents),
-				count: documents.length,
-				vendors: this.groupByVendor(documents),
-				documentTypes: this.groupByDocumentType(documents),
-			};
-		}
-
-		return null;
-	}
-
-	private groupByDocumentType(documents: Document[]): Record<string, number> {
-		const groups: Record<string, number> = {};
-
-		for (const doc of documents) {
-			const type = doc.documentType || "other";
-			groups[type] = (groups[type] || 0) + 1;
-		}
-
-		return groups;
-	}
-
-	private groupByVendor(documents: Document[]): Record<string, number> {
-		const groups: Record<string, number> = {};
-
-		for (const doc of documents) {
-			if (doc.vendor) {
-				groups[doc.vendor] = (groups[doc.vendor] || 0) + 1;
-			}
-		}
-
-		return groups;
-	}
-
-	private calculateTotalAmount(documents: Document[]): number {
-		return documents.reduce((sum, doc) => sum + (doc.totalAmount || 0), 0);
-	}
-
-	private calculateAverageAmount(documents: Document[]): number {
-		const docsWithAmount = documents.filter(
-			(doc) => doc.totalAmount !== undefined,
-		);
-		if (docsWithAmount.length === 0) return 0;
-
-		const total = this.calculateTotalAmount(docsWithAmount);
-		return total / docsWithAmount.length;
-	}
-
-	private getDateRange(documents: Document[]): {
-		min: Date | null;
-		max: Date | null;
-	} {
-		const dates = documents
-			.filter((doc) => doc.date)
-			.map((doc) => new Date(doc.date!));
-
-		if (dates.length === 0) {
-			return { min: null, max: null };
-		}
-
-		return {
-			min: new Date(Math.min(...dates.map((d) => d.getTime()))),
-			max: new Date(Math.max(...dates.map((d) => d.getTime()))),
-		};
 	}
 }
