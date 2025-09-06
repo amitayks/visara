@@ -2,7 +2,6 @@ import { useNavigation } from "@react-navigation/native";
 import type { StackNavigationProp } from "@react-navigation/stack";
 import { useCallback, useEffect, useState } from "react";
 import {
-	Alert,
 	Keyboard,
 	StatusBar,
 	StyleSheet,
@@ -11,20 +10,17 @@ import {
 import Animated, {
 	useAnimatedKeyboard,
 	useAnimatedStyle,
-	withClamp,
-	withSpring,
 } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
-import { useDocumentStore } from "../stores/documentStore";
-import { useSearchStore } from "../stores/searchStore";
-import { useSettingsStore } from "../stores/settingsStore";
-
 import {
 	galleryScanner,
 	type ScanProgress,
 } from "../services/gallery/GalleryScanner";
+import { useDocumentStore } from "../stores/documentStore";
+import { useSearchStore } from "../stores/searchStore";
+import { useSettingsStore } from "../stores/settingsStore";
 import type { RootStackParamList } from "../types/navigation";
 
 import { AppHeader } from "./components/AppHeader";
