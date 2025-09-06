@@ -4,15 +4,17 @@ import {
 	Keyboard,
 	RefreshControl,
 	ScrollView,
-	Text,
 	View,
 	ViewStyle,
 } from "react-native";
-import { COLUMNS, ITEM_WIDTH, SPACING } from "./documentGridConst";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { useDocumentStore } from "../../../stores/documentStore";
+import { useSearchStore } from "../../../stores/searchStore";
 import { DocumentCard } from "../DocumentCard";
-import { SkeletonGrid } from "../SkeletonGrid/SkeletonGrid";
+import { EmptyState } from "../EmptyState";
+import { showToast } from "../Toast";
 import { createStyles } from "./DocumentGrid.style";
+import { ITEM_WIDTH, SPACING } from "./documentGridConst";
 
 export interface Document {
 	id: string;
@@ -26,37 +28,30 @@ export interface Document {
 }
 
 interface DocumentGridProps {
-	documents: Document[];
-	refreshing: boolean;
-	onRefresh: () => void;
 	onDocumentPress: (doc: Document) => void;
+	handleStartBackgroundScan: () => void;
 	ListEmptyComponent?: React.ReactElement;
 	contentContainerStyle?: ViewStyle;
 }
 
 export const DocumentGrid = memo(
 	({
-		documents,
-		refreshing,
-		onRefresh,
 		onDocumentPress,
-		ListEmptyComponent,
+		handleStartBackgroundScan,
 		contentContainerStyle,
 	}: DocumentGridProps) => {
-		const { theme, isDark } = useTheme();
+		const { theme } = useTheme();
 		const styles = useThemedStyles(createStyles);
 		const [imageHeights, setImageHeights] = useState<{ [key: string]: number }>(
 			{},
 		);
-		const [loading, setLoading] = useState(true);
+		const [refreshing, setRefreshing] = useState(false);
+		const { filteredDocuments, loadDocuments } = useDocumentStore();
+		const { searchQuery, queryChips } = useSearchStore();
 
-		// Calculate image heights for Pinterest layout
+		const documents = filteredDocuments;
+
 		useEffect(() => {
-			if (!documents.length) {
-				setLoading(false);
-				return;
-			}
-
 			const calculateHeights = async () => {
 				const heights: { [key: string]: number } = {};
 				let loadedCount = 0;
@@ -78,7 +73,6 @@ export const DocumentGrid = memo(
 							loadedCount++;
 							if (loadedCount === documents.length) {
 								setImageHeights(heights);
-								setLoading(false);
 							}
 						},
 						(error) => {
@@ -87,7 +81,6 @@ export const DocumentGrid = memo(
 							loadedCount++;
 							if (loadedCount === documents.length) {
 								setImageHeights(heights);
-								setLoading(false);
 							}
 						},
 					);
@@ -96,6 +89,27 @@ export const DocumentGrid = memo(
 
 			calculateHeights();
 		}, [documents]);
+
+		const handleRefresh = useCallback(async () => {
+			setRefreshing(true);
+			try {
+				await loadDocuments();
+				showToast({
+					type: "success",
+					message: "Gallery refreshed successfully",
+					icon: "checkmark-circle",
+				});
+			} catch (error) {
+				console.error("Refresh documents error:", error);
+				showToast({
+					type: "error",
+					message: "Failed to refresh documents",
+					icon: "alert-circle",
+				});
+			} finally {
+				setRefreshing(false);
+			}
+		}, [loadDocuments]);
 
 		// Create masonry layout
 		const createMasonryLayout = useCallback(() => {
@@ -142,26 +156,13 @@ export const DocumentGrid = memo(
 			[onDocumentPress, imageHeights],
 		);
 
-		if (loading || (!documents && !refreshing)) {
-			return <SkeletonGrid columns={COLUMNS} count={6} />;
-		}
-
-		const EmptyComponent = ListEmptyComponent || (
-			<View style={styles.emptyContainer}>
-				<Text style={styles.emptyTitle}>No documents yet</Text>
-				<Text style={styles.emptySubtitle}>
-					Your scanned documents will appear here
-				</Text>
-			</View>
-		);
-
-		if (documents.length === 0) {
+		if (!documents.length) {
 			return (
 				<ScrollView
 					refreshControl={
 						<RefreshControl
 							refreshing={refreshing}
-							onRefresh={onRefresh}
+							onRefresh={handleRefresh}
 							colors={[theme.accent]}
 							tintColor={theme.accent}
 						/>
@@ -174,7 +175,23 @@ export const DocumentGrid = memo(
 					keyboardShouldPersistTaps="handled"
 					onScrollBeginDrag={() => Keyboard.dismiss()}
 				>
-					{EmptyComponent}
+					{queryChips.length > 0 ? (
+						<EmptyState
+							icon="search-outline"
+							title="No results found"
+							message={`No documents found for "${queryChips[0]?.text || searchQuery}"`}
+						/>
+					) : (
+						<EmptyState
+							icon="folder-open-outline"
+							title="No documents yet"
+							message="Tap the scan button to find documents in your gallery"
+							action={{
+								label: "Start Scanning",
+								onPress: handleStartBackgroundScan,
+							}}
+						/>
+					)}
 				</ScrollView>
 			);
 		}
@@ -186,7 +203,7 @@ export const DocumentGrid = memo(
 				refreshControl={
 					<RefreshControl
 						refreshing={refreshing}
-						onRefresh={onRefresh}
+						onRefresh={handleRefresh}
 						colors={[theme.accent]}
 						tintColor={theme.accent}
 					/>

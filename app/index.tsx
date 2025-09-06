@@ -1,5 +1,3 @@
-import { useNavigation } from "@react-navigation/native";
-import type { StackNavigationProp } from "@react-navigation/stack";
 import { useCallback, useEffect, useState } from "react";
 import {
 	Keyboard,
@@ -19,14 +17,11 @@ import {
 	type ScanProgress,
 } from "../services/gallery/GalleryScanner";
 import { useDocumentStore } from "../stores/documentStore";
-import { useSearchStore } from "../stores/searchStore";
 import { useSettingsStore } from "../stores/settingsStore";
-import type { RootStackParamList } from "../types/navigation";
 
 import { AppHeader } from "./components/AppHeader";
 import { Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
-import { EmptyState } from "./components/EmptyState";
 import { ScanProgressBar } from "./components/ScanProgressBar";
 import { SearchContainer } from "./components/SearchContainer";
 import { showToast, ToastContainer } from "./components/Toast";
@@ -36,10 +31,7 @@ export default function HomeScreen() {
 	const { theme, isDark } = useTheme();
 	const styles = useThemedStyles(createStyles);
 
-	const { filteredDocuments, loadDocuments, initializeRealTimeUpdates } =
-		useDocumentStore();
-	const { searchQuery, queryChips } = useSearchStore();
-
+	const { loadDocuments, initializeRealTimeUpdates } = useDocumentStore();
 	const { settings } = useSettingsStore();
 
 	// Local UI state
@@ -48,7 +40,6 @@ export default function HomeScreen() {
 	);
 
 	// UI state
-	const [isRefreshing, setIsRefreshing] = useState(false);
 	const [isScanning, setIsScanning] = useState(false);
 	const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
 	const [showUploadModal, setShowUploadModal] = useState(false);
@@ -80,64 +71,6 @@ export default function HomeScreen() {
 		};
 	});
 
-	const handleRefresh = useCallback(async () => {
-		setIsRefreshing(true);
-		try {
-			await loadDocuments();
-		} catch (error) {
-			console.error("Refresh documents error:", error);
-			showToast({
-				type: "error",
-				message: "Failed to refresh documents",
-				icon: "alert-circle",
-			});
-		} finally {
-			setIsRefreshing(false);
-		}
-
-		try {
-			const hasPermission = await galleryScanner.hasPermissions();
-			if (!hasPermission) {
-				const granted = await galleryScanner.requestPermissions();
-				if (!granted) {
-					return;
-				}
-			}
-
-			setIsScanning(true);
-
-			await galleryScanner.startScan(
-				{
-					batchSize: settings.maxScanBatchSize,
-					smartFilterEnabled: settings.smartFilterEnabled,
-					batterySaver: settings.batterySaver,
-				},
-				(progress) => {
-					setScanProgress(progress);
-					console.log(
-						`Background scan progress: ${progress.processedImages}/${progress.totalImages}`,
-					);
-				},
-			);
-
-			showToast({
-				type: "success",
-				message: "Gallery refreshed successfully",
-				icon: "checkmark-circle",
-			});
-		} catch (error) {
-			console.error("Background scan error:", error);
-			showToast({
-				type: "error",
-				message: "Failed to scan gallery",
-				icon: "alert-circle",
-			});
-		} finally {
-			setIsScanning(false);
-			setScanProgress(null);
-		}
-	}, [loadDocuments]);
-
 	// Handle document press
 	const handleDocumentPress = useCallback((doc: Document) => {
 		setSelectedDocument(doc);
@@ -160,7 +93,7 @@ export default function HomeScreen() {
 			}
 
 			// Only set scanning state after permissions are confirmed
-			setIsScanning(true);
+			// setIsScanning(true);
 
 			// Start the scan (permissions already checked)
 			await galleryScanner.startScan(
@@ -187,7 +120,7 @@ export default function HomeScreen() {
 				icon: "alert-circle",
 			});
 		} finally {
-			setIsScanning(false);
+			// setIsScanning(false);
 			setScanProgress(null);
 		}
 	}, [loadDocuments]);
@@ -245,29 +178,8 @@ export default function HomeScreen() {
 					{/* Document Grid */}
 
 					<DocumentGrid
-						documents={filteredDocuments}
-						refreshing={isRefreshing}
-						onRefresh={handleRefresh}
 						onDocumentPress={handleDocumentPress}
-						ListEmptyComponent={
-							queryChips.length > 0 ? (
-								<EmptyState
-									icon="search-outline"
-									title="No results found"
-									message={`No documents found for "${queryChips[0]?.text || searchQuery}"`}
-								/>
-							) : (
-								<EmptyState
-									icon="folder-open-outline"
-									title="No documents yet"
-									message="Tap the scan button to find documents in your gallery"
-									action={{
-										label: "Start Scanning",
-										onPress: handleStartBackgroundScan,
-									}}
-								/>
-							)
-						}
+						handleStartBackgroundScan={handleStartBackgroundScan}
 						contentContainerStyle={{
 							paddingBottom: 100,
 						}}
