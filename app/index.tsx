@@ -32,10 +32,7 @@ import { SearchContainer } from "./components/SearchContainer";
 import { showToast, ToastContainer } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
 
-type NavigationProp = StackNavigationProp<RootStackParamList>;
-
 export default function HomeScreen() {
-	const navigation = useNavigation<NavigationProp>();
 	const { theme, isDark } = useTheme();
 	const styles = useThemedStyles(createStyles);
 
@@ -195,11 +192,6 @@ export default function HomeScreen() {
 		}
 	}, [loadDocuments]);
 
-	// Handle manual upload
-	const handleManualUpload = useCallback(() => {
-		setShowUploadModal(true);
-	}, []);
-
 	// Handle upload complete
 	const handleUploadComplete = useCallback(async (imageUri: string) => {
 		try {
@@ -220,11 +212,6 @@ export default function HomeScreen() {
 		}
 	}, []);
 
-	// Handle settings navigation
-	const handleSettingsPress = useCallback(() => {
-		navigation.navigate("Settings");
-	}, [navigation]);
-
 	// Initial load
 	useEffect(() => {
 		loadDocuments();
@@ -241,13 +228,10 @@ export default function HomeScreen() {
 			/>
 
 			<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-				{/** biome-ignore lint/complexity/noUselessFragments: <explanation> */}
+				{/* * biome-ignore lint/complexity/noUselessFragments: <explanation> */}
 				<>
 					{/* Header */}
-					<AppHeader
-						onScanPress={handleManualUpload}
-						onSettingsPress={handleSettingsPress}
-					/>
+					<AppHeader setShowUploadModal={setShowUploadModal} />
 
 					{/* Scanning Progress */}
 					{isScanning && scanProgress && (
