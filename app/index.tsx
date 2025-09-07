@@ -27,7 +27,6 @@ import { ScanProgressBar } from "./components/ScanProgressBar";
 import { SearchContainer } from "./components/SearchContainer";
 import { showToast, ToastContainer } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
-// import { testNativeDeviceInfo } from "../utils/deviceInfoTest"; // For testing native device info
 
 export default function HomeScreen() {
 	const { theme, isDark } = useTheme();
