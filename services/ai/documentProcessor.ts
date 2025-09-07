@@ -8,7 +8,7 @@ import { keywordExtractor } from "./keywordExtractor";
 import { ocrEngineManager } from "./OCREngineManager";
 import type { OCREngineName } from "./ocrTypes";
 import { TempFileTracker } from "../memory/cleanupRegistry";
-import { memoryManager } from "../memory/memoryManager";
+import { nativeMemoryManager } from "../memory/nativeMemoryManager";
 import { visualDocumentDetector } from "./visualDocumentDetector";
 
 export interface DocumentResult {
@@ -97,10 +97,10 @@ export class DocumentProcessor {
 			const startTime = Date.now();
 
 			// Check memory before processing
-			const memStatus = memoryManager.getMemoryStatus();
+			const memStatus = await nativeMemoryManager.getMemoryStatus();
 			if (memStatus.isCriticalMemory) {
 				console.warn("[DocumentProcessor] Critical memory, triggering cleanup");
-				await memoryManager.emergencyCleanup();
+				await nativeMemoryManager.emergencyCleanup();
 				await new Promise((resolve) => setTimeout(resolve, 2000));
 			}
 
@@ -273,7 +273,7 @@ export class DocumentProcessor {
 				tempTracker.add(manipulatedImage.uri);
 			} else {
 				// Register with memory manager if no tracker provided
-				memoryManager.registerTempFile(manipulatedImage.uri, "preprocessImage");
+				nativeMemoryManager.registerTempFile(manipulatedImage.uri, "preprocessImage");
 			}
 
 			// Return the temp file directly - NO CACHING
@@ -320,7 +320,7 @@ export class DocumentProcessor {
 					if (tempTracker) {
 						tempTracker.add(resized.uri);
 					} else {
-						memoryManager.registerTempFile(resized.uri, "ocrResize");
+						nativeMemoryManager.registerTempFile(resized.uri, "ocrResize");
 					}
 
 					needsCleanup = false; // Don't double-cleanup

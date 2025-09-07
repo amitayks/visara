@@ -1,5 +1,5 @@
 import { AppState, AppStateStatus } from "react-native";
-import { memoryManager } from "./memoryManager";
+import { nativeMemoryManager } from "./nativeMemoryManager";
 import { unifiedImageCache } from "../cache/unifiedImageCache";
 
 /**
@@ -19,7 +19,7 @@ export function initializeMemoryManagement(): void {
 	registerCacheCleanupHandlers();
 
 	// Start periodic memory monitoring - CHECK EVERY 2 SECONDS during active processing
-	memoryManager.startMonitoring(2000); // Check every 2 seconds
+	nativeMemoryManager.startMonitoring(2000); // Check every 2 seconds
 
 	console.log("[MemoryManagement] Memory management initialized");
 }
@@ -37,7 +37,7 @@ function setupMemoryErrorHandling(): void {
 
 			// Try emergency cleanup
 			try {
-				await memoryManager.emergencyCleanup();
+				await nativeMemoryManager.emergencyCleanup();
 				console.log(
 					"[MemoryManagement] Emergency cleanup completed after error",
 				);
@@ -88,7 +88,7 @@ function setupAppStateListener(): void {
 			console.log("[MemoryManagement] App going to background, cleaning up");
 
 			// Clean old temp files
-			await memoryManager.cleanOldTempFiles(5 * 60 * 1000); // 5 minutes
+			await nativeMemoryManager.cleanOldTempFiles(5 * 60 * 1000); // 5 minutes
 
 			// Reduce cache sizes
 			await unifiedImageCache.trimToSize(
@@ -104,10 +104,10 @@ function setupAppStateListener(): void {
 			console.log("[MemoryManagement] App coming to foreground");
 
 			// Check memory status
-			const status = memoryManager.getMemoryStatus();
+			const status = await nativeMemoryManager.getMemoryStatus();
 			if (status.isLowMemory) {
 				console.warn("[MemoryManagement] Low memory on app resume");
-				await memoryManager.emergencyCleanup();
+				await nativeMemoryManager.emergencyCleanup();
 			}
 		}
 
@@ -120,7 +120,7 @@ function setupAppStateListener(): void {
  */
 function registerCacheCleanupHandlers(): void {
 	// Register unified image cache cleanup
-	memoryManager.onMemoryPressure(async () => {
+	nativeMemoryManager.registerMemoryPressureCallback(async () => {
 		console.log("[MemoryManagement] Memory pressure - cleaning image cache");
 		await unifiedImageCache.handleMemoryPressure();
 	});
@@ -137,10 +137,10 @@ export async function shutdownMemoryManagement(): Promise<void> {
 
 	try {
 		// Stop monitoring
-		memoryManager.stopMonitoring();
+		nativeMemoryManager.stopMonitoring();
 
 		// Final cleanup
-		await memoryManager.shutdown();
+		await nativeMemoryManager.shutdown();
 
 		// Clear all caches
 		await unifiedImageCache.clearAll();
@@ -154,14 +154,14 @@ export async function shutdownMemoryManagement(): Promise<void> {
 /**
  * Get memory statistics for debugging
  */
-export function getMemoryStats(): {
-	memory: ReturnType<typeof memoryManager.getMemoryStatus>;
-	tempFiles: ReturnType<typeof memoryManager.getTempFileStats>;
+export async function getMemoryStats(): Promise<{
+	memory: Awaited<ReturnType<typeof nativeMemoryManager.getMemoryStatus>>;
+	tempFiles: ReturnType<typeof nativeMemoryManager.getTempFileStats>;
 	cache: ReturnType<typeof unifiedImageCache.getStats>;
-} {
+}> {
 	return {
-		memory: memoryManager.getMemoryStatus(),
-		tempFiles: memoryManager.getTempFileStats(),
+		memory: await nativeMemoryManager.getMemoryStatus(),
+		tempFiles: nativeMemoryManager.getTempFileStats(),
 		cache: unifiedImageCache.getStats(),
 	};
 }

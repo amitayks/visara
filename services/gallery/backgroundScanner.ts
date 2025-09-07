@@ -4,7 +4,7 @@ import { settingsStore } from "../../stores/settingsStore";
 import { useScannerStore } from "../../stores/scannerStore";
 import { galleryScanner } from "./GalleryScanner";
 import { galleryPermissions } from "../permissions/galleryPermissions";
-import { deviceInfo } from "../../utils/deviceInfo";
+import { nativeDeviceInfo } from "../../utils/nativeDeviceInfo";
 import {
 	AppState,
 	AppStateStatus,
@@ -384,11 +384,12 @@ export class BackgroundScanner {
 		}
 
 		// Check device conditions
-		const deviceCheck = await deviceInfo.canRunBackgroundTask({
+		const deviceCheck = await nativeDeviceInfo.canRunBackgroundTask({
 			wifiOnly: settings.scanWifiOnly,
 			batterySaver: settings.batterySaver || true,
 			batteryThreshold: 0.2,
-			memoryThreshold: 100,
+			memoryThreshold: 200 * 1024 * 1024, // 200MB threshold
+			respectLowPowerMode: true,
 		});
 
 		if (!deviceCheck.canRun) {

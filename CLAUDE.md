@@ -69,19 +69,28 @@ npm run clean
 
 #### AI/OCR (`services/ai/`)
 - `OCREngineManager.ts` - Manages multiple OCR engines (MLKit, Tesseract, VisionCamera)
-- `documentProcessor.ts` - Processes documents and extracts metadata
+- `documentProcessor.ts` - Processes documents and extracts metadata (uses native memory management)
 - `keywordExtractor.ts` - Extracts keywords for search
 - `visualDocumentDetector.ts` - Detects document types from images
 
 #### Gallery (`services/gallery/`)
-- `GalleryScanner.ts` - Scans device gallery for document images
-- Background scanning with progress tracking
-- Permission handling
+- `GalleryScanner.ts` - Scans device gallery for document images (uses native device APIs)
+- `backgroundScanner.ts` - Background scanning with native device condition checks
+- Permission handling and real-time monitoring
+
+#### Memory Management (`services/memory/`)
+- `nativeMemoryManager.ts` - **NATIVE** memory management with real device data
+- `initializeMemoryManagement.ts` - System initialization with native monitoring
+- `cleanupRegistry.ts` - Temp file tracking and cleanup
+
+#### Device Info (`utils/`)
+- `nativeDeviceInfo.ts` - **REAL** device information (battery, memory, network)
+- `nativeHeapMonitor.ts` - **REAL** heap monitoring and memory pressure detection
+- `deviceInfoTest.ts` - Test suite to verify native implementations
 
 #### Other Services
 - `services/search/` - Document search functionality
-- `services/cache/` - Caching mechanisms
-- `services/memory/` - Memory management
+- `services/cache/` - Caching with native memory pressure handling
 - `services/permissions/` - Permission handling
 
 ### State Management (`stores/`)
@@ -123,3 +132,35 @@ npm run clean
 - OCR engines are managed with memory optimization (Tesseract reinitialization)
 - Gallery scanning uses background tasks and permission handling
 - State management follows reactive patterns with Zustand and WatermelonDB observables
+
+## Native Device Integration
+
+**IMPORTANT**: This project uses **native device APIs** instead of mock implementations:
+
+### Real Device Data
+- **Battery**: Uses `react-native-device-info` for actual battery level, charging status, and low power mode
+- **Memory**: Real device memory usage, available memory, and memory pressure detection
+- **Network**: Actual WiFi/cellular connection status
+- **Device Info**: Real device model, system version, and hardware specifications
+
+### Memory Management
+- **Native Memory Manager**: `services/memory/nativeMemoryManager.ts`
+  - Real-time memory pressure detection
+  - Smart cleanup thresholds based on device capabilities
+  - Emergency cleanup with multiple GC attempts
+- **Native Heap Monitor**: `utils/nativeHeapMonitor.ts`
+  - Monitors both JS heap and device memory
+  - Pressure level detection (normal, moderate, high, critical)
+  - Real-time event listeners
+
+### Device Condition Checks
+- **Gallery Scanning**: Respects actual battery level, memory pressure, and low power mode
+- **Background Tasks**: Uses real device conditions instead of hardcoded values
+- **Smart Batching**: Adjusts processing batch sizes based on actual available memory
+
+### Testing Native Implementation
+Use `utils/deviceInfoTest.ts` to verify native implementations are working:
+```typescript
+import { testNativeDeviceInfo } from './utils/deviceInfoTest';
+await testNativeDeviceInfo(); // Shows real device data vs mock values
+```

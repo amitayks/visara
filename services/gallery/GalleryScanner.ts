@@ -5,15 +5,15 @@ import { Platform } from "react-native";
 import BackgroundService from "react-native-background-actions";
 import RNFS from "react-native-fs";
 import { BehaviorSubject, Subscription } from "rxjs";
-import { deviceInfo } from "../../utils/deviceInfo";
-import { getHeapStatus } from "../../utils/heapMonitor";
+import { nativeDeviceInfo } from "../../utils/nativeDeviceInfo";
+import { nativeHeapMonitor } from "../../utils/nativeHeapMonitor";
 import {
 	type DocumentResult,
 	documentProcessor,
 } from "../ai/documentProcessor";
 import { documentStorage } from "../database/documentStorage";
 import { TempFileTracker } from "../memory/cleanupRegistry";
-import { memoryManager } from "../memory/memoryManager";
+import { nativeMemoryManager } from "../memory/nativeMemoryManager";
 import { galleryPermissions } from "../permissions/galleryPermissions";
 import {
 	type AssetInfo,
@@ -126,9 +126,12 @@ export class GalleryScanner {
 		// Check device conditions
 		const scanOptions = { ...DEFAULT_OPTIONS, ...options };
 		if (scanOptions.batterySaver || scanOptions.wifiOnly) {
-			const deviceCheck = await deviceInfo.canRunBackgroundTask({
+			const deviceCheck = await nativeDeviceInfo.canRunBackgroundTask({
 				wifiOnly: scanOptions.wifiOnly || false,
 				batterySaver: scanOptions.batterySaver || false,
+				batteryThreshold: 0.15, // 15% battery threshold
+				memoryThreshold: 200 * 1024 * 1024, // 200MB memory threshold
+				respectLowPowerMode: true,
 			});
 
 			if (!deviceCheck.canRun) {
@@ -222,7 +225,7 @@ export class GalleryScanner {
 		let batchSize = options.batchSize || DEFAULT_OPTIONS.batchSize!;
 
 		// Adjust batch size based on available memory
-		const memoryInfo = await deviceInfo.getMemoryInfo();
+		const memoryInfo = await nativeDeviceInfo.getMemoryInfo();
 		if (memoryInfo.isLowMemory) {
 			batchSize = Math.max(5, Math.floor(batchSize / 2));
 			console.log(`Low memory detected, reducing batch size to ${batchSize}`);
@@ -284,28 +287,28 @@ export class GalleryScanner {
 			}
 
 			// Check BOTH system and heap memory before each image
-			const memStatus = memoryManager.getMemoryStatus();
-			const heapStatus = getHeapStatus();
+			const memStatus = await nativeMemoryManager.getMemoryStatus();
+			const heapStatus = await nativeHeapMonitor.getHeapStatus();
 
 			if (memStatus.isCriticalMemory) {
 				console.warn(
 					"[GalleryScanner] Critical memory state, emergency cleanup",
 				);
-				await memoryManager.emergencyCleanup();
+				await nativeMemoryManager.emergencyCleanup();
 				await new Promise((resolve) => setTimeout(resolve, 10000)); // Wait 10 seconds
 			} else if (memStatus.isLowMemory) {
 				console.log("[GalleryScanner] Low memory detected, triggering cleanup");
-				await memoryManager.emergencyCleanup();
+				await nativeMemoryManager.emergencyCleanup();
 				await new Promise((resolve) => setTimeout(resolve, 5000)); // Wait 5 seconds
 			}
 
 			// Be more aggressive with cleanup - check at 50% heap usage
-			if (heapStatus.heapUsagePercent > 0.5) {
+			if (heapStatus.heapUsagePercent > 50) {
 				// Lower threshold to 50%
 				console.log(
-					`[GalleryScanner] Heap usage above 50%: ${(heapStatus.heapUsagePercent * 100).toFixed(1)}%`,
+					`[GalleryScanner] Heap usage above 50%: ${heapStatus.heapUsagePercent.toFixed(1)}%`,
 				);
-				await memoryManager.emergencyCleanup();
+				await nativeMemoryManager.emergencyCleanup();
 
 				// Try to trigger GC
 				if (global.gc) {
@@ -325,7 +328,7 @@ export class GalleryScanner {
 			});
 
 			// Clean old temp files after EVERY image (1 second old)
-			await memoryManager.cleanOldTempFiles(1000); // 1 second old
+			await nativeMemoryManager.cleanOldTempFiles(1000); // 1 second old
 
 			// Force GC after every image
 			if (global.gc) {
@@ -340,7 +343,7 @@ export class GalleryScanner {
 				await new Promise((resolve) => setTimeout(resolve, 1000)); // Extra pause
 
 				// Log temp file stats
-				const tempStats = memoryManager.getTempFileStats();
+				const tempStats = nativeMemoryManager.getTempFileStats();
 				console.log(
 					`[GalleryScanner] After ${i + 1} images - Temp files: ${tempStats.count}, Size: ${tempStats.totalSize}`,
 				);
@@ -786,28 +789,28 @@ export class GalleryScanner {
 
 	private startMemoryMonitoring() {
 		// Start the centralized memory manager monitoring
-		memoryManager.startMonitoring(10000); // Check every 10 seconds
+		nativeMemoryManager.startMonitoring(10000); // Check every 10 seconds
 
 		// Also do our own checks more frequently
 		this.memoryCheckInterval = setInterval(async () => {
-			const memStatus = memoryManager.getMemoryStatus();
+			const memStatus = await nativeMemoryManager.getMemoryStatus();
 
 			if (memStatus.isCriticalMemory) {
 				console.error(
 					"[GalleryScanner] Critical memory detected, stopping scan",
 				);
 				this.shouldStop = true;
-				await memoryManager.emergencyCleanup();
-			} else if (memStatus.heapUsagePercent > 0.8) {
+				await nativeMemoryManager.emergencyCleanup();
+			} else if (memStatus.jsHeapUsagePercent > 80) {
 				console.warn("[GalleryScanner] High heap usage, triggering cleanup");
-				await memoryManager.emergencyCleanup();
+				await nativeMemoryManager.emergencyCleanup();
 			}
 		}, 5000); // Check every 5 seconds
 	}
 
 	private stopMemoryMonitoring() {
 		// Stop centralized monitoring
-		memoryManager.stopMonitoring();
+		nativeMemoryManager.stopMonitoring();
 
 		if (this.memoryCheckInterval) {
 			clearInterval(this.memoryCheckInterval);
@@ -815,9 +818,9 @@ export class GalleryScanner {
 		}
 
 		// Final cleanup
-		memoryManager
+		nativeMemoryManager
 			.emergencyCleanup()
-			.catch((err) =>
+			.catch((err: Error) =>
 				console.error("[GalleryScanner] Error during final cleanup:", err),
 			);
 	}

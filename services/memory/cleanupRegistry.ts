@@ -1,5 +1,5 @@
 import RNFS from "react-native-fs";
-import { memoryManager } from "./memoryManager";
+import { nativeMemoryManager } from "./nativeMemoryManager";
 
 export interface CleanupTask {
 	id: string;
@@ -71,7 +71,7 @@ export class CleanupRegistry {
 		);
 
 		// Also register with memory manager
-		memoryManager.registerTempFile(path, source);
+		nativeMemoryManager.registerTempFile(path, source);
 	}
 
 	/**

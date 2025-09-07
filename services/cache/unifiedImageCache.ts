@@ -1,6 +1,6 @@
 import RNFS from "react-native-fs";
-import { memoryManager } from "../memory/memoryManager";
-import { formatBytes } from "../../utils/heapMonitor";
+import { nativeMemoryManager } from "../memory/nativeMemoryManager";
+import { nativeHeapMonitor } from "../../utils/nativeHeapMonitor";
 
 interface CacheEntry {
 	key: string;
@@ -49,7 +49,7 @@ export class UnifiedImageCache {
 		this.registerMemoryPressureHandler();
 
 		console.log(
-			`[UnifiedImageCache] Initialized with max size: ${formatBytes(this.maxSize)}`,
+			`[UnifiedImageCache] Initialized with max size: ${nativeHeapMonitor.formatBytes(this.maxSize)}`,
 		);
 	}
 
@@ -64,7 +64,7 @@ export class UnifiedImageCache {
 	 * Register memory pressure handler
 	 */
 	private registerMemoryPressureHandler(): void {
-		memoryManager.onMemoryPressure(async () => {
+		nativeMemoryManager.registerMemoryPressureCallback(async () => {
 			console.log(
 				"[UnifiedImageCache] Memory pressure detected, reducing cache",
 			);
@@ -156,7 +156,7 @@ export class UnifiedImageCache {
 		// Check if single item is too large
 		if (size > this.maxSize * 0.5) {
 			console.warn(
-				`[UnifiedImageCache] Item too large (${formatBytes(size)}), not caching`,
+				`[UnifiedImageCache] Item too large (${nativeHeapMonitor.formatBytes(size)}), not caching`,
 			);
 			return;
 		}
@@ -182,7 +182,7 @@ export class UnifiedImageCache {
 
 		console.log(
 			`[UnifiedImageCache] Cached ${key} from ${source} ` +
-				`(${formatBytes(size)}), total: ${formatBytes(this.totalSize)}`,
+				`(${nativeHeapMonitor.formatBytes(size)}), total: ${nativeHeapMonitor.formatBytes(this.totalSize)}`,
 		);
 	}
 
@@ -209,7 +209,7 @@ export class UnifiedImageCache {
 		this.cache.delete(key);
 
 		console.log(
-			`[UnifiedImageCache] Removed ${key}, freed ${formatBytes(entry.size)}`,
+			`[UnifiedImageCache] Removed ${key}, freed ${nativeHeapMonitor.formatBytes(entry.size)}`,
 		);
 	}
 
@@ -220,8 +220,8 @@ export class UnifiedImageCache {
 		const targetSize = this.maxSize - requiredSize;
 
 		console.log(
-			`[UnifiedImageCache] Making room for ${formatBytes(requiredSize)}, ` +
-				`target: ${formatBytes(targetSize)}`,
+			`[UnifiedImageCache] Making room for ${nativeHeapMonitor.formatBytes(requiredSize)}, ` +
+				`target: ${nativeHeapMonitor.formatBytes(targetSize)}`,
 		);
 
 		await this.trimToSize(targetSize);
@@ -244,8 +244,8 @@ export class UnifiedImageCache {
 			}
 
 			console.log(
-				`[UnifiedImageCache] Trimming from ${formatBytes(this.totalSize)} ` +
-					`to ${formatBytes(targetSize)}`,
+				`[UnifiedImageCache] Trimming from ${nativeHeapMonitor.formatBytes(this.totalSize)} ` +
+					`to ${nativeHeapMonitor.formatBytes(targetSize)}`,
 			);
 
 			// Sort entries by access time (LRU) and access count
@@ -270,7 +270,7 @@ export class UnifiedImageCache {
 
 			console.log(
 				`[UnifiedImageCache] Removed ${removed} entries, ` +
-					`new size: ${formatBytes(this.totalSize)}`,
+					`new size: ${nativeHeapMonitor.formatBytes(this.totalSize)}`,
 			);
 		} finally {
 			this.cleanupInProgress = false;
@@ -339,7 +339,7 @@ export class UnifiedImageCache {
 		const stats = this.getStats();
 		console.log(
 			`[UnifiedImageCache] After pressure cleanup: ${stats.entries} entries, ` +
-				`${formatBytes(stats.totalSize)}`,
+				`${nativeHeapMonitor.formatBytes(stats.totalSize)}`,
 		);
 	}
 
@@ -423,7 +423,7 @@ export class UnifiedImageCache {
 			current: this.totalSize,
 			max: this.maxSize,
 			percentage,
-			formatted: `${formatBytes(this.totalSize)} / ${formatBytes(this.maxSize)} (${percentage.toFixed(1)}%)`,
+			formatted: `${nativeHeapMonitor.formatBytes(this.totalSize)} / ${nativeHeapMonitor.formatBytes(this.maxSize)} (${percentage.toFixed(1)}%)`,
 		};
 	}
 }
