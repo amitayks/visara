@@ -166,7 +166,7 @@ export default function HomeScreen() {
 
 			{/* Search Section - Fixed at bottom */}
 			<Animated.View style={[styles.searchWrapper, searchBarStyle]}>
-				<Button title="start scaning" onPress={handleStartBackgroundScan} />
+				{/* <Button title="start scaning" onPress={handleStartBackgroundScan} /> */}
 				<SearchContainer />
 			</Animated.View>
 
