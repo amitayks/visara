@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+	Button,
 	Keyboard,
 	StatusBar,
 	StyleSheet,
@@ -92,10 +93,6 @@ export default function HomeScreen() {
 				}
 			}
 
-			// Only set scanning state after permissions are confirmed
-			// setIsScanning(true);
-
-			// Start the scan (permissions already checked)
 			await galleryScanner.startScan(
 				{
 					batchSize: settings.maxScanBatchSize,
@@ -169,6 +166,7 @@ export default function HomeScreen() {
 
 			{/* Search Section - Fixed at bottom */}
 			<Animated.View style={[styles.searchWrapper, searchBarStyle]}>
+				<Button title="start scaning" onPress={handleStartBackgroundScan} />
 				<SearchContainer />
 			</Animated.View>
 
