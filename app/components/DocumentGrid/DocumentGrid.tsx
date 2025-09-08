@@ -206,6 +206,7 @@ export const DocumentGrid = memo(
 						tintColor={theme.accent}
 					/>
 				}
+				estimatedItemSize={100}
 				// Styling
 				contentContainerStyle={{
 					paddingBottom: 100,
