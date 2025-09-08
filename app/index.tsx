@@ -13,18 +13,18 @@ import Animated, {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
+import { backgroundScanner } from "../services/gallery/backgroundScanner";
 import {
 	galleryScanner,
 	type ScanProgress,
 } from "../services/gallery/GalleryScanner";
-import { backgroundScanner } from "../services/gallery/backgroundScanner";
 import { notificationPermissions } from "../services/permissions/notificationPermissions";
 import { useDocumentStore } from "../stores/documentStore";
 import { useSettingsStore } from "../stores/settingsStore";
-
 import { AppHeader } from "./components/AppHeader";
 import { type Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
+import { FloatingActionButton } from "./components/FloatingActionButton";
 import { ScanProgressBar } from "./components/ScanProgressBar";
 import { SearchContainer } from "./components/SearchContainer";
 import { showToast, ToastContainer } from "./components/Toast";
@@ -189,14 +189,16 @@ export default function HomeScreen() {
 
 			{/* Search Section - Fixed at bottom */}
 			<Animated.View style={[styles.searchWrapper, searchBarStyle]}>
-				{!isScanning && (
-					<Button
-						title="Start Background Scan"
-						onPress={handleStartBackgroundScan}
-					/>
-				)}
 				<SearchContainer />
 			</Animated.View>
+
+			{!isScanning && (
+				<FloatingActionButton
+					onPress={handleStartBackgroundScan}
+					icon="play-arrow"
+					title="Start Scan"
+				/>
+			)}
 
 			{/* Document Modal */}
 			<DocumentModal
