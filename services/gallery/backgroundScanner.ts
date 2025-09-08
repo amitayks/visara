@@ -11,7 +11,7 @@ import {
 	InteractionManager,
 	Platform,
 } from "react-native";
-import MMKVStorage from "../../storage/MMKVStorage";
+import { ScannerStorage } from "../../storage/MMKVStorage";
 
 // Smart progress update manager - controls when and how we update progress
 class ProgressUpdateManager {
@@ -140,8 +140,7 @@ export class BackgroundScanner {
 			};
 
 			// Save to MMKV for persistence across app restarts
-			// Note: You'll need to import your MMKV storage instance
-			// storage.set("background_scan_state", JSON.stringify(state));
+			ScannerStorage.setObject("background_scan_state", state);
 			console.log("[BackgroundScanner] Scan state saved");
 		} catch (error) {
 			console.error("[BackgroundScanner] Error saving scan state:", error);
@@ -151,14 +150,14 @@ export class BackgroundScanner {
 	private loadScanState(): any {
 		try {
 			// Load from MMKV
-			// const stateJson = storage.getString('background_scan_state');
-			// if (stateJson) {
-			//   const state = JSON.parse(stateJson);
-			//   if (state.lastScanTime) {
-			//     this.lastScanTime = new Date(state.lastScanTime);
-			//   }
-			//   return state;
-			// }
+			const state = ScannerStorage.getObject("background_scan_state");
+			if (state) {
+				if (state.lastScanTime) {
+					this.lastScanTime = new Date(state.lastScanTime);
+				}
+				console.log("[BackgroundScanner] Loaded previous scan state");
+				return state;
+			}
 			console.log("[BackgroundScanner] No previous scan state found");
 			return null;
 		} catch (error) {
@@ -169,7 +168,7 @@ export class BackgroundScanner {
 
 	private clearScanState(): void {
 		try {
-			// storage.delete('background_scan_state');
+			ScannerStorage.removeItem("background_scan_state");
 			console.log("[BackgroundScanner] Scan state cleared");
 		} catch (error) {
 			console.error("[BackgroundScanner] Error clearing scan state:", error);
@@ -456,7 +455,7 @@ export class BackgroundScanner {
 						const finalProgress = useScannerStore.getState().scanProgress;
 						await progressManager.forceUpdate(
 							finalProgress,
-							`Scan complete! Found ${finalProgress.documentsFound || 0} documents.`,
+							`Scan complete! Found ${finalProgress.processedImages || 0} documents.`,
 						);
 					} else if (this.isPaused) {
 						console.log("[BackgroundScanner] Scan paused, waiting...");
@@ -564,6 +563,126 @@ export class BackgroundScanner {
 					taskDesc: "Scan failed. Will retry later...",
 				});
 			}
+		}
+	}
+
+	// Enhanced version of performBackgroundScan with better progress tracking
+	private async performEnhancedBackgroundScan(
+		progressManager: ProgressUpdateManager,
+	): Promise<void> {
+		const settings = settingsStore.getState().settings;
+
+		try {
+			console.log(
+				"[BackgroundScanner] Starting enhanced background gallery scan",
+			);
+
+			// For Android, ensure we're running with wake lock
+			if (Platform.OS === "android") {
+				// The BackgroundService handles wake lock automatically
+				console.log("[BackgroundScanner] Running with wake lock");
+			}
+
+			// Run scan with background-optimized settings
+			const scanOptions = {
+				batchSize: Platform.OS === "android" ? 2 : 3, // Smaller batches on Android
+				wifiOnly: settings.scanWifiOnly,
+				smartFilterEnabled: settings.smartFilterEnabled,
+				batterySaver: settings.batterySaver,
+				isBackground: true,
+				maxConcurrentProcessing: 1,
+				// Add flag to keep scan alive in background
+				keepAlive: true,
+			};
+
+			// Ensure scan continues in background with enhanced progress tracking
+			await galleryScanner.startScan(scanOptions, async (progress) => {
+				// Check if we should pause
+				if (this.isPaused) {
+					console.log("[BackgroundScanner] Scan paused by app state");
+					return;
+				}
+
+				// Use our smart progress manager instead of direct updates
+				await progressManager.updateProgress(progress);
+			});
+
+			console.log(
+				"[BackgroundScanner] Enhanced background gallery scan completed",
+			);
+		} catch (error) {
+			console.error(
+				"[BackgroundScanner] Enhanced background scan failed:",
+				error,
+			);
+
+			// Use progress manager for error notification
+			await progressManager.forceUpdate(
+				{ processedImages: 0, totalImages: 0 },
+				"Scan failed. Will retry later...",
+			);
+		}
+	}
+
+	// Intelligent sleep method that keeps service alive and provides updates
+	private async intelligentSleep(
+		progressManager: ProgressUpdateManager,
+	): Promise<void> {
+		const settings = settingsStore.getState().settings;
+		const intervalMs = this.getIntervalMs(settings.scanFrequency);
+		const sleepTime = intervalMs > 0 ? intervalMs : 60 * 60 * 1000; // Default 1 hour
+
+		console.log(
+			`[BackgroundScanner] Intelligent sleep for ${sleepTime / 1000} seconds`,
+		);
+
+		// Break sleep into 30-second chunks for better background survival
+		const chunkTime = 30000; // 30 second chunks
+		const chunks = Math.ceil(sleepTime / chunkTime);
+
+		for (let i = 0; i < chunks; i++) {
+			if (!BackgroundService.isRunning() || this.shouldStop) {
+				console.log("[BackgroundScanner] Service stopped during sleep");
+				return;
+			}
+
+			// Every few chunks, update notification to show we're still alive
+			if (i % 4 === 0) {
+				// Every 2 minutes
+				const remainingMinutes = Math.round(
+					(sleepTime - i * chunkTime) / 60000,
+				);
+				await progressManager.forceUpdate(
+					{ processedImages: 0, totalImages: 0 },
+					`Scanner active. Next scan in ${remainingMinutes} minutes.`,
+				);
+			}
+
+			// Sleep for one chunk
+			const sleepDuration = Math.min(chunkTime, sleepTime - i * chunkTime);
+			await this.sleep(sleepDuration);
+		}
+	}
+
+	// Cleanup method for background task
+	private cleanupBackgroundTask(): void {
+		console.log("[BackgroundScanner] Background task cleanup started");
+
+		try {
+			// Reset running state
+			this.isRunning = false;
+			this.isPaused = false;
+			this.currentTaskId = null;
+
+			// Clear scan state
+			this.clearScanState();
+
+			// Update store
+			useScannerStore.getState().setBackgroundScanEnabled(false);
+
+			console.log("[BackgroundScanner] Background task cleanup completed");
+		} catch (error) {
+			console.error("[BackgroundScanner] Error during cleanup:", error);
 		}
 	}
 
