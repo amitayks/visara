@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import {
 	ImagePickerResponse,
-	// launchCamera,
 	launchImageLibrary,
 	MediaType,
 	PhotoQuality,

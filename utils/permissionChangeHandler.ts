@@ -1,5 +1,5 @@
 import { AppState, AppStateStatus, Platform } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppStorage } from "../storage/MMKVStorage";
 import { galleryPermissions } from "../services/permissions/galleryPermissions";
 import { settingsStore } from "../stores/settingsStore";
 import { backgroundScanner } from "../services/gallery/backgroundScanner";
@@ -31,7 +31,7 @@ export class PermissionChangeHandler {
 		}
 
 		// Load last permission status
-		this.lastPermissionStatus = await AsyncStorage.getItem(
+		this.lastPermissionStatus = await AppStorage.getItem(
 			"last_permission_status",
 		);
 	}
@@ -45,7 +45,7 @@ export class PermissionChangeHandler {
 			try {
 				// App came to foreground, check if permissions changed
 				const currentPerms = await galleryPermissions.checkPermission();
-				const storedPerms = await AsyncStorage.getItem(
+				const storedPerms = await AppStorage.getItem(
 					"last_permission_status",
 				);
 
@@ -57,7 +57,7 @@ export class PermissionChangeHandler {
 					await this.handlePermissionChange(currentPerms.status);
 				}
 
-				await AsyncStorage.setItem(
+				await AppStorage.setItem(
 					"last_permission_status",
 					currentPerms.status,
 				);
@@ -74,12 +74,12 @@ export class PermissionChangeHandler {
 	private async checkForPermissionRestart() {
 		try {
 			// Check if app was restarted due to permission change
-			const lastCrashReason = await AsyncStorage.getItem("last_crash_reason");
+			const lastCrashReason = await AppStorage.getItem("last_crash_reason");
 			if (lastCrashReason === "permission_change") {
 				console.log(
 					"[PermissionChangeHandler] App restarted due to permission change",
 				);
-				await AsyncStorage.removeItem("last_crash_reason");
+				await AppStorage.removeItem("last_crash_reason");
 
 				// Delay any background service starts
 				setTimeout(() => {
@@ -154,7 +154,7 @@ export class PermissionChangeHandler {
 
 	async savePermissionCrash() {
 		try {
-			await AsyncStorage.setItem("last_crash_reason", "permission_change");
+			await AppStorage.setItem("last_crash_reason", "permission_change");
 		} catch (error) {
 			console.error(
 				"[PermissionChangeHandler] Error saving crash reason:",

@@ -54,7 +54,7 @@ const defaultSettings: AppSettings = {
 const secureStorage = {
 	getItem: async (name: string): Promise<string | null> => {
 		try {
-			const credentials = await Keychain.getInternetCredentials(name);
+			const credentials = await Keychain.getGenericPassword({ service: name });
 			if (credentials) {
 				return credentials.password;
 			}
@@ -66,14 +66,14 @@ const secureStorage = {
 	},
 	setItem: async (name: string, value: string): Promise<void> => {
 		try {
-			await Keychain.setInternetCredentials(name, "visara_settings", value);
+			await Keychain.setGenericPassword("visara_settings", value, { service: name });
 		} catch (error) {
 			console.error("Error saving settings:", error);
 		}
 	},
 	removeItem: async (name: string): Promise<void> => {
 		try {
-			await Keychain.resetInternetCredentials(name);
+			await Keychain.resetGenericPassword({ service: name });
 		} catch (error) {
 			console.error("Error removing settings:", error);
 		}

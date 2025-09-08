@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ScannerStorage } from "../storage/MMKVStorage";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { ScanProgress } from "../services/gallery/GalleryScanner";
@@ -121,14 +121,13 @@ export const useScannerStore = create<
 			name: "scanner-storage",
 			storage: {
 				getItem: async (name) => {
-					const value = await AsyncStorage.getItem(name);
-					return value ? JSON.parse(value) : null;
+					return await ScannerStorage.getObject(name);
 				},
 				setItem: async (name, value) => {
-					await AsyncStorage.setItem(name, JSON.stringify(value));
+					await ScannerStorage.setObject(name, value);
 				},
 				removeItem: async (name) => {
-					await AsyncStorage.removeItem(name);
+					await ScannerStorage.removeItem(name);
 				},
 			},
 			partialize: (state) => ({

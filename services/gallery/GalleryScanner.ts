@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { ScannerStorage } from "../../storage/MMKVStorage";
 import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import CryptoJS from "crypto-js";
 import { Platform } from "react-native";
@@ -604,13 +604,13 @@ export class GalleryScanner {
 
 	private async loadProgress() {
 		try {
-			const savedProgress = await AsyncStorage.getItem(SCAN_PROGRESS_KEY);
+			const savedProgress = await ScannerStorage.getObject<Partial<ScanProgress>>(SCAN_PROGRESS_KEY);
 			if (savedProgress) {
-				const parsed = JSON.parse(savedProgress);
 				this.progress = {
-					...parsed,
-					lastScanDate: parsed.lastScanDate
-						? new Date(parsed.lastScanDate)
+					...this.progress, // Keep default values
+					...savedProgress,
+					lastScanDate: savedProgress.lastScanDate
+						? new Date(savedProgress.lastScanDate)
 						: null,
 				};
 			}
@@ -621,10 +621,7 @@ export class GalleryScanner {
 
 	private async saveProgress() {
 		try {
-			await AsyncStorage.setItem(
-				SCAN_PROGRESS_KEY,
-				JSON.stringify(this.progress),
-			);
+			await ScannerStorage.setObject(SCAN_PROGRESS_KEY, this.progress);
 		} catch (error) {
 			console.error("Failed to save scan progress:", error);
 		}
@@ -632,9 +629,9 @@ export class GalleryScanner {
 
 	private async loadProcessedHashes() {
 		try {
-			const saved = await AsyncStorage.getItem(PROCESSED_HASHES_KEY);
+			const saved = await ScannerStorage.getObject<string[]>(PROCESSED_HASHES_KEY);
 			if (saved) {
-				this.processedHashes = new Set(JSON.parse(saved));
+				this.processedHashes = new Set(saved);
 			}
 		} catch (error) {
 			console.error("Failed to load processed hashes:", error);
@@ -643,9 +640,9 @@ export class GalleryScanner {
 
 	private async saveProcessedHashes() {
 		try {
-			await AsyncStorage.setItem(
+			await ScannerStorage.setObject(
 				PROCESSED_HASHES_KEY,
-				JSON.stringify(Array.from(this.processedHashes)),
+				Array.from(this.processedHashes),
 			);
 		} catch (error) {
 			console.error("Failed to save processed hashes:", error);
@@ -668,18 +665,17 @@ export class GalleryScanner {
 		this.failedImages.clear();
 		this.scanHistory = [];
 
-		await AsyncStorage.removeItem(SCAN_PROGRESS_KEY);
-		await AsyncStorage.removeItem(PROCESSED_HASHES_KEY);
-		await AsyncStorage.removeItem(FAILED_IMAGES_KEY);
-		await AsyncStorage.removeItem(SCAN_HISTORY_KEY);
+		await ScannerStorage.removeItem(SCAN_PROGRESS_KEY);
+		await ScannerStorage.removeItem(PROCESSED_HASHES_KEY);
+		await ScannerStorage.removeItem(FAILED_IMAGES_KEY);
+		await ScannerStorage.removeItem(SCAN_HISTORY_KEY);
 	}
 
 	private async loadFailedImages() {
 		try {
-			const saved = await AsyncStorage.getItem(FAILED_IMAGES_KEY);
+			const saved = await ScannerStorage.getObject<Array<[string, any]>>(FAILED_IMAGES_KEY);
 			if (saved) {
-				const entries = JSON.parse(saved);
-				this.failedImages = new Map(entries);
+				this.failedImages = new Map(saved);
 			}
 		} catch (error) {
 			console.error("Failed to load failed images:", error);
@@ -689,7 +685,7 @@ export class GalleryScanner {
 	private async saveFailedImages() {
 		try {
 			const entries = Array.from(this.failedImages.entries());
-			await AsyncStorage.setItem(FAILED_IMAGES_KEY, JSON.stringify(entries));
+			await ScannerStorage.setObject(FAILED_IMAGES_KEY, entries);
 		} catch (error) {
 			console.error("Failed to save failed images:", error);
 		}
@@ -697,14 +693,13 @@ export class GalleryScanner {
 
 	private async loadScanHistory() {
 		try {
-			const saved = await AsyncStorage.getItem(SCAN_HISTORY_KEY);
-			if (saved) {
-				this.scanHistory = JSON.parse(saved, (key, value) => {
-					if (key === "date" && typeof value === "string") {
-						return new Date(value);
-					}
-					return value;
-				});
+			const saved = await ScannerStorage.getObject<any[]>(SCAN_HISTORY_KEY);
+			if (saved && Array.isArray(saved)) {
+				// Convert date strings back to Date objects
+				this.scanHistory = saved.map((entry: any) => ({
+					...entry,
+					date: entry.date ? new Date(entry.date) : entry.date,
+				}));
 			}
 		} catch (error) {
 			console.error("Failed to load scan history:", error);
@@ -717,10 +712,7 @@ export class GalleryScanner {
 			if (this.scanHistory.length > 50) {
 				this.scanHistory = this.scanHistory.slice(-50);
 			}
-			await AsyncStorage.setItem(
-				SCAN_HISTORY_KEY,
-				JSON.stringify(this.scanHistory),
-			);
+			await ScannerStorage.setObject(SCAN_HISTORY_KEY, this.scanHistory);
 		} catch (error) {
 			console.error("Failed to save scan history:", error);
 		}

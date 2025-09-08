@@ -1,31 +1,19 @@
 import { showToast } from "../app/components/Toast";
-import { Alert } from "react-native";
+import { Clipboard as RNClipboard } from "react-native";
 
-// Temporary clipboard implementation until we can properly install a clipboard package
-class ClipboardService {
-	private clipboardData: string = "";
-
-	async setStringAsync(text: string): Promise<void> {
-		// For now, we'll store it in memory
-		// In production, you'd want to use @react-native-clipboard/clipboard
-		this.clipboardData = text;
-
-		// Note: In a real app, use @react-native-clipboard/clipboard
-		// For now, we just store in memory
-	}
-
-	async getStringAsync(): Promise<string> {
-		// Note: In a real app, use @react-native-clipboard/clipboard
-		// For now, we just return stored data
-		return this.clipboardData;
-	}
-}
-
-export const Clipboard = new ClipboardService();
+// Built-in React Native Clipboard implementation
+export const Clipboard = {
+	setString: (text: string) => {
+		RNClipboard.setString(text);
+	},
+	getString: async (): Promise<string> => {
+		return await RNClipboard.getString();
+	},
+};
 
 export const copyToClipboard = async (text: string, label: string = "Text") => {
 	try {
-		await Clipboard.setStringAsync(text);
+		Clipboard.setString(text);
 		showToast({
 			type: "success",
 			message: `Copied ${label} to clipboard`,

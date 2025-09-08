@@ -4,12 +4,14 @@ import { CONTAINER_PADDING, SPACING } from "./documentGridConst";
 export const createStyles = (theme: any) =>
 	StyleSheet.create({
 		container: {
-			paddingHorizontal: CONTAINER_PADDING,
-			paddingTop: 16,
+			padding: CONTAINER_PADDING,
 		},
 		emptyListContainer: {
 			flex: 1,
 			justifyContent: "center",
+			alignItems: "center",
+			paddingHorizontal: 20,
+			minHeight: 400,
 		},
 		masonryContainer: {
 			flexDirection: "row",
@@ -26,6 +28,12 @@ export const createStyles = (theme: any) =>
 		},
 		cardContainer: {
 			marginBottom: SPACING,
+			marginHorizontal: SPACING / 4, // Small horizontal spacing for masonry
+		},
+		loadingFooter: {
+			paddingVertical: 20,
+			alignItems: 'center',
+			justifyContent: 'center',
 		},
 		emptyContainer: {
 			flex: 1,

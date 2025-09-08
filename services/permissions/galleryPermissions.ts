@@ -75,17 +75,6 @@ class GalleryPermissions {
 				canAskAgain: false,
 			};
 		} catch (error: any) {
-			// If error contains permission-related message
-			if (
-				error.message?.includes("permission") ||
-				error.code === "E_PHOTO_LIBRARY_AUTH_DENIED"
-			) {
-				return {
-					status: "denied",
-					canAskAgain: true,
-				};
-			}
-
 			return {
 				status: "unavailable",
 				canAskAgain: false,

@@ -1,5 +1,5 @@
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: <explanation> */
-import ImageResizer from "@bam.tech/react-native-image-resizer";
+import ImageUtils from "../../utils/imageUtils";
 import CryptoJS from "crypto-js";
 import RNFS from "react-native-fs";
 import type { PreprocessingOptions } from "./ocrTypes";
@@ -54,7 +54,7 @@ export class ImagePreprocessor {
 		}
 
 		// Process the image
-		const processedImage = await ImageResizer.createResizedImage(
+		const processedImage = await ImageUtils.createResizedImage(
 			imageUri,
 			maxWidth,
 			maxHeight,
@@ -62,7 +62,7 @@ export class ImagePreprocessor {
 			90, // quality
 			0, // rotation
 			undefined, // outputPath
-			false, // keepMeta
+			false // keepMeta
 		);
 
 		// Additional preprocessing for binarization if requested

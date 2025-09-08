@@ -1,4 +1,4 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AppStorage } from "./storage/MMKVStorage";
 import { AppRegistry } from "react-native";
 import App from "./App";
 import { name as appName } from "./app.json";
@@ -18,7 +18,7 @@ if (!__DEV__) {
 
 		if (isFatal && error) {
 			// Save crash reason for next launch
-			AsyncStorage.setItem("last_crash_reason", "permission_change").catch(
+			AppStorage.setItem("last_crash_reason", "permission_change").catch(
 				() => {},
 			);
 

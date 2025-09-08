@@ -2,7 +2,7 @@ import { Image } from "react-native";
 import RNFS from "react-native-fs";
 import CryptoJS from "crypto-js";
 import nlp from "compromise";
-import ImageResizer from "@bam.tech/react-native-image-resizer";
+import ImageUtils from "../../utils/imageUtils";
 import { embeddingService } from "../search/simpleEmbeddingService";
 import { keywordExtractor } from "./keywordExtractor";
 import { ocrEngineManager } from "./OCREngineManager";
@@ -257,7 +257,7 @@ export class DocumentProcessor {
 	): Promise<string> {
 		try {
 			// DON'T cache preprocessed images - they're temporary!
-			const manipulatedImage = await ImageResizer.createResizedImage(
+			const manipulatedImage = await ImageUtils.createResizedImage(
 				imageUri,
 				1500, // maxWidth
 				1500, // maxHeight
@@ -306,7 +306,7 @@ export class DocumentProcessor {
 					console.log(
 						`Resizing large image for OCR: ${imageInfo.width}x${imageInfo.height}`,
 					);
-					const resized = await ImageResizer.createResizedImage(
+					const resized = await ImageUtils.createResizedImage(
 						imageUri,
 						Math.min(2000, imageInfo.width),
 						Math.min(2000, imageInfo.height),
