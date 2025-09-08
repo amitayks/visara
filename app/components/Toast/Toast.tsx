@@ -52,12 +52,12 @@ export class ToastContainer extends React.Component<{}, ToastState> {
 
 		Animated.sequence([
 			Animated.spring(this.animatedValue, {
-				toValue: 1,
+				toValue: 1.3,
 				useNativeDriver: true,
-				friction: 8,
-				tension: 40,
+				friction: 4,
+				tension: 10,
 			}),
-			Animated.delay(config.duration || 3000),
+			Animated.delay(config.duration || 4000),
 			Animated.spring(this.animatedValue, {
 				toValue: 0,
 				useNativeDriver: true,
@@ -78,6 +78,7 @@ export class ToastContainer extends React.Component<{}, ToastState> {
 			case "error":
 				return "alert-circle";
 			case "info":
+				return "information-circle";
 			default:
 				return "information-circle";
 		}
@@ -86,12 +87,14 @@ export class ToastContainer extends React.Component<{}, ToastState> {
 	getBackgroundColor = (type: ToastConfig["type"]) => {
 		switch (type) {
 			case "success":
-				return "#323232";
+				return "#185131";
+			// return "#323232";
 			case "error":
 				return "#EF4444";
 			case "info":
+				return "#3B82F6";
 			default:
-				return "#6366F1";
+				return "#3B82F6";
 		}
 	};
 

@@ -60,7 +60,6 @@ export const SearchContainer: React.FC = () => {
 				showToast({
 					type: "error",
 					message: "Search failed",
-					icon: "alert-circle",
 				});
 			}
 		},
@@ -76,7 +75,6 @@ export const SearchContainer: React.FC = () => {
 				showToast({
 					type: "error",
 					message: "Search failed",
-					icon: "alert-circle",
 				});
 			}
 		}
@@ -162,7 +160,7 @@ export const SearchContainer: React.FC = () => {
 						disabled={!(searchQuery.length > 0)}
 						style={styles.sendButton}
 					>
-						<Icon name="send" size={22} color={iconColors.accent} />
+						<Icon name="search" size={24} color={iconColors.accent} />
 					</TouchableOpacity>
 				</Animated.View>
 			</View>

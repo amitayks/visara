@@ -83,12 +83,13 @@ export default function HomeScreen() {
 	const handleStartBackgroundScan = useCallback(async () => {
 		try {
 			// Check if background scanning is already running
-			const isRunning = backgroundScanner.isBackgroundServiceRunning();
+			// const isRunning = backgroundScanner.isBackgroundServiceRunning();
+			const isRunning = true;
 			if (isRunning) {
 				showToast({
 					type: "info",
 					message: "Background scanning is already running",
-					icon: "info",
+					// icon: "check",
 				});
 				return;
 			}
@@ -100,8 +101,7 @@ export default function HomeScreen() {
 				if (!granted) {
 					showToast({
 						type: "error",
-						message: "Gallery access is required to scan for documents",
-						icon: "alert-circle",
+						message: "Gallery access required to scan documents",
 					});
 					return;
 				}
@@ -112,11 +112,11 @@ export default function HomeScreen() {
 			const notificationGranted =
 				await notificationPermissions.ensurePermission();
 			if (!notificationGranted) {
-				// Still allow scanning to proceed even without notification permissions
-				// User will just not see progress notifications
-				console.log(
-					"[HomeScreen] Notification permission not granted, but continuing with scan",
-				);
+				showToast({
+					type: "info",
+					message:
+						"Notification permission not granted. Scan will proceed without progress notifications.",
+				});
 			}
 
 			// Start the background service
@@ -127,7 +127,6 @@ export default function HomeScreen() {
 				type: "success",
 				message:
 					"Background scanning started! Check your notifications for progress.",
-				icon: "check-circle",
 			});
 
 			// Refresh documents periodically while scanning
@@ -145,7 +144,6 @@ export default function HomeScreen() {
 			showToast({
 				type: "error",
 				message: "Failed to start background scan",
-				icon: "alert-circle",
 			});
 		}
 	}, [loadDocuments]);
