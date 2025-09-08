@@ -12,75 +12,7 @@ import {
 	Platform,
 } from "react-native";
 import { ScannerStorage } from "../../storage/MMKVStorage";
-
-// Smart progress update manager - controls when and how we update progress
-class ProgressUpdateManager {
-	private lastNotificationUpdate = 0;
-	private lastStoreUpdate = 0;
-	private readonly notificationUpdateInterval = 3000; // 3 seconds
-	private readonly storeUpdateInterval = 1000; // 1 second
-
-	constructor() {
-		// Initialize with current time to prevent immediate updates
-		const now = Date.now();
-		this.lastNotificationUpdate = now;
-		this.lastStoreUpdate = now;
-	}
-
-	async updateProgress(progress: any, force = false): Promise<void> {
-		const now = Date.now();
-
-		// Always update store more frequently for UI responsiveness
-		// This keeps the app UI smooth when user is actively watching
-		if (now - this.lastStoreUpdate > this.storeUpdateInterval || force) {
-			useScannerStore.getState().setScanProgress(progress);
-			this.lastStoreUpdate = now;
-		}
-
-		// Update notification less frequently to preserve background performance
-		// This reduces the overhead while keeping users informed
-		if (
-			now - this.lastNotificationUpdate > this.notificationUpdateInterval ||
-			force
-		) {
-			if (BackgroundService.isRunning()) {
-				const percentage =
-					progress.totalImages > 0
-						? Math.round(
-								(progress.processedImages / progress.totalImages) * 100,
-							)
-						: 0;
-
-				await BackgroundService.updateNotification({
-					taskDesc: `Scanned ${progress.processedImages} of ${progress.totalImages} images (${percentage}%)`,
-					progressBar: {
-						max: progress.totalImages || 100,
-						value: progress.processedImages || 0,
-						indeterminate: progress.totalImages === 0,
-					},
-				});
-			}
-			this.lastNotificationUpdate = now;
-		}
-	}
-
-	// Force an immediate update regardless of timing
-	async forceUpdate(progress: any, message?: string): Promise<void> {
-		if (BackgroundService.isRunning()) {
-			await BackgroundService.updateNotification({
-				taskDesc:
-					message ||
-					`Processing: ${progress.processedImages}/${progress.totalImages}`,
-				progressBar: {
-					max: progress.totalImages || 100,
-					value: progress.processedImages || 0,
-					indeterminate: progress.totalImages === 0,
-				},
-			});
-		}
-		useScannerStore.getState().setScanProgress(progress);
-	}
-}
+import { ProgressUpdateManager } from "./ProgressUpdateManager";
 
 interface BackgroundTaskOptions {
 	taskName: string;
@@ -131,7 +63,7 @@ export class BackgroundScanner {
 	}
 
 	// State persistence using MMKV - allows resuming interrupted scans
-	private saveScanState(): void {
+	private async saveScanState(): Promise<void> {
 		try {
 			const state = {
 				lastScanTime: this.lastScanTime?.getTime(),
@@ -139,19 +71,20 @@ export class BackgroundScanner {
 				timestamp: Date.now(),
 			};
 
-			// Save to MMKV for persistence across app restarts
-			ScannerStorage.setObject("background_scan_state", state);
+			// Save to MMKV for persistence across app restarts - await the async operation
+			await ScannerStorage.setObject("background_scan_state", state);
 			console.log("[BackgroundScanner] Scan state saved");
 		} catch (error) {
 			console.error("[BackgroundScanner] Error saving scan state:", error);
 		}
 	}
 
-	private loadScanState(): any {
+	private async loadScanState(): Promise<any> {
 		try {
-			// Load from MMKV
-			const state = ScannerStorage.getObject("background_scan_state");
+			// Load from MMKV - await the promise since getObject is async
+			const state = await ScannerStorage.getObject("background_scan_state");
 			if (state) {
+				// Now we can safely access the properties since state is resolved
 				if (state.lastScanTime) {
 					this.lastScanTime = new Date(state.lastScanTime);
 				}
@@ -166,9 +99,10 @@ export class BackgroundScanner {
 		}
 	}
 
-	private clearScanState(): void {
+	private async clearScanState(): Promise<void> {
 		try {
-			ScannerStorage.removeItem("background_scan_state");
+			// removeItem is also async in your MMKV interface
+			await ScannerStorage.removeItem("background_scan_state");
 			console.log("[BackgroundScanner] Scan state cleared");
 		} catch (error) {
 			console.error("[BackgroundScanner] Error clearing scan state:", error);
@@ -423,7 +357,7 @@ export class BackgroundScanner {
 
 		try {
 			// Load any saved state from previous interrupted scans
-			const savedState = this.loadScanState();
+			const savedState = await this.loadScanState();
 			if (savedState) {
 				console.log("[BackgroundScanner] Resuming from saved state");
 			}
@@ -449,7 +383,7 @@ export class BackgroundScanner {
 
 						// Update last scan time and save our progress
 						this.lastScanTime = new Date();
-						this.saveScanState();
+						await this.saveScanState();
 
 						// Show completion with a satisfying message
 						const finalProgress = useScannerStore.getState().scanProgress;
