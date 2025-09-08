@@ -54,8 +54,8 @@ export class ToastContainer extends React.Component<{}, ToastState> {
 			Animated.spring(this.animatedValue, {
 				toValue: 1.3,
 				useNativeDriver: true,
-				friction: 4,
-				tension: 10,
+				friction: 5,
+				tension: 8,
 			}),
 			Animated.delay(config.duration || 4000),
 			Animated.spring(this.animatedValue, {

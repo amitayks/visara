@@ -14,13 +14,13 @@ export const createStyles = (theme: any) =>
 			justifyContent: "center",
 			alignItems: "center",
 			elevation: 8, // for Android shadow
-			shadowColor: "#000",
+			shadowColor: theme.shadowColor,
 			shadowOffset: { width: 0, height: 2 },
 			shadowOpacity: 0.3,
 			shadowRadius: 4,
 		},
 		text: {
-			color: "#ffffffff",
+			color: theme.text,
 			fontSize: 16,
 			fontWeight: "bold",
 			marginLeft: 10,

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-	Button,
 	Keyboard,
 	StatusBar,
 	StyleSheet,
@@ -20,7 +19,6 @@ import {
 } from "../services/gallery/GalleryScanner";
 import { notificationPermissions } from "../services/permissions/notificationPermissions";
 import { useDocumentStore } from "../stores/documentStore";
-import { useSettingsStore } from "../stores/settingsStore";
 import { AppHeader } from "./components/AppHeader";
 import { type Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
@@ -35,7 +33,6 @@ export default function HomeScreen() {
 	const styles = useThemedStyles(createStyles);
 
 	const { loadDocuments, initializeRealTimeUpdates } = useDocumentStore();
-	const { settings } = useSettingsStore();
 
 	// Local UI state
 	const [selectedDocument, setSelectedDocument] = useState<Document | null>(
