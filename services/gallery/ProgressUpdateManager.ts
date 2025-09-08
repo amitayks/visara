@@ -6,12 +6,17 @@ export class ProgressUpdateManager {
 	private lastStoreUpdate = 0;
 	private readonly notificationUpdateInterval = 3000; // 3 seconds
 	private readonly storeUpdateInterval = 1000; // 1 second
+	private isPaused = false;
 
 	constructor() {
 		// Initialize with current time to prevent immediate updates
 		const now = Date.now();
 		this.lastNotificationUpdate = now;
 		this.lastStoreUpdate = now;
+	}
+
+	setPaused(paused: boolean) {
+		this.isPaused = paused;
 	}
 
 	async updateProgress(progress: any, force = false): Promise<void> {
@@ -45,6 +50,19 @@ export class ProgressUpdateManager {
 						value: progress.processedImages || 0,
 						indeterminate: progress.totalImages === 0,
 					},
+					// @ts-ignore - actions not in type definitions but supported by library
+					actions: [
+						{
+							id: "pause_scan",
+							title: this.isPaused ? "Resume" : "Pause",
+							icon: this.isPaused ? "play_arrow" : "pause",
+						},
+						{
+							id: "stop_scan",
+							title: "Stop",
+							icon: "stop",
+						},
+					],
 				});
 			}
 			this.lastNotificationUpdate = now;
@@ -63,6 +81,19 @@ export class ProgressUpdateManager {
 					value: progress.processedImages || 0,
 					indeterminate: progress.totalImages === 0,
 				},
+				// @ts-ignore - actions not in type definitions but supported by library
+				actions: [
+					{
+						id: "pause_scan",
+						title: this.isPaused ? "Resume" : "Pause",
+						icon: this.isPaused ? "play_arrow" : "pause",
+					},
+					{
+						id: "stop_scan",
+						title: "Stop",
+						icon: "stop",
+					},
+				],
 			});
 		}
 		useScannerStore.getState().setScanProgress(progress);

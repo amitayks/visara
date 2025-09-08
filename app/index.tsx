@@ -17,6 +17,8 @@ import {
 	galleryScanner,
 	type ScanProgress,
 } from "../services/gallery/GalleryScanner";
+import { backgroundScanner } from "../services/gallery/backgroundScanner";
+import { notificationPermissions } from "../services/permissions/notificationPermissions";
 import { useDocumentStore } from "../stores/documentStore";
 import { useSettingsStore } from "../stores/settingsStore";
 
@@ -80,45 +82,71 @@ export default function HomeScreen() {
 
 	const handleStartBackgroundScan = useCallback(async () => {
 		try {
-			const hasPermission = await galleryScanner.hasPermissions();
-			if (!hasPermission) {
+			// Check if background scanning is already running
+			const isRunning = backgroundScanner.isBackgroundServiceRunning();
+			if (isRunning) {
+				showToast({
+					type: "info",
+					message: "Background scanning is already running",
+					icon: "info",
+				});
+				return;
+			}
+
+			// Check gallery permissions first
+			const hasGalleryPermission = await galleryScanner.hasPermissions();
+			if (!hasGalleryPermission) {
 				const granted = await galleryScanner.requestPermissions();
 				if (!granted) {
 					showToast({
 						type: "error",
-						message: `Permission Required Gallery access is needed to scan for documents.`,
+						message: "Gallery access is required to scan for documents",
 						icon: "alert-circle",
 					});
 					return;
 				}
 			}
 
-			await galleryScanner.startScan(
-				{
-					batchSize: settings.maxScanBatchSize,
-					smartFilterEnabled: settings.smartFilterEnabled,
-					batterySaver: settings.batterySaver,
-				},
-				(progress) => {
-					setScanProgress(progress);
-					console.log(
-						`Manual scan progress: ${progress.processedImages}/${progress.totalImages}`,
-					);
-				},
-			);
+			// Check notification permissions (required for background service notifications)
+			console.log("[HomeScreen] Checking notification permissions...");
+			const notificationGranted =
+				await notificationPermissions.ensurePermission();
+			if (!notificationGranted) {
+				// Still allow scanning to proceed even without notification permissions
+				// User will just not see progress notifications
+				console.log(
+					"[HomeScreen] Notification permission not granted, but continuing with scan",
+				);
+			}
 
-			// Refresh documents once scan is complete
-			await loadDocuments();
+			// Start the background service
+			console.log("[HomeScreen] Starting background scanner service...");
+			await backgroundScanner.startPeriodicScan();
+
+			showToast({
+				type: "success",
+				message:
+					"Background scanning started! Check your notifications for progress.",
+				icon: "check-circle",
+			});
+
+			// Refresh documents periodically while scanning
+			const refreshInterval = setInterval(async () => {
+				const status = await backgroundScanner.getBackgroundServiceStatus();
+				if (!status.isRunning) {
+					clearInterval(refreshInterval);
+					await loadDocuments(); // Final refresh when scan completes
+				} else {
+					await loadDocuments(); // Periodic refresh during scan
+				}
+			}, 10000); // Refresh every 10 seconds
 		} catch (error) {
 			console.error("Background scan error:", error);
 			showToast({
 				type: "error",
-				message: "Failed to start scan",
+				message: "Failed to start background scan",
 				icon: "alert-circle",
 			});
-		} finally {
-			// setIsScanning(false);
-			setScanProgress(null);
 		}
 	}, [loadDocuments]);
 
@@ -163,7 +191,12 @@ export default function HomeScreen() {
 
 			{/* Search Section - Fixed at bottom */}
 			<Animated.View style={[styles.searchWrapper, searchBarStyle]}>
-				<Button title="start scaning" onPress={handleStartBackgroundScan} />
+				{!isScanning && (
+					<Button
+						title="Start Background Scan"
+						onPress={handleStartBackgroundScan}
+					/>
+				)}
 				<SearchContainer />
 			</Animated.View>
 

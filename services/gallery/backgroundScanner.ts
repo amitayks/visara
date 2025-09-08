@@ -33,6 +33,12 @@ interface BackgroundTaskOptions {
 		value: number;
 		indeterminate?: boolean;
 	};
+
+	actions?: Array<{
+		id: string;
+		title: string;
+		icon?: string;
+	}>;
 }
 
 export class BackgroundScanner {
@@ -46,6 +52,10 @@ export class BackgroundScanner {
 	private currentTaskId: string | null = null;
 	private shouldStop = false;
 	private isPaused = false; // Track if scanning is paused
+	private crashRecoveryAttempts = 0;
+	private maxRecoveryAttempts = 3;
+	private lastHeartbeat = Date.now();
+	private heartbeatInterval: NodeJS.Timeout | null = null;
 
 	static getInstance(): BackgroundScanner {
 		if (!BackgroundScanner.instance) {
@@ -82,8 +92,10 @@ export class BackgroundScanner {
 	private async loadScanState(): Promise<any> {
 		try {
 			// Load from MMKV - await the promise since getObject is async
-			const state = await ScannerStorage.getObject("background_scan_state");
-			if (state) {
+			const state = (await ScannerStorage.getObject(
+				"background_scan_state",
+			)) as any;
+			if (state && typeof state === "object") {
 				// Now we can safely access the properties since state is resolved
 				if (state.lastScanTime) {
 					this.lastScanTime = new Date(state.lastScanTime);
@@ -220,6 +232,10 @@ export class BackgroundScanner {
 				linkingURI: "visara://scanner",
 				parameters: {
 					delay: 30000,
+					// Add notification channel for Android 8+
+					channelId: "document_scanner_channel",
+					// Add action handler
+					onAction: this.handleNotificationAction,
 				},
 				ongoing: true,
 				progressBar: {
@@ -227,6 +243,18 @@ export class BackgroundScanner {
 					value: 0,
 					indeterminate: false,
 				},
+				actions: [
+					{
+						id: "pause_scan",
+						title: this.isPaused ? "Resume" : "Pause",
+						icon: this.isPaused ? "play_arrow" : "pause",
+					},
+					{
+						id: "stop_scan",
+						title: "Stop",
+						icon: "stop",
+					},
+				],
 			};
 
 			console.log("[BackgroundScanner] Starting background service");
@@ -240,6 +268,9 @@ export class BackgroundScanner {
 
 			this.isRunning = true;
 			this.currentTaskId = Date.now().toString();
+
+			// Start service monitoring watchdog
+			this.startServiceWatchdog();
 
 			// Update store
 			useScannerStore.getState().setBackgroundScanEnabled(true);
@@ -348,12 +379,203 @@ export class BackgroundScanner {
 	// 	}
 	// };
 
+	// Handle notification actions (pause/resume/stop)
+	private handleNotificationAction = async (actionId: string) => {
+		console.log(
+			`[BackgroundScanner] Notification action received: ${actionId}`,
+		);
+
+		switch (actionId) {
+			case "pause_scan":
+				if (this.isPaused) {
+					await this.resumeScanFromNotification();
+				} else {
+					await this.pauseScanFromNotification();
+				}
+				break;
+			case "stop_scan":
+				await this.stopPeriodicScan();
+				break;
+			default:
+				console.log(`[BackgroundScanner] Unknown action: ${actionId}`);
+		}
+	};
+
+	private async pauseScanFromNotification() {
+		console.log("[BackgroundScanner] Pausing scan from notification");
+		this.isPaused = true;
+
+		// Update notification to show paused state
+		if (BackgroundService.isRunning()) {
+			await BackgroundService.updateNotification({
+				taskDesc: "Scanner paused. Tap Resume to continue.",
+				// @ts-ignore - actions not in type definitions but supported by library
+				actions: [
+					{
+						id: "pause_scan",
+						title: "Resume",
+						icon: "play_arrow",
+					},
+					{
+						id: "stop_scan",
+						title: "Stop",
+						icon: "stop",
+					},
+				],
+			});
+		}
+
+		// Save pause state
+		await this.saveScanState();
+	}
+
+	private async resumeScanFromNotification() {
+		console.log("[BackgroundScanner] Resuming scan from notification");
+		this.isPaused = false;
+
+		// Update notification to show resumed state
+		if (BackgroundService.isRunning()) {
+			await BackgroundService.updateNotification({
+				taskDesc: "Scanner resumed. Scanning in progress...",
+				// @ts-ignore - actions not in type definitions but supported by library
+				actions: [
+					{
+						id: "pause_scan",
+						title: "Pause",
+						icon: "pause",
+					},
+					{
+						id: "stop_scan",
+						title: "Stop",
+						icon: "stop",
+					},
+				],
+			});
+		}
+
+		// Save resume state
+		await this.saveScanState();
+	}
+
+	// Service crash recovery and health monitoring
+	private startServiceWatchdog() {
+		console.log("[BackgroundScanner] Starting service watchdog");
+
+		// Clear any existing watchdog
+		if (this.heartbeatInterval) {
+			clearInterval(this.heartbeatInterval);
+		}
+
+		// Check service health every 30 seconds
+		this.heartbeatInterval = setInterval(async () => {
+			await this.checkServiceHealth();
+		}, 30000);
+
+		this.lastHeartbeat = Date.now();
+	}
+
+	private stopServiceWatchdog() {
+		console.log("[BackgroundScanner] Stopping service watchdog");
+		if (this.heartbeatInterval) {
+			clearInterval(this.heartbeatInterval);
+			this.heartbeatInterval = null;
+		}
+	}
+
+	private async checkServiceHealth() {
+		const now = Date.now();
+		const timeSinceLastHeartbeat = now - this.lastHeartbeat;
+
+		// If more than 2 minutes without heartbeat, consider service dead
+		if (timeSinceLastHeartbeat > 120000) {
+			console.warn(
+				"[BackgroundScanner] Service appears to be dead - attempting recovery",
+			);
+			await this.attemptServiceRecovery();
+		}
+
+		// Check if background service is still running when it should be
+		if (this.isRunning && !BackgroundService.isRunning()) {
+			console.warn(
+				"[BackgroundScanner] Background service stopped unexpectedly",
+			);
+			await this.attemptServiceRecovery();
+		}
+
+		// Update heartbeat
+		this.lastHeartbeat = now;
+	}
+
+	private async attemptServiceRecovery() {
+		if (this.crashRecoveryAttempts >= this.maxRecoveryAttempts) {
+			console.error(
+				"[BackgroundScanner] Max recovery attempts reached - giving up",
+			);
+			this.handleRecoveryFailure();
+			return;
+		}
+
+		this.crashRecoveryAttempts++;
+		console.log(
+			`[BackgroundScanner] Recovery attempt ${this.crashRecoveryAttempts}/${this.maxRecoveryAttempts}`,
+		);
+
+		try {
+			// Clean up current state
+			this.isRunning = false;
+			this.currentTaskId = null;
+
+			// Wait a moment before restart
+			await this.sleep(5000);
+
+			// Attempt to restart the service
+			console.log(
+				"[BackgroundScanner] Restarting background service after crash",
+			);
+			await this.startPeriodicScan();
+
+			// If we get here, recovery was successful
+			console.log("[BackgroundScanner] Service recovery successful");
+			this.crashRecoveryAttempts = 0; // Reset counter on success
+		} catch (error) {
+			console.error("[BackgroundScanner] Recovery attempt failed:", error);
+
+			// Wait longer before next attempt
+			await this.sleep(10000 * this.crashRecoveryAttempts);
+		}
+	}
+
+	private handleRecoveryFailure() {
+		console.error("[BackgroundScanner] Service recovery failed permanently");
+
+		// Reset all state
+		this.isRunning = false;
+		this.isPaused = false;
+		this.currentTaskId = null;
+		this.crashRecoveryAttempts = 0;
+
+		// Stop watchdog
+		this.stopServiceWatchdog();
+
+		// Update store to reflect failure
+		useScannerStore.getState().setBackgroundScanEnabled(false);
+
+		// Clear any saved state that might be causing issues
+		this.clearScanState();
+
+		// TODO: Could add user notification about service failure here
+		console.log(
+			"[BackgroundScanner] Background scanning disabled due to repeated failures",
+		);
+	}
+
 	// Enhanced background task that runs in foreground service with better survival
 	private backgroundTask = async (taskData: any) => {
 		console.log("[BackgroundScanner] Enhanced background task started");
 
 		// Create our smart progress manager
 		const progressManager = new ProgressUpdateManager();
+		progressManager.setPaused(this.isPaused);
 
 		try {
 			// Load any saved state from previous interrupted scans
@@ -366,6 +588,8 @@ export class BackgroundScanner {
 			// It will continue even when app is in background
 			while (!this.shouldStop && BackgroundService.isRunning()) {
 				try {
+					// Update heartbeat to show we're alive
+					this.lastHeartbeat = Date.now();
 					// Check if we should run scan based on device conditions
 					const shouldRun = await this.shouldRunScan();
 
@@ -580,6 +804,9 @@ export class BackgroundScanner {
 				return;
 			}
 
+			// Update heartbeat regularly during sleep
+			this.lastHeartbeat = Date.now();
+
 			// Every few chunks, update notification to show we're still alive
 			if (i % 4 === 0) {
 				// Every 2 minutes
@@ -695,6 +922,9 @@ export class BackgroundScanner {
 			this.isRunning = false;
 			this.currentTaskId = null;
 
+			// Stop watchdog
+			this.stopServiceWatchdog();
+
 			// Clear interval if any
 			if (this.scanInterval) {
 				clearInterval(this.scanInterval);
@@ -748,6 +978,9 @@ export class BackgroundScanner {
 
 	cleanup() {
 		console.log("[BackgroundScanner] Cleaning up");
+
+		// Stop watchdog
+		this.stopServiceWatchdog();
 
 		// Clean up app state listener
 		if (this.appStateSubscription) {
