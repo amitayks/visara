@@ -1,11 +1,11 @@
-import React, { memo, useCallback, useEffect, useState } from "react";
+import { FlashList } from "@shopify/flash-list";
+import { memo, useCallback, useState } from "react";
 import {
+	ActivityIndicator,
 	Image,
 	Keyboard,
 	RefreshControl,
-	ScrollView,
 	View,
-	ViewStyle,
 } from "react-native";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useDocumentStore } from "../../../stores/documentStore";
@@ -14,7 +14,7 @@ import { DocumentCard } from "../DocumentCard";
 import { EmptyState } from "../EmptyState";
 import { showToast } from "../Toast";
 import { createStyles } from "./DocumentGrid.style";
-import { ITEM_WIDTH, SPACING } from "./documentGridConst";
+import { ITEM_WIDTH } from "./documentGridConst";
 
 export interface Document {
 	id: string;
@@ -30,65 +30,62 @@ export interface Document {
 interface DocumentGridProps {
 	onDocumentPress: (doc: Document) => void;
 	handleStartBackgroundScan: () => void;
-	ListEmptyComponent?: React.ReactElement;
-	contentContainerStyle?: ViewStyle;
 }
 
 export const DocumentGrid = memo(
-	({
-		onDocumentPress,
-		handleStartBackgroundScan,
-		contentContainerStyle,
-	}: DocumentGridProps) => {
+	({ onDocumentPress, handleStartBackgroundScan }: DocumentGridProps) => {
 		const { theme } = useTheme();
 		const styles = useThemedStyles(createStyles);
 		const [imageHeights, setImageHeights] = useState<{ [key: string]: number }>(
 			{},
 		);
 		const [refreshing, setRefreshing] = useState(false);
+		const [isLoadingMore, setIsLoadingMore] = useState(false);
+
 		const { filteredDocuments, loadDocuments } = useDocumentStore();
 		const { searchQuery, queryChips } = useSearchStore();
 
 		const documents = filteredDocuments;
 
-		useEffect(() => {
-			const calculateHeights = async () => {
-				const heights: { [key: string]: number } = {};
-				let loadedCount = 0;
+		// Calculate image height lazily when needed
+		const getImageHeight = useCallback(
+			(doc: Document): number => {
+				if (imageHeights[doc.id]) {
+					return imageHeights[doc.id];
+				}
 
-				documents.forEach((doc) => {
-					Image.getSize(
-						doc.imageUri,
-						(width, height) => {
-							const aspectRatio = height / width;
-							const calculatedHeight = ITEM_WIDTH * aspectRatio;
-							// Limit height to reasonable bounds for Pinterest-style layout
-							const minHeight = ITEM_WIDTH * 0.8;
-							const maxHeight = ITEM_WIDTH * 2.5;
-							heights[doc.id] = Math.min(
-								Math.max(calculatedHeight, minHeight),
-								maxHeight,
-							);
+				// Start async calculation
+				Image.getSize(
+					doc.imageUri,
+					(width, height) => {
+						const aspectRatio = height / width;
+						const calculatedHeight = ITEM_WIDTH * aspectRatio;
+						const minHeight = ITEM_WIDTH * 0.8;
+						const maxHeight = ITEM_WIDTH * 2.5;
+						const finalHeight = Math.min(
+							Math.max(calculatedHeight, minHeight),
+							maxHeight,
+						);
 
-							loadedCount++;
-							if (loadedCount === documents.length) {
-								setImageHeights(heights);
-							}
-						},
-						(error) => {
-							// Fallback to default height
-							heights[doc.id] = ITEM_WIDTH * 1.4;
-							loadedCount++;
-							if (loadedCount === documents.length) {
-								setImageHeights(heights);
-							}
-						},
-					);
-				});
-			};
+						setImageHeights((prev) => ({
+							...prev,
+							[doc.id]: finalHeight,
+						}));
+					},
+					() => {
+						// Fallback height
+						setImageHeights((prev) => ({
+							...prev,
+							[doc.id]: ITEM_WIDTH * 1.4,
+						}));
+					},
+				);
 
-			calculateHeights();
-		}, [documents]);
+				// Return default height while calculating
+				return ITEM_WIDTH * 1.4;
+			},
+			[imageHeights],
+		);
 
 		const handleRefresh = useCallback(async () => {
 			setRefreshing(true);
@@ -111,95 +108,96 @@ export const DocumentGrid = memo(
 			}
 		}, [loadDocuments]);
 
-		// Create masonry layout
-		const createMasonryLayout = useCallback(() => {
-			const leftColumn: Document[] = [];
-			const rightColumn: Document[] = [];
-			let leftColumnHeight = 0;
-			let rightColumnHeight = 0;
+		const handleEndReached = useCallback(async () => {
+			if (isLoadingMore) return;
 
-			documents.forEach((doc) => {
-				const itemHeight = imageHeights[doc.id] || ITEM_WIDTH * 1.4;
+			setIsLoadingMore(true);
+			try {
+				// For now, we'll keep this simple
+				// Future enhancement: implement actual pagination
+				console.log("Load more documents - feature for future enhancement");
+			} catch (error) {
+				console.error("Load more error:", error);
+			} finally {
+				setIsLoadingMore(false);
+			}
+		}, [isLoadingMore]);
 
-				if (leftColumnHeight <= rightColumnHeight) {
-					leftColumn.push(doc);
-					leftColumnHeight += itemHeight + SPACING;
-				} else {
-					rightColumn.push(doc);
-					rightColumnHeight += itemHeight + SPACING;
-				}
-			});
+		const renderDocument = useCallback(
+			({ item: doc }: { item: Document }) => {
+				const height = getImageHeight(doc);
 
-			return { leftColumn, rightColumn };
-		}, [documents, imageHeights]);
-
-		const renderColumn = useCallback(
-			(columnDocs: Document[], isLeft: boolean) => (
-				<View
-					style={[
-						styles.column,
-						isLeft ? styles.leftColumn : styles.rightColumn,
-					]}
-				>
-					{columnDocs.map((doc) => (
-						<View key={doc.id} style={styles.cardContainer}>
-							<DocumentCard
-								document={doc}
-								onPress={() => onDocumentPress(doc)}
-								width={ITEM_WIDTH}
-								height={imageHeights[doc.id]}
-							/>
-						</View>
-					))}
-				</View>
-			),
-			[onDocumentPress, imageHeights],
+				return (
+					<View style={[styles.cardContainer, { padding: 8 }]}>
+						<DocumentCard
+							document={doc}
+							onPress={() => onDocumentPress(doc)}
+							width={ITEM_WIDTH}
+							height={height}
+						/>
+					</View>
+				);
+			},
+			[onDocumentPress, getImageHeight, styles.cardContainer],
 		);
 
-		if (!documents.length) {
-			return (
-				<ScrollView
-					refreshControl={
-						<RefreshControl
-							refreshing={refreshing}
-							onRefresh={handleRefresh}
-							colors={[theme.accent]}
-							tintColor={theme.accent}
-						/>
-					}
-					contentContainerStyle={[
-						styles.container,
-						styles.emptyListContainer,
-						contentContainerStyle,
-					]}
-					keyboardShouldPersistTaps="handled"
-					onScrollBeginDrag={() => Keyboard.dismiss()}
-				>
-					{queryChips.length > 0 ? (
+		const keyExtractor = useCallback((item: Document) => item.id, []);
+
+		const ListEmptyComponent = useCallback(() => {
+			if (queryChips.length > 0) {
+				return (
+					<View style={styles.emptyListContainer}>
 						<EmptyState
 							icon="search-outline"
 							title="No results found"
 							message={`No documents found for "${queryChips[0]?.text || searchQuery}"`}
 						/>
-					) : (
-						<EmptyState
-							icon="folder-open-outline"
-							title="No documents yet"
-							message="Tap the scan button to find documents in your gallery"
-							action={{
-								label: "Start Scanning",
-								onPress: handleStartBackgroundScan,
-							}}
-						/>
-					)}
-				</ScrollView>
-			);
-		}
+					</View>
+				);
+			}
 
-		const { leftColumn, rightColumn } = createMasonryLayout();
+			return (
+				<View style={styles.emptyListContainer}>
+					<EmptyState
+						icon="folder-open-outline"
+						title="No documents yet"
+						message="Tap the scan button to find documents in your gallery"
+						action={{
+							label: "Start Scanning",
+							onPress: handleStartBackgroundScan,
+						}}
+					/>
+				</View>
+			);
+		}, [
+			queryChips,
+			searchQuery,
+			handleStartBackgroundScan,
+			styles.emptyListContainer,
+		]);
+
+		const ListFooterComponent = useCallback(() => {
+			if (!isLoadingMore) return null;
+
+			return (
+				<View style={styles.loadingFooter}>
+					<ActivityIndicator size="small" color={theme.accent} />
+				</View>
+			);
+		}, [isLoadingMore, styles.loadingFooter, theme.accent]);
 
 		return (
-			<ScrollView
+			<FlashList
+				data={documents}
+				renderItem={renderDocument}
+				keyExtractor={keyExtractor}
+				// Use numColumns for basic multi-column layout
+				// FlashList v1 doesn't have masonry prop, but performs well with dynamic heights
+				numColumns={2}
+				// Infinite Scroll
+				onEndReached={handleEndReached}
+				onEndReachedThreshold={0.5}
+				// Pull to Refresh
 				refreshControl={
 					<RefreshControl
 						refreshing={refreshing}
@@ -208,16 +206,21 @@ export const DocumentGrid = memo(
 						tintColor={theme.accent}
 					/>
 				}
-				contentContainerStyle={[styles.container, contentContainerStyle]}
+				// Styling
+				contentContainerStyle={{
+					paddingBottom: 100,
+				}}
 				showsVerticalScrollIndicator={false}
+				// Keyboard handling
 				keyboardShouldPersistTaps="handled"
 				onScrollBeginDrag={() => Keyboard.dismiss()}
-			>
-				<View style={styles.masonryContainer}>
-					{renderColumn(leftColumn, true)}
-					{renderColumn(rightColumn, false)}
-				</View>
-			</ScrollView>
+				// Empty state
+				ListEmptyComponent={ListEmptyComponent}
+				// Footer (loading indicator)
+				ListFooterComponent={ListFooterComponent}
+			/>
 		);
 	},
 );
+
+DocumentGrid.displayName = "FlashDocumentGrid";

@@ -12,15 +12,14 @@ import {
 } from "react-native";
 import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
+import { useDocumentStore } from "../../../stores/documentStore";
 import { copyToClipboard } from "../../../utils/clipboard";
-import { formatDate, formatCurrency } from "../../../utils/format";
-import { useIconColors } from "../../../utils/iconColors";
+import { formatCurrency, formatDate } from "../../../utils/format";
 import { ActionButton } from "../ActionButton";
-import { Document } from "../DocumentGrid/DocumentGrid";
+import { Document } from "../DocumentGrid";
+import { InfoRow } from "../InfoRow";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./DocumentModal.style";
-import { InfoRow } from "../InfoRow";
-import { useDocumentStore } from "../../../stores/documentStore";
 
 interface DocumentModalProps {
 	visible: boolean;

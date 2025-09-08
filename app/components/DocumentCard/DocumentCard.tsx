@@ -10,7 +10,7 @@ import {
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useIconColors } from "../../../utils/iconColors";
-import { Document } from "../DocumentGrid/DocumentGrid";
+import { Document } from "../DocumentGrid";
 import { createStyles } from "./DocumentCard.style";
 
 interface DocumentCardProps {

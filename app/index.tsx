@@ -21,8 +21,7 @@ import { useDocumentStore } from "../stores/documentStore";
 import { useSettingsStore } from "../stores/settingsStore";
 
 import { AppHeader } from "./components/AppHeader";
-import { Document } from "./components/DocumentGrid";
-import { FlashDocumentGrid } from "./components/DocumentGrid/FlashDocumentGrid";
+import { type Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
 import { ScanProgressBar } from "./components/ScanProgressBar";
 import { SearchContainer } from "./components/SearchContainer";
@@ -155,12 +154,9 @@ export default function HomeScreen() {
 
 					{/* Flash Document Grid - Pinterest-style masonry layout */}
 
-					<FlashDocumentGrid
+					<DocumentGrid
 						onDocumentPress={handleDocumentPress}
 						handleStartBackgroundScan={handleStartBackgroundScan}
-						contentContainerStyle={{
-							paddingBottom: 100,
-						}}
 					/>
 				</>
 			</TouchableWithoutFeedback>
