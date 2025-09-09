@@ -139,7 +139,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 
 	const handleImageSingleTap = useCallback(() => {
 		// Optional: You can close on single tap or do nothing
-		// onClose();
+		onClose();
 	}, []);
 
 	// Handle image zoom gestures - close modal when dragging image down
@@ -151,7 +151,6 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 		},
 		[onClose],
 	);
-
 
 	if (!document) return null;
 
@@ -178,15 +177,16 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 					onSingleTap={handleImageSingleTap}
 					isPanEnabled={true}
 					isPinchEnabled={true}
-					minScale={1}
+					minScale={0.5}
 					maxScale={5}
 					isDoubleTapEnabled={true}
+					// onSwipe={handleImageSwipe}
 				/>
 
 				{/* Close button */}
-				<TouchableOpacity style={styles.closeButton} onPress={onClose}>
+				{/* <TouchableOpacity style={styles.closeButton} onPress={onClose}>
 					<Icon name="close" size={24} color={theme.surface} />
-				</TouchableOpacity>
+				</TouchableOpacity> */}
 
 				{/* Bottom drawer */}
 				<BottomSheet
