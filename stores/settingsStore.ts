@@ -4,7 +4,7 @@ import { createJSONStorage, persist } from "zustand/middleware";
 
 interface AppSettings {
 	autoScan: boolean;
-	scanFrequency: "hourly" | "daily" | "weekly" | "manual";
+	scanFrequency: "on_new_image" | "hourly" | "daily" | "weekly";
 	darkMode: boolean;
 	scanWifiOnly: boolean;
 	batterySaver: boolean;
@@ -36,7 +36,7 @@ interface SettingsStore {
 const defaultSettings: AppSettings = {
 	autoScan: true,
 	darkMode: false,
-	scanFrequency: "daily",
+	scanFrequency: "on_new_image",
 	scanWifiOnly: false,
 	batterySaver: false,
 	smartFilterEnabled: false,

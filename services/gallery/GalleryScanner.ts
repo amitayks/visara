@@ -185,24 +185,48 @@ export class GalleryScanner {
 	}
 
 	private async performScan(options: ScanOptions) {
-		// Get all photos from camera roll
-		const photos = await CameraRoll.getPhotos({
-			first: 10000, // Large batch to get all
-			assetType: "Photos",
-			include: ["filename", "fileSize", "imageSize", "playableDuration"],
-		});
+		// Get ALL photos from camera roll (not limited to 10,000)
+		console.log("[GalleryScanner] Fetching all photos from gallery...");
+		
+		let allAssets: any[] = [];
+		let after: string | undefined;
+		let batchCount = 0;
+		
+		// Fetch all photos in batches
+		do {
+			batchCount++;
+			console.log(`[GalleryScanner] Fetching batch ${batchCount}...`);
+			
+			const photos = await CameraRoll.getPhotos({
+				first: 1000, // Fetch in 1000-image chunks
+				assetType: "Photos",
+				include: ["filename", "fileSize", "imageSize", "playableDuration"],
+				after: after,
+			});
 
-		const allAssets = photos.edges.map((edge: any) => edge.node);
+			allAssets = allAssets.concat(photos.edges.map((edge: any) => edge.node));
+			after = photos.page_info.has_next_page ? photos.page_info.end_cursor : undefined;
+			
+			console.log(`[GalleryScanner] Batch ${batchCount}: ${photos.edges.length} images, Total so far: ${allAssets.length}`);
+			
+		} while (after);
+		
+		console.log(`[GalleryScanner] ✅ Fetched ALL ${allAssets.length} images from gallery in ${batchCount} batches`);
 
 		// Remove duplicates based on uri
 		const uniqueAssets = Array.from(
 			new Map(allAssets.map((asset: any) => [asset.image.uri, asset])).values(),
 		);
 
-		// Sort by timestamp (newest first)
-		uniqueAssets.sort(
-			(a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0),
-		);
+		// CRITICAL: Sort by timestamp (oldest first) so newest documents appear at top of app
+		// CameraRoll returns newest first, but we want to scan oldest first
+		uniqueAssets.sort((a, b) => {
+			const timestampA = a.timestamp || 0;
+			const timestampB = b.timestamp || 0;
+			return timestampA - timestampB; // Oldest first
+		});
+		
+		console.log(`[GalleryScanner] 🔄 Sorted ${uniqueAssets.length} images by timestamp (oldest first)`);
 
 		// Resume from last position if available
 		let startIndex = 0;

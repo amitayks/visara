@@ -6,7 +6,9 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { initializeDatabase } from "../services/database";
+import { backgroundScanner } from "../services/gallery/backgroundScanner";
 import { galleryScanner } from "../services/gallery/GalleryScanner";
+import { ScannerStorage } from "../storage/MMKVStorage";
 import { useSettingsStore } from "../stores/settingsStore";
 import type { RootStackParamList } from "../types/navigation";
 import HomeScreen from "./index";
@@ -37,27 +39,24 @@ export default function RootLayout() {
 					return;
 				}
 
-				// If we have permissions, check if we should start a background scan
-				const progress = galleryScanner.getProgress();
-				const shouldStartScan =
-					!progress.isScanning &&
-					(!progress.lastScanDate ||
-						Date.now() - progress.lastScanDate.getTime() > 24 * 60 * 60 * 1000); // 24 hours
-
-				if (shouldStartScan) {
-					console.log("Starting background scan on app launch");
-
-					// Start scan with user settings
-					galleryScanner
-						.startScan({
-							batchSize: settings.maxScanBatchSize,
-							smartFilterEnabled: settings.smartFilterEnabled,
-							batterySaver: settings.batterySaver,
-							wifiOnly: settings.scanWifiOnly,
-						})
-						.catch((error) => {
-							console.error("Background scan failed:", error);
-						});
+				// Check if we should start automatic scanning based on user settings
+				const manualStopped = await ScannerStorage.getItem("manual_scan_stopped");
+				
+				if (!manualStopped && settings.autoScan) {
+					console.log(`[App Launch] Starting automatic scanning with frequency: ${settings.scanFrequency}`);
+					
+					try {
+						// Always use the background scanner for automatic scanning
+						// This handles both initial scans and ongoing automatic scanning
+						await backgroundScanner.startPeriodicScan();
+						console.log("[App Launch] Background scanning service started successfully");
+					} catch (error) {
+						console.error("[App Launch] Failed to start background scanning:", error);
+					}
+				} else if (manualStopped) {
+					console.log("[App Launch] Automatic scanning disabled - user manually stopped");
+				} else if (!settings.autoScan) {
+					console.log("[App Launch] Automatic scanning disabled in settings");
 				}
 			} catch (error) {
 				console.error("App initialization error:", error);

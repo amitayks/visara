@@ -18,7 +18,9 @@ import {
 	type ScanProgress,
 } from "../services/gallery/GalleryScanner";
 import { notificationPermissions } from "../services/permissions/notificationPermissions";
+import { ScannerStorage } from "../storage/MMKVStorage";
 import { useDocumentStore } from "../stores/documentStore";
+import { useScannerStore } from "../stores/scannerStore";
 import { AppHeader } from "./components/AppHeader";
 import { type Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
@@ -33,6 +35,7 @@ export default function HomeScreen() {
 	const styles = useThemedStyles(createStyles);
 
 	const { loadDocuments, initializeRealTimeUpdates } = useDocumentStore();
+	const { scanProgress: backgroundScanProgress, isBackgroundScanEnabled } = useScannerStore();
 
 	// Local UI state
 	const [selectedDocument, setSelectedDocument] = useState<Document | null>(
@@ -54,7 +57,7 @@ export default function HomeScreen() {
 		return unsubscribe;
 	}, [initializeRealTimeUpdates]);
 
-	// Scan progress subscription
+	// Scan progress subscription (for regular gallery scanner)
 	useEffect(() => {
 		const subscription = galleryScanner.observeProgress((progress) => {
 			setIsScanning(progress.isScanning);
@@ -63,6 +66,34 @@ export default function HomeScreen() {
 
 		return () => subscription?.unsubscribe?.();
 	}, []);
+
+	// Update scanning state based on background or foreground scanning
+	useEffect(() => {
+		const isBackgroundScanning = isBackgroundScanEnabled && backgroundScanProgress.isScanning;
+		const isForegroundScanning = scanProgress?.isScanning || false; // Use scanProgress from galleryScanner
+		const overallScanning = isBackgroundScanning || isForegroundScanning;
+		
+		console.log("[HomeScreen] Scan state check:", { 
+			isBackgroundScanning, 
+			isForegroundScanning, 
+			overallScanning, 
+			currentIsScanning: isScanning 
+		});
+		
+		// Update local state to reflect the current scanning status
+		setIsScanning(overallScanning);
+		
+		// Use appropriate progress data - prefer foreground scan progress when available
+		if (isForegroundScanning && scanProgress) {
+			// Use foreground scanner progress (from auto-scan or manual scan)
+			// Don't override with backgroundScanProgress as it may be stale
+		} else if (isBackgroundScanning) {
+			setScanProgress(backgroundScanProgress);
+		} else if (!overallScanning) {
+			// No scanning active, clear progress
+			setScanProgress(null);
+		}
+	}, [isBackgroundScanEnabled, backgroundScanProgress, scanProgress]);
 
 	// Keyboard animation
 	const searchBarStyle = useAnimatedStyle(() => {
@@ -77,11 +108,13 @@ export default function HomeScreen() {
 		setShowDocumentModal(true);
 	}, []);
 
+	// TODO: REMOVE - This is for testing only, production apps should not have manual scan buttons
+	// Production flow: User sees scan button only on first app open, then all scanning is automatic
 	const handleStartBackgroundScan = useCallback(async () => {
 		try {
 			// Check if background scanning is already running
-			// const isRunning = backgroundScanner.isBackgroundServiceRunning();
-			const isRunning = true;
+			const isRunning = backgroundScanner.isBackgroundServiceRunning();
+			// const isRunning = true;
 			if (isRunning) {
 				showToast({
 					type: "info",
@@ -116,6 +149,9 @@ export default function HomeScreen() {
 				});
 			}
 
+			// Clear the manual stop flag when starting manually
+			await ScannerStorage.removeItem("manual_scan_stopped");
+			
 			// Start the background service
 			console.log("[HomeScreen] Starting background scanner service...");
 			await backgroundScanner.startPeriodicScan();
@@ -123,7 +159,7 @@ export default function HomeScreen() {
 			showToast({
 				type: "success",
 				message:
-					"Background scanning started! Check your notifications for progress.",
+					"Checking gallery for new documents... Check notifications for progress.",
 			});
 
 			// Refresh documents periodically while scanning
@@ -144,6 +180,54 @@ export default function HomeScreen() {
 			});
 		}
 	}, [loadDocuments]);
+
+	// TODO: REMOVE - This is for testing only, production apps should not have manual stop buttons
+	const handleStopBackgroundScan = useCallback(async () => {
+		try {
+			console.log("[HomeScreen] Stopping all scanning activities...");
+			
+			// Set a flag to prevent auto-restart
+			await ScannerStorage.setItem("manual_scan_stopped", "true");
+			
+			// Stop both types of scanning
+			await backgroundScanner.stopPeriodicScan(); // Stop background service
+			await galleryScanner.stopScan(); // Stop regular gallery scanner
+
+			showToast({
+				type: "info",
+				message: "Scanning stopped.",
+			});
+
+			// Update local scanning state immediately
+			setIsScanning(false);
+			setScanProgress(null);
+		} catch (error) {
+			console.error("Stop scan error:", error);
+			showToast({
+				type: "error",
+				message: "Failed to stop scanning",
+			});
+		}
+	}, []);
+
+	// Periodically check background scanner status to keep UI in sync
+	useEffect(() => {
+		const interval = setInterval(async () => {
+			try {
+				const status = await backgroundScanner.getBackgroundServiceStatus();
+				const isBackgroundRunning = status.isRunning && status.isServiceRunning;
+				
+				// Update background scan enabled state if it changed
+				if (isBackgroundRunning !== isBackgroundScanEnabled) {
+					console.log("[HomeScreen] Background scan state changed:", isBackgroundRunning);
+				}
+			} catch (error) {
+				console.error("[HomeScreen] Error checking background status:", error);
+			}
+		}, 2000); // Check every 2 seconds
+
+		return () => clearInterval(interval);
+	}, [isBackgroundScanEnabled]);
 
 	// Initial load
 	useEffect(() => {
@@ -189,13 +273,13 @@ export default function HomeScreen() {
 				<SearchContainer />
 			</Animated.View>
 
-			{!isScanning && (
-				<FloatingActionButton
-					onPress={handleStartBackgroundScan}
-					icon="play-arrow"
-					title="Start Scan"
-				/>
-			)}
+			{/* TODO: REMOVE - Manual scan controls are for testing only */}
+			{/* Production: Show this button only on first app open for initial scan */}
+			<FloatingActionButton
+				onPress={isScanning ? handleStopBackgroundScan : handleStartBackgroundScan}
+				icon={isScanning ? "stop" : "play-arrow"}
+				title={isScanning ? "Stop Scan" : "Start Scan"}
+			/>
 
 			{/* Document Modal */}
 			<DocumentModal

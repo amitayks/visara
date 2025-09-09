@@ -4,6 +4,7 @@ import { settingsStore } from "../../stores/settingsStore";
 import { useScannerStore } from "../../stores/scannerStore";
 import { galleryScanner } from "./GalleryScanner";
 import { galleryPermissions } from "../permissions/galleryPermissions";
+import { galleryMonitor } from "./galleryMonitor";
 import { nativeDeviceInfo } from "../../utils/nativeDeviceInfo";
 import {
 	AppState,
@@ -56,6 +57,8 @@ export class BackgroundScanner {
 	private maxRecoveryAttempts = 3;
 	private lastHeartbeat = Date.now();
 	private heartbeatInterval: NodeJS.Timeout | null = null;
+	private forceImmediateScan = false; // Flag to force immediate scan on first run
+	private hasNewImagesQueue = false; // Flag to track if new images are waiting to be scanned
 
 	static getInstance(): BackgroundScanner {
 		if (!BackgroundScanner.instance) {
@@ -222,16 +225,15 @@ export class BackgroundScanner {
 
 			const options: BackgroundTaskOptions = {
 				taskName: "DocumentScanner",
-				taskTitle: "Visara - Document Scanner",
+				taskTitle: "Scanning In Progress",
 				taskDesc: "Preparing to scan gallery for documents...",
 				taskIcon: {
 					name: "ic_launcher",
 					type: "mipmap",
 				},
 				color: "#0066FF",
-				linkingURI: "visara://scanner",
 				parameters: {
-					delay: 30000,
+					delay: 10000,
 					// Add notification channel for Android 8+
 					channelId: "document_scanner_channel",
 					// Add action handler
@@ -262,6 +264,7 @@ export class BackgroundScanner {
 			// Reset flags
 			this.shouldStop = false;
 			this.isPaused = false;
+			this.forceImmediateScan = true; // Force first scan to run immediately
 
 			// Start the background service
 			await BackgroundService.start(this.backgroundTask, options);
@@ -271,6 +274,31 @@ export class BackgroundScanner {
 
 			// Start service monitoring watchdog
 			this.startServiceWatchdog();
+			
+			// Start gallery monitoring for ALL frequency modes (not just on_new_image)
+			// This ensures we always detect new images regardless of frequency setting
+			const currentSettings = settingsStore.getState().settings;
+			console.log("[BackgroundScanner] Starting gallery monitoring for new image detection");
+			await galleryMonitor.startMonitoring();
+			
+			// Subscribe to gallery changes
+			galleryMonitor.subscribe((event) => {
+				console.log(`[BackgroundScanner] Gallery event received:`, event);
+				if (event.hasNewImages && !this.isPaused) {
+					console.log(`[BackgroundScanner] ⚡ New images detected (${event.newImagesCount}), queueing scan`);
+					this.hasNewImagesQueue = true;
+					this.forceImmediateScan = true;
+					
+					// If scanning is not currently running, we should trigger an immediate check
+					if (!galleryScanner.getProgress().isScanning) {
+						console.log(`[BackgroundScanner] No scan running, will trigger immediate scan on next cycle`);
+					} else {
+						console.log(`[BackgroundScanner] Scan already running, queued for next cycle`);
+					}
+				} else if (event.hasNewImages && this.isPaused) {
+					console.log(`[BackgroundScanner] New images detected but scanner is paused`);
+				}
+			});
 
 			// Update store
 			useScannerStore.getState().setBackgroundScanEnabled(true);
@@ -285,99 +313,6 @@ export class BackgroundScanner {
 			this.isStarting = false;
 		}
 	}
-
-	// Background task that runs in foreground service
-	// private backgroundTask = async (taskData: any) => {
-	// 	console.log("[BackgroundScanner] Background task started");
-
-	// 	try {
-	// 		// Important: This runs in a foreground service context
-	// 		// It will continue even when app is in background
-
-	// 		while (!this.shouldStop && BackgroundService.isRunning()) {
-	// 			try {
-	// 				// Check if we should run scan
-	// 				const shouldRun = await this.shouldRunScan();
-
-	// 				if (shouldRun && !this.isPaused) {
-	// 					console.log("[BackgroundScanner] Running background scan");
-
-	// 					// Update notification
-	// 					if (BackgroundService.isRunning()) {
-	// 						await BackgroundService.updateNotification({
-	// 							taskDesc: "Scanning gallery for documents...",
-	// 						});
-	// 					}
-
-	// 					// Perform the scan
-	// 					await this.performBackgroundScan();
-
-	// 					// Update last scan time
-	// 					this.lastScanTime = new Date();
-
-	// 					// Update notification
-	// 					if (BackgroundService.isRunning()) {
-	// 						await BackgroundService.updateNotification({
-	// 							taskDesc: "Scan complete. Waiting for next scan...",
-	// 						});
-	// 					}
-	// 				} else if (this.isPaused) {
-	// 					console.log("[BackgroundScanner] Scan paused, waiting...");
-	// 				} else {
-	// 					console.log(
-	// 						"[BackgroundScanner] Skipping scan - conditions not met",
-	// 					);
-	// 				}
-
-	// 				// Calculate sleep time
-	// 				const settings = settingsStore.getState().settings;
-	// 				const intervalMs = this.getIntervalMs(settings.scanFrequency);
-	// 				const sleepTime = intervalMs > 0 ? intervalMs : 60 * 60 * 1000;
-
-	// 				console.log(
-	// 					`[BackgroundScanner] Sleeping for ${sleepTime / 1000} seconds`,
-	// 				);
-
-	// 				// Sleep in chunks to check for stop signal
-	// 				const chunkTime = 60000; // 1 minute chunks
-	// 				const chunks = Math.ceil(sleepTime / chunkTime);
-
-	// 				for (let i = 0; i < chunks; i++) {
-	// 					if (!BackgroundService.isRunning() || this.shouldStop) {
-	// 						console.log("[BackgroundScanner] Service stopped, exiting task");
-	// 						return;
-	// 					}
-
-	// 					// Check if app state changed during sleep
-	// 					if (this.appState === "background" && Platform.OS === "android") {
-	// 						// Keep the service alive in background
-	// 						await BackgroundService.updateNotification({
-	// 							taskDesc: "Scanner running in background...",
-	// 						});
-	// 					}
-
-	// 					const sleepDuration = Math.min(
-	// 						chunkTime,
-	// 						sleepTime - i * chunkTime,
-	// 					);
-	// 					await this.sleep(sleepDuration);
-	// 				}
-	// 			} catch (error) {
-	// 				console.error("[BackgroundScanner] Error in task iteration:", error);
-	// 				await this.sleep(60000); // Wait 1 minute before retry
-	// 			}
-	// 		}
-
-	// 		console.log("[BackgroundScanner] Background task ended normally");
-	// 	} catch (error) {
-	// 		console.error("[BackgroundScanner] Fatal task error:", error);
-	// 	} finally {
-	// 		console.log("[BackgroundScanner] Background task cleanup");
-	// 		this.isRunning = false;
-	// 		this.isPaused = false;
-	// 		useScannerStore.getState().setBackgroundScanEnabled(false);
-	// 	}
-	// };
 
 	// Handle notification actions (pause/resume/stop)
 	private handleNotificationAction = async (actionId: string) => {
@@ -572,6 +507,16 @@ export class BackgroundScanner {
 	// Enhanced background task that runs in foreground service with better survival
 	private backgroundTask = async (taskData: any) => {
 		console.log("[BackgroundScanner] Enhanced background task started");
+		console.log("[BackgroundScanner] Task data:", taskData);
+
+		// Handle action if any
+		if (taskData?.action) {
+			console.log(
+				"[BackgroundScanner] Handling action from notification:",
+				taskData.action,
+			);
+			await this.handleNotificationAction(taskData.action);
+		}
 
 		// Create our smart progress manager
 		const progressManager = new ProgressUpdateManager();
@@ -596,10 +541,17 @@ export class BackgroundScanner {
 					if (shouldRun && !this.isPaused) {
 						console.log("[BackgroundScanner] Running background scan");
 
+						// Mark scanning as started in the store
+						const currentProgress = useScannerStore.getState().scanProgress;
+						useScannerStore.getState().setScanProgress({
+							...currentProgress,
+							isScanning: true,
+						});
+
 						// Show that we're starting with an informative message
 						await progressManager.forceUpdate(
-							{ processedImages: 0, totalImages: 0 },
-							"Starting document scan...",
+							{ processedImages: 0, totalImages: 0, isScanning: true },
+							"Checking gallery for new documents...",
 						);
 
 						// Perform the scan with enhanced progress tracking
@@ -609,10 +561,15 @@ export class BackgroundScanner {
 						this.lastScanTime = new Date();
 						await this.saveScanState();
 
-						// Show completion with a satisfying message
+						// Show completion with a satisfying message and mark as not scanning
 						const finalProgress = useScannerStore.getState().scanProgress;
+						const completedProgress = {
+							...finalProgress,
+							isScanning: false,
+						};
+						useScannerStore.getState().setScanProgress(completedProgress);
 						await progressManager.forceUpdate(
-							finalProgress,
+							completedProgress,
 							`Scan complete! Found ${finalProgress.processedImages || 0} documents.`,
 						);
 					} else if (this.isPaused) {
@@ -680,6 +637,8 @@ export class BackgroundScanner {
 				maxConcurrentProcessing: 1,
 				// Add flag to keep scan alive in background
 				keepAlive: true,
+				// IMPORTANT: Only scan new images, not all gallery images
+				scanNewOnly: true,
 			};
 
 			// Ensure scan continues in background
@@ -751,7 +710,13 @@ export class BackgroundScanner {
 				maxConcurrentProcessing: 1,
 				// Add flag to keep scan alive in background
 				keepAlive: true,
+				// IMPORTANT: Only scan new images, not all gallery images
+				scanNewOnly: true,
 			};
+
+			// Track when scanning actually begins with real work
+			let scanStarted = false;
+			let lastProgressUpdate = Date.now();
 
 			// Ensure scan continues in background with enhanced progress tracking
 			await galleryScanner.startScan(scanOptions, async (progress) => {
@@ -761,13 +726,67 @@ export class BackgroundScanner {
 					return;
 				}
 
-				// Use our smart progress manager instead of direct updates
+				// Detect if scan is actually processing new images
+				if (!scanStarted && progress.processedImages > 0) {
+					scanStarted = true;
+					console.log("[BackgroundScanner] Scan started processing images");
+					await progressManager.forceUpdate(
+						progress,
+						`Found ${progress.totalImages} images to check, processing...`,
+					);
+				}
+
+				// Check for no-work scenario (same totalImages as processedImages immediately)
+				const timeSinceStart = Date.now() - lastProgressUpdate;
+				if (!scanStarted && timeSinceStart > 3000) {
+					// If no progress after 3 seconds, likely no new images
+					console.log("[BackgroundScanner] No new images detected after 3 seconds");
+					await progressManager.forceUpdate(
+						{ processedImages: 0, totalImages: 0, isScanning: false },
+						"No new documents found. Gallery is up to date.",
+					);
+				}
+
+				// Use our smart progress manager for real updates
 				await progressManager.updateProgress(progress);
 			});
 
 			console.log(
 				"[BackgroundScanner] Enhanced background gallery scan completed",
 			);
+
+			// Get the final scan results and update progress
+			const finalProgress = galleryScanner.getProgress();
+			console.log("[BackgroundScanner] Final scan progress:", finalProgress);
+
+			// Ensure the final progress is updated with completion state
+			const completedProgress = {
+				...finalProgress,
+				isScanning: false,
+			};
+
+			// Update both the store and the progress manager with final state
+			useScannerStore.getState().setScanProgress(completedProgress);
+			
+			// Provide meaningful completion message based on results
+			let completionMessage = "Scan complete.";
+			if (finalProgress.totalImages === 0) {
+				completionMessage = "No new documents found. Gallery is up to date.";
+			} else if (finalProgress.processedImages > 0) {
+				completionMessage = `Scan complete! Processed ${finalProgress.processedImages} images.`;
+			} else {
+				completionMessage = "Scan complete. No new documents found.";
+			}
+			
+			// Check if there are new images queued while we were scanning
+			if (this.hasNewImagesQueue) {
+				console.log("[BackgroundScanner] New images were detected during scan, scheduling immediate rescan");
+				this.hasNewImagesQueue = false;
+				this.forceImmediateScan = true;
+				completionMessage += " New images detected, rescanning...";
+			}
+			
+			await progressManager.forceUpdate(completedProgress, completionMessage);
 		} catch (error) {
 			console.error(
 				"[BackgroundScanner] Enhanced background scan failed:",
@@ -835,6 +854,13 @@ export class BackgroundScanner {
 			this.isPaused = false;
 			this.currentTaskId = null;
 
+			// Mark scanning as finished in the store
+			const currentProgress = useScannerStore.getState().scanProgress;
+			useScannerStore.getState().setScanProgress({
+				...currentProgress,
+				isScanning: false,
+			});
+
 			// Clear scan state
 			this.clearScanState();
 
@@ -849,23 +875,33 @@ export class BackgroundScanner {
 
 	private getIntervalMs(frequency: string): number {
 		switch (frequency) {
+			case "on_new_image":
+				return 30000; // Check every 30 seconds for new images
 			case "hourly":
 				return 60 * 60 * 1000; // 1 hour
 			case "daily":
 				return 24 * 60 * 60 * 1000; // 24 hours
 			case "weekly":
 				return 7 * 24 * 60 * 60 * 1000; // 7 days
-			case "manual":
 			default:
-				return 0; // No automatic scanning
+				return 60 * 60 * 1000; // Default 1 hour
 		}
 	}
 
 	async shouldRunScan(): Promise<boolean> {
+		// If this is a forced immediate scan (manual trigger or new images), run it
+		if (this.forceImmediateScan) {
+			const reason = this.hasNewImagesQueue ? "new images detected" : "manual trigger";
+			console.log(`[BackgroundScanner] Forcing immediate scan due to: ${reason}`);
+			this.forceImmediateScan = false; // Reset flag
+			return true;
+		}
+
 		const settings = settingsStore.getState().settings;
 
 		// Check if auto-scan is enabled
 		if (!settings.autoScan) {
+			console.log("[BackgroundScanner] Auto-scan disabled");
 			return false;
 		}
 
@@ -888,7 +924,14 @@ export class BackgroundScanner {
 			return false;
 		}
 
-		// Check if enough time has passed since last scan
+		// Handle different scan frequency modes
+		if (settings.scanFrequency === "on_new_image") {
+			// For new image detection mode, we rely on the gallery monitor to trigger scans
+			// Don't run periodic scans, only when new images are detected
+			return false;
+		}
+
+		// Check if enough time has passed since last scan for time-based frequencies
 		if (this.lastScanTime) {
 			const timeSinceLastScan = Date.now() - this.lastScanTime.getTime();
 			const minInterval = this.getIntervalMs(settings.scanFrequency);
@@ -924,6 +967,9 @@ export class BackgroundScanner {
 
 			// Stop watchdog
 			this.stopServiceWatchdog();
+			
+			// Stop gallery monitoring
+			galleryMonitor.stopMonitoring();
 
 			// Clear interval if any
 			if (this.scanInterval) {
@@ -966,6 +1012,9 @@ export class BackgroundScanner {
 	}
 
 	async getBackgroundServiceStatus() {
+		const settings = settingsStore.getState().settings;
+		const galleryMonitorStatus = galleryMonitor.getStatus();
+		
 		return {
 			isRunning: this.isRunning,
 			isPaused: this.isPaused,
@@ -973,6 +1022,13 @@ export class BackgroundScanner {
 			lastScanTime: this.lastScanTime,
 			currentProgress: galleryScanner.getProgress(),
 			appState: this.appState,
+			scanFrequency: settings.scanFrequency,
+			autoScanEnabled: settings.autoScan,
+			galleryMonitoring: {
+				isActive: galleryMonitorStatus.isMonitoring,
+				lastImageCount: galleryMonitorStatus.lastImageCount,
+				lastCheckTime: galleryMonitorStatus.lastCheckTime,
+			},
 		};
 	}
 

@@ -1,4 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
+import { useState, useEffect } from "react";
 import {
 	Platform,
 	ScrollView,
@@ -10,9 +11,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
+import { backgroundScanner } from "../services/gallery/backgroundScanner";
 import { useSettingsStore } from "../stores/settingsStore";
 import { SettingsSectionHeader } from "./components/SettingsSectionHeader";
 import { ToggleBar } from "./components/ToggleBar";
+import { ScanFrequencyPicker } from "./components/ScanFrequencyPicker";
 import { createStyles } from "./settings.style";
 
 export default function SettingsScreen() {
@@ -20,6 +23,27 @@ export default function SettingsScreen() {
 	const { theme, isDark, toggleTheme } = useTheme();
 	const { settings, updateSetting } = useSettingsStore();
 	const styles = useThemedStyles(createStyles);
+	const [scanStatus, setScanStatus] = useState<any>(null);
+
+	// Monitor scan status
+	useEffect(() => {
+		const updateStatus = async () => {
+			try {
+				const status = await backgroundScanner.getBackgroundServiceStatus();
+				setScanStatus(status);
+			} catch (error) {
+				console.error("Error getting scan status:", error);
+			}
+		};
+
+		// Initial status check
+		updateStatus();
+
+		// Update status every 3 seconds while on settings page
+		const interval = setInterval(updateStatus, 3000);
+
+		return () => clearInterval(interval);
+	}, []);
 
 	const handleGoBack = () => {
 		navigation.goBack();
@@ -57,17 +81,24 @@ export default function SettingsScreen() {
 				/>
 
 				{/* Scanning Section */}
-				<SettingsSectionHeader title="Scanning" />
+				<SettingsSectionHeader title="Document Scanning" />
 				<ToggleBar
-					onPress={() => updateSetting("batterySaver", !settings.batterySaver)}
-					isChange={settings.batterySaver}
-					title={["Battery Saver On", "Battery Saver Off"]}
+					onPress={() => updateSetting("autoScan", !settings.autoScan)}
+					isChange={settings.autoScan}
+					title={["Auto-Scan Enabled", "Auto-Scan Disabled"]}
 					subtitle={[
-						"Stop scanning in low battery",
-						"Normal scanning frequency",
+						"Automatically scan for new documents",
+						"Only scan when manually triggered",
 					]}
-					iconsName={["battery-half", "battery-full"]}
+					iconsName={["scan", "scan-outline"]}
 				/>
+				
+				<ScanFrequencyPicker
+					value={settings.scanFrequency}
+					onValueChange={(frequency) => updateSetting("scanFrequency", frequency)}
+					disabled={!settings.autoScan}
+				/>
+
 				<ToggleBar
 					onPress={() =>
 						updateSetting("smartFilterEnabled", !settings.smartFilterEnabled)
@@ -75,15 +106,52 @@ export default function SettingsScreen() {
 					isChange={settings.smartFilterEnabled}
 					title={["Smart Filter On", "Smart Filter Off"]}
 					subtitle={["Filter out non-documents", "Scan all images"]}
-					iconsName={["list", "list"]}
+					iconsName={["funnel", "funnel-outline"]}
 				/>
-				{/* <ToggleBar
-					onPress={() => updateSetting("scanWifiOnly", !settings.scanWifiOnly)}
-					isChange={settings.scanWifiOnly}
-					title={["WiFi Only", "Celolular Allowed"]}
-					subtitle={["Scan only on WiFi", "Scan on any connection"]}
-					iconsName={["wifi", "cellular"]}
-				/> */}
+
+				<ToggleBar
+					onPress={() => updateSetting("batterySaver", !settings.batterySaver)}
+					isChange={settings.batterySaver}
+					title={["Battery Saver On", "Battery Saver Off"]}
+					subtitle={[
+						"Reduce scanning in low battery",
+						"Normal scanning frequency",
+					]}
+					iconsName={["battery-half", "battery-full"]}
+				/>
+
+				{/* Scanning Status Section */}
+				{settings.autoScan && scanStatus && (
+					<>
+						<SettingsSectionHeader title="Scanning Status" />
+						<View style={styles.statusContainer}>
+							<View style={styles.statusHeader}>
+								<Icon
+									name={scanStatus.isRunning ? "pulse" : "pause-circle-outline"}
+									size={20}
+									color={scanStatus.isRunning ? theme.success : theme.textSecondary}
+								/>
+								<Text style={styles.statusTitle}>
+									{scanStatus.isRunning ? "Active" : "Idle"}
+								</Text>
+							</View>
+							<Text style={styles.statusDescription}>
+								{scanStatus.scanFrequency === "on_new_image" && scanStatus.galleryMonitoring?.isActive
+									? `Monitoring gallery • Last check: ${scanStatus.galleryMonitoring.lastCheckTime ? new Date(scanStatus.galleryMonitoring.lastCheckTime).toLocaleTimeString() : "Never"}`
+									: scanStatus.isRunning
+									? "Background scanning is active"
+									: scanStatus.autoScanEnabled
+									? "Waiting for next scan cycle"
+									: "Automatic scanning is disabled"}
+							</Text>
+							{scanStatus.lastScanTime && (
+								<Text style={styles.statusDetail}>
+									Last scan: {new Date(scanStatus.lastScanTime).toLocaleString()}
+								</Text>
+							)}
+						</View>
+					</>
+				)}
 			</ScrollView>
 
 			{/* Version Info Section at Bottom */}
