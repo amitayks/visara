@@ -125,7 +125,8 @@ export const DocumentGrid = memo(
 
 		const renderDocument = useCallback(
 			({ item: doc }: { item: Document }) => {
-				const height = getImageHeight(doc);
+				// const height = getImageHeight(doc);
+				// const height = getImageHeight(doc);
 
 				return (
 					<View style={[styles.cardContainer, { padding: 8 }]}>
@@ -133,7 +134,7 @@ export const DocumentGrid = memo(
 							document={doc}
 							onPress={() => onDocumentPress(doc)}
 							width={ITEM_WIDTH}
-							height={height}
+							// height={height}
 						/>
 					</View>
 				);

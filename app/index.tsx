@@ -35,7 +35,8 @@ export default function HomeScreen() {
 	const styles = useThemedStyles(createStyles);
 
 	const { loadDocuments, initializeRealTimeUpdates } = useDocumentStore();
-	const { scanProgress: backgroundScanProgress, isBackgroundScanEnabled } = useScannerStore();
+	const { scanProgress: backgroundScanProgress, isBackgroundScanEnabled } =
+		useScannerStore();
 
 	// Local UI state
 	const [selectedDocument, setSelectedDocument] = useState<Document | null>(
@@ -69,20 +70,21 @@ export default function HomeScreen() {
 
 	// Update scanning state based on background or foreground scanning
 	useEffect(() => {
-		const isBackgroundScanning = isBackgroundScanEnabled && backgroundScanProgress.isScanning;
+		const isBackgroundScanning =
+			isBackgroundScanEnabled && backgroundScanProgress.isScanning;
 		const isForegroundScanning = scanProgress?.isScanning || false; // Use scanProgress from galleryScanner
 		const overallScanning = isBackgroundScanning || isForegroundScanning;
-		
-		console.log("[HomeScreen] Scan state check:", { 
-			isBackgroundScanning, 
-			isForegroundScanning, 
-			overallScanning, 
-			currentIsScanning: isScanning 
+
+		console.log("[HomeScreen] Scan state check:", {
+			isBackgroundScanning,
+			isForegroundScanning,
+			overallScanning,
+			currentIsScanning: isScanning,
 		});
-		
+
 		// Update local state to reflect the current scanning status
 		setIsScanning(overallScanning);
-		
+
 		// Use appropriate progress data - prefer foreground scan progress when available
 		if (isForegroundScanning && scanProgress) {
 			// Use foreground scanner progress (from auto-scan or manual scan)
@@ -151,7 +153,7 @@ export default function HomeScreen() {
 
 			// Clear the manual stop flag when starting manually
 			await ScannerStorage.removeItem("manual_scan_stopped");
-			
+
 			// Start the background service
 			console.log("[HomeScreen] Starting background scanner service...");
 			await backgroundScanner.startPeriodicScan();
@@ -185,10 +187,10 @@ export default function HomeScreen() {
 	const handleStopBackgroundScan = useCallback(async () => {
 		try {
 			console.log("[HomeScreen] Stopping all scanning activities...");
-			
+
 			// Set a flag to prevent auto-restart
 			await ScannerStorage.setItem("manual_scan_stopped", "true");
-			
+
 			// Stop both types of scanning
 			await backgroundScanner.stopPeriodicScan(); // Stop background service
 			await galleryScanner.stopScan(); // Stop regular gallery scanner
@@ -216,10 +218,13 @@ export default function HomeScreen() {
 			try {
 				const status = await backgroundScanner.getBackgroundServiceStatus();
 				const isBackgroundRunning = status.isRunning && status.isServiceRunning;
-				
+
 				// Update background scan enabled state if it changed
 				if (isBackgroundRunning !== isBackgroundScanEnabled) {
-					console.log("[HomeScreen] Background scan state changed:", isBackgroundRunning);
+					console.log(
+						"[HomeScreen] Background scan state changed:",
+						isBackgroundRunning,
+					);
 				}
 			} catch (error) {
 				console.error("[HomeScreen] Error checking background status:", error);
@@ -275,11 +280,11 @@ export default function HomeScreen() {
 
 			{/* TODO: REMOVE - Manual scan controls are for testing only */}
 			{/* Production: Show this button only on first app open for initial scan */}
-			<FloatingActionButton
+			{/* <FloatingActionButton
 				onPress={isScanning ? handleStopBackgroundScan : handleStartBackgroundScan}
 				icon={isScanning ? "stop" : "play-arrow"}
 				title={isScanning ? "Stop Scan" : "Start Scan"}
-			/>
+			/> */}
 
 			{/* Document Modal */}
 			<DocumentModal

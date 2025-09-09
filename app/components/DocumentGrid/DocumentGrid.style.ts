@@ -11,7 +11,7 @@ export const createStyles = (theme: any) =>
 			justifyContent: "center",
 			alignItems: "center",
 			paddingHorizontal: 20,
-			minHeight: 400,
+			minHeight: 700,
 		},
 		masonryContainer: {
 			flexDirection: "row",
@@ -32,8 +32,8 @@ export const createStyles = (theme: any) =>
 		},
 		loadingFooter: {
 			paddingVertical: 20,
-			alignItems: 'center',
-			justifyContent: 'center',
+			alignItems: "center",
+			justifyContent: "center",
 		},
 		emptyContainer: {
 			flex: 1,
