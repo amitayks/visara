@@ -29,7 +29,7 @@ export const createStyles = (theme: any) =>
 			justifyContent: "center",
 		},
 		errorContainer: {
-			height: 200,
+			height: 300,
 			alignItems: "center",
 			justifyContent: "center",
 			backgroundColor: theme.surfaceSecondary,

@@ -2,7 +2,6 @@ import { FlashList } from "@shopify/flash-list";
 import { memo, useCallback, useState } from "react";
 import {
 	ActivityIndicator,
-	Image,
 	Keyboard,
 	RefreshControl,
 	View,
@@ -36,9 +35,6 @@ export const DocumentGrid = memo(
 	({ onDocumentPress, handleStartBackgroundScan }: DocumentGridProps) => {
 		const { theme } = useTheme();
 		const styles = useThemedStyles(createStyles);
-		const [imageHeights, setImageHeights] = useState<{ [key: string]: number }>(
-			{},
-		);
 		const [refreshing, setRefreshing] = useState(false);
 		const [isLoadingMore, setIsLoadingMore] = useState(false);
 
@@ -46,46 +42,6 @@ export const DocumentGrid = memo(
 		const { searchQuery, queryChips } = useSearchStore();
 
 		const documents = filteredDocuments;
-
-		// Calculate image height lazily when needed
-		const getImageHeight = useCallback(
-			(doc: Document): number => {
-				if (imageHeights[doc.id]) {
-					return imageHeights[doc.id];
-				}
-
-				// Start async calculation
-				Image.getSize(
-					doc.imageUri,
-					(width, height) => {
-						const aspectRatio = height / width;
-						const calculatedHeight = ITEM_WIDTH * aspectRatio;
-						const minHeight = ITEM_WIDTH * 0.8;
-						const maxHeight = ITEM_WIDTH * 2.5;
-						const finalHeight = Math.min(
-							Math.max(calculatedHeight, minHeight),
-							maxHeight,
-						);
-
-						setImageHeights((prev) => ({
-							...prev,
-							[doc.id]: finalHeight,
-						}));
-					},
-					() => {
-						// Fallback height
-						setImageHeights((prev) => ({
-							...prev,
-							[doc.id]: ITEM_WIDTH * 1.4,
-						}));
-					},
-				);
-
-				// Return default height while calculating
-				return ITEM_WIDTH * 1.4;
-			},
-			[imageHeights],
-		);
 
 		const handleRefresh = useCallback(async () => {
 			setRefreshing(true);
@@ -125,21 +81,20 @@ export const DocumentGrid = memo(
 
 		const renderDocument = useCallback(
 			({ item: doc }: { item: Document }) => {
-				// const height = getImageHeight(doc);
-				// const height = getImageHeight(doc);
+				const height = 300;
 
 				return (
-					<View style={[styles.cardContainer, { padding: 8 }]}>
+					<View style={[styles.cardContainer]}>
 						<DocumentCard
 							document={doc}
 							onPress={() => onDocumentPress(doc)}
 							width={ITEM_WIDTH}
-							// height={height}
+							height={height}
 						/>
 					</View>
 				);
 			},
-			[onDocumentPress, getImageHeight, styles.cardContainer],
+			[onDocumentPress, styles.cardContainer],
 		);
 
 		const keyExtractor = useCallback((item: Document) => item.id, []);
