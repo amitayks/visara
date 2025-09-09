@@ -154,7 +154,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	}, [onClose]);
 
 	const handleImageSingleTap = useCallback(() => {
-		// Optional: You can close on single tap or do nothing
+		// Close on single tap
 		onClose();
 	}, [onClose]);
 
@@ -236,7 +236,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 							uri={document.imageUri}
 							style={styles.image}
 							onSingleTap={handleImageSingleTap}
-							isPanEnabled={false}
+							isPanEnabled={true}
 							isPinchEnabled={true}
 							minScale={0.5}
 							maxScale={5}
