@@ -904,43 +904,140 @@ export class GalleryScanner {
 		}
 	}
 
+	// Copy temporary image to permanent location
+	private async copyImageToPermanentLocation(tempUri: string): Promise<string> {
+		try {
+			console.log(`[GalleryScanner] copyImageToPermanentLocation called with URI: "${tempUri}"`);
+			
+			if (!tempUri || tempUri.trim() === '') {
+				throw new Error('Empty or invalid temporary URI provided');
+			}
+
+			// Create documents directory if it doesn't exist
+			const documentsPath = `${RNFS.DocumentDirectoryPath}/images`;
+			console.log(`[GalleryScanner] Documents path: ${documentsPath}`);
+			
+			const dirExists = await RNFS.exists(documentsPath);
+			if (!dirExists) {
+				console.log(`[GalleryScanner] Creating images directory`);
+				await RNFS.mkdir(documentsPath);
+			}
+
+			// Generate unique filename with timestamp
+			const timestamp = Date.now();
+			const fileExtension = tempUri.split('.').pop() || 'jpg';
+			const fileName = `uploaded_${timestamp}.${fileExtension}`;
+			const permanentPath = `${documentsPath}/${fileName}`;
+			
+			// Ensure proper file:// URI format for React Native compatibility
+			const permanentUri = permanentPath.startsWith('file://') ? permanentPath : `file://${permanentPath}`;
+
+			console.log(`[GalleryScanner] Copying from "${tempUri}" to "${permanentPath}"`);
+
+			// Copy file to permanent location
+			await RNFS.copyFile(tempUri, permanentPath);
+			
+			// Verify the file was copied successfully
+			const copiedExists = await RNFS.exists(permanentPath);
+			if (!copiedExists) {
+				throw new Error(`Failed to copy file - destination does not exist: ${permanentPath}`);
+			}
+			
+			// Get stats of copied file for verification
+			const copiedStat = await RNFS.stat(permanentPath);
+			console.log(`[GalleryScanner] ✅ Successfully copied image:`, {
+				from: tempUri,
+				to: permanentPath,
+				finalUri: permanentUri,
+				size: copiedStat.size,
+				exists: copiedExists
+			});
+			
+			return permanentUri;
+		} catch (error) {
+			console.error(`[GalleryScanner] Failed to copy image to permanent location:`, error);
+			throw error;
+		}
+	}
+
 	// Add method to process a single image (for manual upload)
 	async processImage(imageUri: string): Promise<DocumentResult | null> {
 		try {
-			console.log(`[GalleryScanner] Processing single image: ${imageUri}`);
+			console.log(`[GalleryScanner] 🔍 Processing single image: "${imageUri}"`);
+			
+			if (!imageUri || imageUri.trim() === '') {
+				console.error(`[GalleryScanner] ❌ Empty or invalid imageUri provided`);
+				return null;
+			}
 
 			// Check if image exists
 			const exists = await RNFS.exists(imageUri);
 			if (!exists) {
-				console.error(`[GalleryScanner] Image does not exist: ${imageUri}`);
+				console.error(`[GalleryScanner] ❌ Image does not exist: ${imageUri}`);
 				return null;
 			}
 
-			// Get file info
+			// Get file info from original URI for duplicate checking
+			console.log(`[GalleryScanner] 📊 Getting stat for original URI: "${imageUri}"`);
 			const stat = await RNFS.stat(imageUri);
 			const imageHash = CryptoJS.MD5(imageUri + stat.size).toString();
 
 			// Check if already processed
 			const existingDoc = await documentStorage.checkDuplicateByHash(imageHash);
 			if (existingDoc) {
-				console.log(`[GalleryScanner] Image already processed: ${imageHash}`);
+				console.log(`[GalleryScanner] ⚠️ Image already processed: ${imageHash}`);
 				return null;
 			}
 
-			// Process the image
+			// Process the image using the temporary URI first to get confidence
+			console.log(`[GalleryScanner] 🔄 Processing temporary image to check confidence: "${imageUri}"`);
+			console.log(`[GalleryScanner] 🔄 URI length: ${imageUri.length}, starts with: ${imageUri.substring(0, 20)}...`);
+			
 			const result = await documentProcessor.processImage(imageUri);
+			console.log(`[GalleryScanner] 🔄 Document processing completed, result:`, result ? 'success' : 'failed');
+			
+			if (result) {
+				console.log(`[GalleryScanner] 🔄 Result confidence: ${(result.confidence * 100).toFixed(1)}%`);
+			}
 
+			// Only copy to permanent location if confidence meets threshold
+			if (result && result.confidence > 0.5) {
+				console.log(`[GalleryScanner] ✅ High confidence image - copying to permanent storage`);
+				
+				try {
+					const permanentUri = await this.copyImageToPermanentLocation(imageUri);
+					console.log(`[GalleryScanner] 📋 Copied to permanent location: "${permanentUri}"`);
+					
+					// Update the result to use the permanent URI
+					result.imageUri = permanentUri;
+					
+					// Update hash for permanent location
+					const permanentStat = await RNFS.stat(permanentUri);
+					result.imageHash = CryptoJS.MD5(permanentUri + permanentStat.size).toString();
+					
+				} catch (copyError) {
+					console.error(`[GalleryScanner] ⚠️ Failed to copy to permanent storage, keeping temp URI:`, copyError);
+					// Keep original URI and hash if copy fails
+				}
+			} else {
+				console.log(`[GalleryScanner] 🗑️ Low confidence image (${result ? (result.confidence * 100).toFixed(1) : 'N/A'}%) - not saving permanently`);
+				return null; // Don't save low-confidence images
+			}
+
+			// At this point, result should have proper URI and hash set
 			if (result && result.confidence > 0.5) {
 				const savedDoc = await documentStorage.saveDocument(result);
-				console.log(`[GalleryScanner] Document saved: ${savedDoc.id}`);
+				console.log(`[GalleryScanner] 📚 Document saved: ${savedDoc.id}`);
 
-				// Add to processed hashes
-				this.processedHashes.add(imageHash);
+				// Add to processed hashes (use the final hash, which might be from permanent location)
+				this.processedHashes.add(result.imageHash);
 				await this.saveProcessedHashes();
 
 				return result;
 			}
 
+			// This shouldn't be reached due to earlier return, but keeping as safety net
+			console.log(`[GalleryScanner] ❌ Image did not meet confidence threshold`);
 			return null;
 		} catch (error) {
 			console.error(`[GalleryScanner] Error processing image:`, error);
