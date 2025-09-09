@@ -135,3 +135,7 @@ coverage/
 
 #local lists
 *.txt
+
+# calude code 
+.calude/
+.claude/update_documaneModal.md

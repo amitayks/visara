@@ -92,10 +92,12 @@ export default function SettingsScreen() {
 					]}
 					iconsName={["scan", "scan-outline"]}
 				/>
-				
+
 				<ScanFrequencyPicker
 					value={settings.scanFrequency}
-					onValueChange={(frequency) => updateSetting("scanFrequency", frequency)}
+					onValueChange={(frequency) =>
+						updateSetting("scanFrequency", frequency)
+					}
 					disabled={!settings.autoScan}
 				/>
 
@@ -129,24 +131,28 @@ export default function SettingsScreen() {
 								<Icon
 									name={scanStatus.isRunning ? "pulse" : "pause-circle-outline"}
 									size={20}
-									color={scanStatus.isRunning ? theme.success : theme.textSecondary}
+									color={
+										scanStatus.isRunning ? theme.success : theme.textSecondary
+									}
 								/>
 								<Text style={styles.statusTitle}>
 									{scanStatus.isRunning ? "Active" : "Idle"}
 								</Text>
 							</View>
 							<Text style={styles.statusDescription}>
-								{scanStatus.scanFrequency === "on_new_image" && scanStatus.galleryMonitoring?.isActive
+								{scanStatus.scanFrequency === "on_new_image" &&
+								scanStatus.galleryMonitoring?.isActive
 									? `Monitoring gallery • Last check: ${scanStatus.galleryMonitoring.lastCheckTime ? new Date(scanStatus.galleryMonitoring.lastCheckTime).toLocaleTimeString() : "Never"}`
 									: scanStatus.isRunning
-									? "Background scanning is active"
-									: scanStatus.autoScanEnabled
-									? "Waiting for next scan cycle"
-									: "Automatic scanning is disabled"}
+										? "Background scanning is active"
+										: scanStatus.autoScanEnabled
+											? "Waiting for next scan cycle"
+											: "Automatic scanning is disabled"}
 							</Text>
 							{scanStatus.lastScanTime && (
 								<Text style={styles.statusDetail}>
-									Last scan: {new Date(scanStatus.lastScanTime).toLocaleString()}
+									Last scan:{" "}
+									{new Date(scanStatus.lastScanTime).toLocaleString()}
 								</Text>
 							)}
 						</View>
