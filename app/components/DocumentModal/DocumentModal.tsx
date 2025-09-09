@@ -133,14 +133,25 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 		}
 	}, []);
 
+	const handleBottomSheetClose = useCallback(() => {
+		onClose();
+	}, [onClose]);
+
 	const handleImageSingleTap = useCallback(() => {
 		// Optional: You can close on single tap or do nothing
 		// onClose();
 	}, []);
 
-	const handleBottomSheetClose = useCallback(() => {
-		onClose();
-	}, [onClose]);
+	// Handle image zoom gestures - close modal when dragging image down
+	const handleImageSwipe = useCallback(
+		(direction: string) => {
+			if (direction === "down") {
+				onClose();
+			}
+		},
+		[onClose],
+	);
+
 
 	if (!document) return null;
 
@@ -191,42 +202,45 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 						styles.bottomSheetHandle,
 						{ backgroundColor: theme.text },
 					]}
+					enablePanDownToClose={true}
+					animateOnMount={true}
 				>
 					<View style={styles.bottomSheetContent}>
 						{/* Action Buttons */}
 						<View style={styles.actionButtons}>
 							<ActionButton
 								icon="images"
-								label="Gallery"
+								// label="Gallery"
 								onPress={handleOpenInGallery}
 								style={styles.actionButton}
 							/>
 
 							<ActionButton
 								icon="share"
-								label="Share"
+								// label="Share"
 								onPress={handleShare}
 								style={styles.actionButton}
 							/>
 
 							<ActionButton
 								icon="copy"
-								label="Copy Text"
-								onPress={() =>
-									document.metadata &&
-									handleCopyText(
-										typeof document.metadata === "string"
-											? document.metadata
-											: JSON.stringify(document.metadata),
-									)
-								}
+								// label="Copy Text"
+								onPress={() => {
+									if (document.metadata) {
+										handleCopyText(
+											typeof document.metadata === "string"
+												? document.metadata
+												: JSON.stringify(document.metadata),
+										);
+									}
+								}}
 								disabled={!document.metadata}
 								style={styles.actionButton}
 							/>
 
 							<ActionButton
 								icon="trash"
-								label="Delete"
+								// label="Delete"
 								onPress={handleDelete}
 								disabled={deleting}
 								variant="destructive"
@@ -269,9 +283,14 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 								<InfoRow
 									label="Amount"
 									value={formatCurrency(document.totalAmount)}
-									onPress={() =>
-										handleCopyText(formatCurrency(document.totalAmount)!)
-									}
+									onPress={() => {
+										const formattedAmount = formatCurrency(
+											document.totalAmount,
+										);
+										if (formattedAmount) {
+											handleCopyText(formattedAmount);
+										}
+									}}
 								/>
 							)}
 

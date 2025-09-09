@@ -8,17 +8,29 @@ interface DocumentStore {
 	filteredDocuments: Document[];
 	isLoading: boolean;
 
+	// Modal state
+	selectedDocument: Document | null;
+	isModalVisible: boolean;
+
 	// Actions
 	loadDocuments: () => Promise<void>;
 	setFilteredDocuments: (docs: Document[]) => void;
 	deleteDocument: (docId: string) => Promise<void>;
 	initializeRealTimeUpdates: () => () => void;
+	
+	// Modal actions
+	openDocumentModal: (document: Document) => void;
+	closeDocumentModal: () => void;
 }
 
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
 	documents: [],
 	filteredDocuments: [],
 	isLoading: false,
+
+	// Modal state
+	selectedDocument: null,
+	isModalVisible: false,
 
 	loadDocuments: async () => {
 		set({ isLoading: true });
@@ -59,10 +71,24 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 	deleteDocument: async (docId: string) => {
 		try {
 			await documentStorage.deleteDocument(docId);
+			// Close modal if deleting the currently selected document
+			const { selectedDocument } = get();
+			if (selectedDocument?.id === docId) {
+				set({ selectedDocument: null, isModalVisible: false });
+			}
 		} catch (error) {
 			console.error("Delete error:", error);
 			throw error;
 		}
+	},
+
+	// Modal actions
+	openDocumentModal: (document: Document) => {
+		set({ selectedDocument: document, isModalVisible: true });
+	},
+
+	closeDocumentModal: () => {
+		set({ selectedDocument: null, isModalVisible: false });
 	},
 
 	initializeRealTimeUpdates: () => {
