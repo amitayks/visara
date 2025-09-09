@@ -9,10 +9,18 @@ import {
 	TouchableOpacity,
 	View,
 } from "react-native";
-import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, { 
+	FadeIn, 
+	FadeOut, 
+	useAnimatedGestureHandler, 
+	useAnimatedStyle, 
+	useSharedValue,
+	runOnJS,
+	withSpring 
+} from "react-native-reanimated";
 import { ImageZoom } from "@likashefqet/react-native-image-zoom";
 import BottomSheet from "@gorhom/bottom-sheet";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { GestureHandlerRootView, PanGestureHandler, State } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useDocumentStore } from "../../../stores/documentStore";
@@ -46,6 +54,14 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 
 	// Bottom sheet snap points
 	const snapPoints = React.useMemo(() => ["20%", "60%", "90%"], []);
+
+	// Animated values for drag-to-dismiss
+	const translateX = useSharedValue(0);
+	const translateY = useSharedValue(0);
+	const scale = useSharedValue(1);
+
+	// Dismiss threshold - how far to drag before dismissing
+	const DISMISS_THRESHOLD = 150;
 
 	const handleOpenInGallery = useCallback(async () => {
 		if (!document?.imageUri) return;
@@ -140,17 +156,60 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	const handleImageSingleTap = useCallback(() => {
 		// Optional: You can close on single tap or do nothing
 		onClose();
-	}, []);
+	}, [onClose]);
 
-	// Handle image zoom gestures - close modal when dragging image down
-	const handleImageSwipe = useCallback(
-		(direction: string) => {
-			if (direction === "down") {
-				onClose();
+	// Animated gesture handler for drag-to-dismiss
+	const panGestureHandler = useAnimatedGestureHandler({
+		onStart: () => {
+			// Slightly scale down when starting to drag
+			scale.value = withSpring(0.95);
+		},
+		onActive: (event) => {
+			// Follow the finger movement
+			translateX.value = event.translationX;
+			translateY.value = event.translationY;
+		},
+		onEnd: (event) => {
+			const { translationX, translationY, velocityX, velocityY } = event;
+			
+			// Calculate distance from center
+			const distance = Math.sqrt(translationX * translationX + translationY * translationY);
+			const velocity = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
+			
+			// Dismiss if dragged far enough or with enough velocity
+			if (distance > DISMISS_THRESHOLD || velocity > 1000) {
+				// Animate out and close
+				translateX.value = withSpring(translationX * 2, { damping: 15 });
+				translateY.value = withSpring(translationY * 2, { damping: 15 });
+				scale.value = withSpring(0.8, { damping: 15 });
+				runOnJS(onClose)();
+			} else {
+				// Snap back to center
+				translateX.value = withSpring(0);
+				translateY.value = withSpring(0);
+				scale.value = withSpring(1);
 			}
 		},
-		[onClose],
-	);
+	});
+
+	// Animated style for the draggable image
+	const imageStyle = useAnimatedStyle(() => ({
+		transform: [
+			{ translateX: translateX.value },
+			{ translateY: translateY.value },
+			{ scale: scale.value },
+		],
+	}));
+
+	// Reset position when document changes
+	React.useEffect(() => {
+		if (document) {
+			// Reset to center position with spring animation
+			translateX.value = withSpring(0);
+			translateY.value = withSpring(0);
+			scale.value = withSpring(1);
+		}
+	}, [document?.id]);
 
 	if (!document) return null;
 
@@ -170,18 +229,21 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 					style={styles.backdrop}
 				/>
 
-				{/* Full screen image with zoom */}
-				<ImageZoom
-					uri={document.imageUri}
-					style={styles.image}
-					onSingleTap={handleImageSingleTap}
-					isPanEnabled={true}
-					isPinchEnabled={true}
-					minScale={0.5}
-					maxScale={5}
-					isDoubleTapEnabled={true}
-					// onSwipe={handleImageSwipe}
-				/>
+				{/* Full screen image with drag-to-dismiss */}
+				<PanGestureHandler onGestureEvent={panGestureHandler}>
+					<Animated.View style={[styles.image, imageStyle]}>
+						<ImageZoom
+							uri={document.imageUri}
+							style={styles.image}
+							onSingleTap={handleImageSingleTap}
+							isPanEnabled={false}
+							isPinchEnabled={true}
+							minScale={0.5}
+							maxScale={5}
+							isDoubleTapEnabled={true}
+						/>
+					</Animated.View>
+				</PanGestureHandler>
 
 				{/* Close button */}
 				{/* <TouchableOpacity style={styles.closeButton} onPress={onClose}>
