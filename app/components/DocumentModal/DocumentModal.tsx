@@ -45,7 +45,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	const { deleteDocument } = useDocumentStore();
 
 	// Bottom sheet snap points
-	const snapPoints = React.useMemo(() => ["20%", "60%"], []);
+	const snapPoints = React.useMemo(() => ["20%", "60%", "90%"], []);
 
 	const handleOpenInGallery = useCallback(async () => {
 		if (!document?.imageUri) return;
