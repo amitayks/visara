@@ -1,78 +1,89 @@
-import { StyleSheet } from "react-native";
-import { SCREEN_HEIGHT } from "../../../constants/dimensions";
+import { StyleSheet } from 'react-native';
+import type { ColorScheme } from '../../../constants/colors';
 
-export const createStyles = (theme: any) =>
+export const createStyles = (theme: ColorScheme) =>
 	StyleSheet.create({
-		backdrop: {
-			flex: 1,
-			backgroundColor: theme.overlay,
-			justifyContent: "flex-end",
-		},
 		container: {
-			backgroundColor: theme.surface,
-			borderTopLeftRadius: 24,
-			borderTopRightRadius: 24,
-			minHeight: SCREEN_HEIGHT * 0.7,
-			maxHeight: SCREEN_HEIGHT * 0.9,
-			marginTop: SCREEN_HEIGHT * 0.1,
-			shadowColor: theme.shadow,
+			flex: 1,
+			backgroundColor: 'transparent',
+		},
+		backdrop: {
+			...StyleSheet.absoluteFillObject,
+			backgroundColor: 'rgba(0, 0, 0, 0.9)',
+		},
+		image: {
+			flex: 1,
+			width: '100%',
+			height: '100%',
+		},
+		closeButton: {
+			position: 'absolute',
+			top: 60,
+			right: 20,
+			width: 40,
+			height: 40,
+			borderRadius: 20,
+			backgroundColor: 'rgba(0, 0, 0, 0.5)',
+			justifyContent: 'center',
+			alignItems: 'center',
+			zIndex: 1000,
+		},
+		bottomSheetBackground: {
+			borderTopLeftRadius: 20,
+			borderTopRightRadius: 20,
+			shadowColor: '#000',
 			shadowOffset: {
 				width: 0,
-				height: -10,
+				height: -2,
 			},
 			shadowOpacity: 0.25,
-			shadowRadius: 20,
-			elevation: 15,
+			shadowRadius: 3.84,
+			elevation: 5,
 		},
-		// handle: {
-		//   width: 40,
-		//   height: 4,
-		//   backgroundColor: '#DDD',
-		//   borderRadius: 2,
-		//   alignSelf: 'center',
-		//   marginTop: 12,
-		// },
-		header: {
-			alignItems: "center",
-			paddingHorizontal: 20,
-			paddingVertical: 16,
-			borderBottomWidth: 1,
-			borderBottomColor: theme.borderLight,
+		bottomSheetHandle: {
+			width: 40,
+			height: 4,
+			borderRadius: 2,
+			opacity: 0.3,
 		},
-		title: {
-			fontSize: 20,
-			fontWeight: "600",
-			color: theme.text,
-		},
-
-		content: {
+		bottomSheetContent: {
 			flex: 1,
-			// justifyContent: "space-between",
+			padding: 20,
 		},
-
-		infoSection: {
-			paddingHorizontal: 20,
-			paddingBottom: 20,
+		documentInfo: {
+			marginBottom: 20,
 		},
-
-		actionBar: {
-			paddingHorizontal: 12,
+		documentTitle: {
+			fontSize: 18,
+			fontWeight: '600',
+			marginBottom: 16,
+		},
+		textPreview: {
+			marginTop: 16,
+			padding: 12,
+			backgroundColor: theme.background,
+			borderRadius: 8,
+			borderWidth: 1,
+			borderColor: theme.border,
+		},
+		textPreviewLabel: {
+			fontSize: 14,
+			fontWeight: '500',
+			marginBottom: 8,
+			opacity: 0.7,
+		},
+		textPreviewContent: {
+			fontSize: 14,
+			lineHeight: 20,
+		},
+		actionButtons: {
+			flexDirection: 'row',
+			justifyContent: 'space-around',
+			flexWrap: 'wrap',
 			gap: 12,
 		},
-		leftActionBar: {
-			flexDirection: "row",
-			gap: 12,
-		},
-		rightActionBar: {
-			flexDirection: "row",
-			gap: 12,
-		},
-		deletingOverlay: {
-			...StyleSheet.absoluteFillObject,
-			backgroundColor: theme.overlay,
-			borderTopLeftRadius: 24,
-			borderTopRightRadius: 24,
-			alignItems: "center",
-			justifyContent: "center",
+		actionButton: {
+			minWidth: '20%',
+			maxWidth: '25%',
 		},
 	});

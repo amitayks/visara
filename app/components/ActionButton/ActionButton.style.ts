@@ -15,4 +15,7 @@ export const createStyles = (theme: any) =>
 			fontSize: 16,
 			fontWeight: "600",
 		},
+		disabled: {
+			opacity: 0.6,
+		},
 	});

@@ -23,4 +23,7 @@ export const createStyles = (theme: any) =>
 			color: theme.text,
 			fontWeight: "500",
 		},
+		copyIcon: {
+			marginLeft: 8,
+		},
 	});

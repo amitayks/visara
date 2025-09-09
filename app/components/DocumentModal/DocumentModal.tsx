@@ -1,16 +1,19 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	Linking,
 	Modal,
-	ScrollView,
 	Share,
 	StyleSheet,
 	Text,
 	TouchableOpacity,
 	View,
 } from "react-native";
-import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { ImageZoom } from '@likashefqet/react-native-image-zoom';
+import BottomSheet from '@gorhom/bottom-sheet';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useDocumentStore } from "../../../stores/documentStore";
 import { copyToClipboard } from "../../../utils/clipboard";
@@ -37,8 +40,12 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	const { theme } = useTheme();
 	const styles = useThemedStyles(createStyles);
 	const [deleting, setDeleting] = useState(false);
+	const bottomSheetRef = useRef<BottomSheet>(null);
 
 	const { deleteDocument } = useDocumentStore();
+
+	// Bottom sheet snap points
+	const snapPoints = React.useMemo(() => ['20%', '60%'], []);
 
 	const handleOpenInGallery = useCallback(async () => {
 		if (!document?.imageUri) return;
@@ -63,7 +70,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 				icon: "alert-circle",
 			});
 		}
-	}, [document]);
+	}, [document, onClose]);
 
 	const handleDelete = async () => {
 		if (!document) return;
@@ -88,125 +95,189 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 		}
 	};
 
-	const handleShare = async () => {
+	const handleShare = useCallback(async () => {
 		if (!document) return;
 
-		if (onShare) {
-			onShare(document);
-		} else {
-			try {
+		try {
+			if (onShare) {
+				onShare(document);
+			} else {
 				await Share.share({
-					message: `Document: ${document.vendor || "Unknown"}\nType: ${document.documentType}\nDate: ${formatDate(document.date)}`,
+					message: `Document: ${document.documentType || 'Unknown'}\nDate: ${formatDate(document.createdAt)}`,
 					url: document.imageUri,
 				});
-			} catch (error) {
-				showToast({
-					type: "error",
-					message: "Failed to share document",
-					icon: "alert-circle",
-				});
 			}
+		} catch (error) {
+			showToast({
+				type: "error",
+				message: "Failed to share document",
+				icon: "alert-circle",
+			});
 		}
-	};
+	}, [document, onShare]);
 
-	const handleClipBoard = async () => {
-		if (!document?.metadata) return;
+	const handleCopyText = useCallback(async (text: string) => {
+		try {
+			await copyToClipboard(text);
+			showToast({
+				type: "success",
+				message: "Copied to clipboard",
+				icon: "checkmark-circle",
+			});
+		} catch (error) {
+			showToast({
+				type: "error",
+				message: "Failed to copy text",
+				icon: "alert-circle",
+			});
+		}
+	}, []);
 
-		copyToClipboard(document.metadata, "Metadata");
+	const handleImageSingleTap = useCallback(() => {
+		// Optional: You can close on single tap or do nothing
+		// onClose();
+	}, []);
+
+	const handleBottomSheetClose = useCallback(() => {
 		onClose();
-	};
+	}, [onClose]);
+
+	if (!document) return null;
 
 	return (
 		<Modal
 			visible={visible}
-			animationType="fade"
 			transparent
+			animationType="fade"
 			onRequestClose={onClose}
+			statusBarTranslucent
 		>
-			<View style={styles.backdrop}>
-				<TouchableOpacity
-					style={StyleSheet.absoluteFillObject}
-					activeOpacity={1}
-					onPress={onClose}
+			<GestureHandlerRootView style={styles.container}>
+				{/* Background overlay */}
+				<Animated.View
+					entering={FadeIn.duration(200)}
+					exiting={FadeOut.duration(150)}
+					style={styles.backdrop}
 				/>
 
-				<Animated.View
-					entering={FadeIn.duration(150).easing(Easing.out(Easing.cubic))}
-					exiting={FadeOut.duration(100)}
-					style={styles.container}
+				{/* Full screen image with zoom */}
+				<ImageZoom
+					uri={document.imageUri}
+					style={styles.image}
+					onSingleTap={handleImageSingleTap}
+					isPanEnabled={true}
+					isPinchEnabled={true}
+					minScale={1}
+					maxScale={5}
+					isDoubleTapEnabled={true}
+				/>
+
+				{/* Close button */}
+				<TouchableOpacity style={styles.closeButton} onPress={onClose}>
+					<Icon name="close" size={24} color={theme.surface} />
+				</TouchableOpacity>
+
+				{/* Bottom drawer */}
+				<BottomSheet
+					ref={bottomSheetRef}
+					index={0}
+					snapPoints={snapPoints}
+					onClose={handleBottomSheetClose}
+					backgroundStyle={[styles.bottomSheetBackground, { backgroundColor: theme.surface }]}
+					handleIndicatorStyle={[styles.bottomSheetHandle, { backgroundColor: theme.text }]}
 				>
-					{/* <View style={styles.handle} /> */}
-
-					<View style={styles.header}>
-						<Text style={styles.title}>Document Details</Text>
-					</View>
-
-					<ScrollView
-						style={styles.content}
-						showsVerticalScrollIndicator={false}
-					>
-						<View style={styles.infoSection}>
+					<View style={styles.bottomSheetContent}>
+						{/* Document Info */}
+						<View style={styles.documentInfo}>
+							<Text style={[styles.documentTitle, { color: theme.text }]}>
+								Document Details
+							</Text>
+							
+							{document.documentType && (
+								<InfoRow
+									label="Type"
+									value={document.documentType}
+									onPress={() => handleCopyText(document.documentType!)}
+								/>
+							)}
+							
 							<InfoRow
-								icon="document-text"
-								label="Type"
-								value={document?.documentType}
-							/>
-							<InfoRow
-								icon="business"
-								label="Vendor"
-								value={document?.vendor || "Unknown"}
-							/>
-							<InfoRow
-								icon="calendar"
 								label="Date"
-								value={formatDate(document?.date)}
+								value={formatDate(document.createdAt)}
+								onPress={() => handleCopyText(formatDate(document.createdAt))}
 							/>
-							<InfoRow
-								icon="cash"
-								label="Amount"
-								value={formatCurrency(document?.totalAmount)}
-							/>
+							
+							{document.vendor && (
+								<InfoRow
+									label="Vendor"
+									value={document.vendor}
+									onPress={() => handleCopyText(document.vendor!)}
+								/>
+							)}
+
+							{document.totalAmount && (
+								<InfoRow
+									label="Amount"
+									value={formatCurrency(document.totalAmount)}
+									onPress={() => handleCopyText(formatCurrency(document.totalAmount)!)}
+								/>
+							)}
+
+							{/* Extracted text preview */}
+							{document.metadata && (
+								<View style={styles.textPreview}>
+									<Text style={[styles.textPreviewLabel, { color: theme.text }]}>
+										Extracted Text:
+									</Text>
+									<Text
+										style={[styles.textPreviewContent, { color: theme.text }]}
+										numberOfLines={3}
+										ellipsizeMode="tail"
+									>
+										{typeof document.metadata === 'string' ? document.metadata : JSON.stringify(document.metadata)}
+									</Text>
+								</View>
+							)}
 						</View>
 
-						<View style={styles.actionBar}>
-							<View style={styles.leftActionBar}>
-								<ActionButton
-									icon="image"
-									label="Open"
-									onPress={handleOpenInGallery}
-									color={theme.primary}
-								/>
-								<ActionButton
-									icon="share-social"
-									label="Share"
-									onPress={handleShare}
-									color={theme.primary}
-								/>
-							</View>
-							<View style={styles.rightActionBar}>
-								<ActionButton
-									icon="copy"
-									label="Copy"
-									onPress={handleClipBoard}
-									color={theme.accent}
-								/>
-								<ActionButton
-									icon="trash"
-									label="Delete"
-									onPress={handleDelete}
-									color={theme.error}
-								/>
-							</View>
+						{/* Action Buttons */}
+						<View style={styles.actionButtons}>
+							<ActionButton
+								icon="images"
+								label="Gallery"
+								onPress={handleOpenInGallery}
+								style={styles.actionButton}
+							/>
+							
+							<ActionButton
+								icon="share"
+								label="Share"
+								onPress={handleShare}
+								style={styles.actionButton}
+							/>
+							
+							<ActionButton
+								icon="copy"
+								label="Copy Text"
+								onPress={() => document.metadata && handleCopyText(typeof document.metadata === 'string' ? document.metadata : JSON.stringify(document.metadata))}
+								disabled={!document.metadata}
+								style={styles.actionButton}
+							/>
+							
+							<ActionButton
+								icon="trash"
+								label="Delete"
+								onPress={handleDelete}
+								disabled={deleting}
+								variant="destructive"
+								style={styles.actionButton}
+							>
+								{deleting && <ActivityIndicator size="small" color={theme.surface} />}
+							</ActionButton>
 						</View>
-
-						{deleting && (
-							<View style={styles.deletingOverlay}>
-								<ActivityIndicator size="large" color="#FFFFFF" />
-							</View>
-						)}
-					</ScrollView>
-				</Animated.View>
-			</View>
+					</View>
+				</BottomSheet>
+			</GestureHandlerRootView>
 		</Modal>
 	);
 };

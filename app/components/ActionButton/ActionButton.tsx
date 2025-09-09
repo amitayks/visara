@@ -1,13 +1,18 @@
-import { Text, TouchableOpacity } from "react-native";
+import React from "react";
+import { Text, TouchableOpacity, ViewStyle } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
-import { useThemedStyles } from "../../../contexts/ThemeContext";
+import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { createStyles } from "./ActionButton.style";
 
 interface ActionButtonProps {
 	icon: string;
 	label: string;
 	onPress: () => void;
-	color: string;
+	color?: string;
+	style?: ViewStyle;
+	disabled?: boolean;
+	variant?: 'default' | 'destructive';
+	children?: React.ReactNode;
 }
 
 export const ActionButton: React.FC<ActionButtonProps> = ({
@@ -15,17 +20,41 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
 	label,
 	onPress,
 	color,
+	style,
+	disabled = false,
+	variant = 'default',
+	children,
 }) => {
+	const { theme } = useTheme();
 	const styles = useThemedStyles(createStyles);
+	
+	// Determine colors based on variant and theme
+	const getButtonColor = () => {
+		if (color) return color;
+		if (variant === 'destructive') return theme.error;
+		return theme.primary;
+	};
+
+	const buttonColor = getButtonColor();
+	const backgroundColor = disabled ? `${buttonColor}30` : `${buttonColor}15`;
+	const iconColor = disabled ? `${buttonColor}60` : buttonColor;
+	const textColor = disabled ? `${buttonColor}60` : buttonColor;
 
 	return (
 		<TouchableOpacity
-			style={[styles.actionButton, { backgroundColor: `${color}15` }]}
+			style={[
+				styles.actionButton, 
+				{ backgroundColor }, 
+				style,
+				disabled && styles.disabled
+			]}
 			onPress={onPress}
-			activeOpacity={0.7}
+			activeOpacity={disabled ? 1 : 0.7}
+			disabled={disabled}
 		>
-			<Icon name={icon} size={24} color={color} />
-			<Text style={[styles.actionLabel, { color }]}>{label}</Text>
+			<Icon name={icon} size={24} color={iconColor} />
+			<Text style={[styles.actionLabel, { color: textColor }]}>{label}</Text>
+			{children}
 		</TouchableOpacity>
 	);
 };
