@@ -10,9 +10,9 @@ import {
 	View,
 } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { ImageZoom } from '@likashefqet/react-native-image-zoom';
-import BottomSheet from '@gorhom/bottom-sheet';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { ImageZoom } from "@likashefqet/react-native-image-zoom";
+import BottomSheet from "@gorhom/bottom-sheet";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useDocumentStore } from "../../../stores/documentStore";
@@ -45,7 +45,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	const { deleteDocument } = useDocumentStore();
 
 	// Bottom sheet snap points
-	const snapPoints = React.useMemo(() => ['20%', '60%'], []);
+	const snapPoints = React.useMemo(() => ["20%", "60%"], []);
 
 	const handleOpenInGallery = useCallback(async () => {
 		if (!document?.imageUri) return;
@@ -103,7 +103,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 				onShare(document);
 			} else {
 				await Share.share({
-					message: `Document: ${document.documentType || 'Unknown'}\nDate: ${formatDate(document.createdAt)}`,
+					message: `Document: ${document.documentType || "Unknown"}\nDate: ${formatDate(document.createdAt)}`,
 					url: document.imageUri,
 				});
 			}
@@ -183,16 +183,66 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 					index={0}
 					snapPoints={snapPoints}
 					onClose={handleBottomSheetClose}
-					backgroundStyle={[styles.bottomSheetBackground, { backgroundColor: theme.surface }]}
-					handleIndicatorStyle={[styles.bottomSheetHandle, { backgroundColor: theme.text }]}
+					backgroundStyle={[
+						styles.bottomSheetBackground,
+						{ backgroundColor: theme.surface },
+					]}
+					handleIndicatorStyle={[
+						styles.bottomSheetHandle,
+						{ backgroundColor: theme.text },
+					]}
 				>
 					<View style={styles.bottomSheetContent}>
+						{/* Action Buttons */}
+						<View style={styles.actionButtons}>
+							<ActionButton
+								icon="images"
+								label="Gallery"
+								onPress={handleOpenInGallery}
+								style={styles.actionButton}
+							/>
+
+							<ActionButton
+								icon="share"
+								label="Share"
+								onPress={handleShare}
+								style={styles.actionButton}
+							/>
+
+							<ActionButton
+								icon="copy"
+								label="Copy Text"
+								onPress={() =>
+									document.metadata &&
+									handleCopyText(
+										typeof document.metadata === "string"
+											? document.metadata
+											: JSON.stringify(document.metadata),
+									)
+								}
+								disabled={!document.metadata}
+								style={styles.actionButton}
+							/>
+
+							<ActionButton
+								icon="trash"
+								label="Delete"
+								onPress={handleDelete}
+								disabled={deleting}
+								variant="destructive"
+								style={styles.actionButton}
+							>
+								{deleting && (
+									<ActivityIndicator size="small" color={theme.surface} />
+								)}
+							</ActionButton>
+						</View>
 						{/* Document Info */}
-						<View style={styles.documentInfo}>
+						<View>
 							<Text style={[styles.documentTitle, { color: theme.text }]}>
 								Document Details
 							</Text>
-							
+
 							{document.documentType && (
 								<InfoRow
 									label="Type"
@@ -200,13 +250,13 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 									onPress={() => handleCopyText(document.documentType!)}
 								/>
 							)}
-							
+
 							<InfoRow
 								label="Date"
 								value={formatDate(document.createdAt)}
 								onPress={() => handleCopyText(formatDate(document.createdAt))}
 							/>
-							
+
 							{document.vendor && (
 								<InfoRow
 									label="Vendor"
@@ -219,14 +269,18 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 								<InfoRow
 									label="Amount"
 									value={formatCurrency(document.totalAmount)}
-									onPress={() => handleCopyText(formatCurrency(document.totalAmount)!)}
+									onPress={() =>
+										handleCopyText(formatCurrency(document.totalAmount)!)
+									}
 								/>
 							)}
 
 							{/* Extracted text preview */}
 							{document.metadata && (
 								<View style={styles.textPreview}>
-									<Text style={[styles.textPreviewLabel, { color: theme.text }]}>
+									<Text
+										style={[styles.textPreviewLabel, { color: theme.text }]}
+									>
 										Extracted Text:
 									</Text>
 									<Text
@@ -234,46 +288,12 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 										numberOfLines={3}
 										ellipsizeMode="tail"
 									>
-										{typeof document.metadata === 'string' ? document.metadata : JSON.stringify(document.metadata)}
+										{typeof document.metadata === "string"
+											? document.metadata
+											: JSON.stringify(document.metadata)}
 									</Text>
 								</View>
 							)}
-						</View>
-
-						{/* Action Buttons */}
-						<View style={styles.actionButtons}>
-							<ActionButton
-								icon="images"
-								label="Gallery"
-								onPress={handleOpenInGallery}
-								style={styles.actionButton}
-							/>
-							
-							<ActionButton
-								icon="share"
-								label="Share"
-								onPress={handleShare}
-								style={styles.actionButton}
-							/>
-							
-							<ActionButton
-								icon="copy"
-								label="Copy Text"
-								onPress={() => document.metadata && handleCopyText(typeof document.metadata === 'string' ? document.metadata : JSON.stringify(document.metadata))}
-								disabled={!document.metadata}
-								style={styles.actionButton}
-							/>
-							
-							<ActionButton
-								icon="trash"
-								label="Delete"
-								onPress={handleDelete}
-								disabled={deleting}
-								variant="destructive"
-								style={styles.actionButton}
-							>
-								{deleting && <ActivityIndicator size="small" color={theme.surface} />}
-							</ActionButton>
 						</View>
 					</View>
 				</BottomSheet>

@@ -6,12 +6,12 @@ import { createStyles } from "./ActionButton.style";
 
 interface ActionButtonProps {
 	icon: string;
-	label: string;
+	label?: string;
 	onPress: () => void;
 	color?: string;
 	style?: ViewStyle;
 	disabled?: boolean;
-	variant?: 'default' | 'destructive';
+	variant?: "default" | "destructive";
 	children?: React.ReactNode;
 }
 
@@ -22,16 +22,16 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
 	color,
 	style,
 	disabled = false,
-	variant = 'default',
+	variant = "default",
 	children,
 }) => {
 	const { theme } = useTheme();
 	const styles = useThemedStyles(createStyles);
-	
+
 	// Determine colors based on variant and theme
 	const getButtonColor = () => {
 		if (color) return color;
-		if (variant === 'destructive') return theme.error;
+		if (variant === "destructive") return theme.error;
 		return theme.primary;
 	};
 
@@ -43,17 +43,17 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
 	return (
 		<TouchableOpacity
 			style={[
-				styles.actionButton, 
-				{ backgroundColor }, 
+				styles.actionButton,
+				{ backgroundColor },
 				style,
-				disabled && styles.disabled
+				disabled && styles.disabled,
 			]}
 			onPress={onPress}
 			activeOpacity={disabled ? 1 : 0.7}
 			disabled={disabled}
 		>
 			<Icon name={icon} size={24} color={iconColor} />
-			<Text style={[styles.actionLabel, { color: textColor }]}>{label}</Text>
+			{/* <Text style={[styles.actionLabel, { color: textColor }]}>{label}</Text> */}
 			{children}
 		</TouchableOpacity>
 	);

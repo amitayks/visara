@@ -1,12 +1,4 @@
-import { useEffect } from "react";
 import { Text, TouchableOpacity, View } from "react-native";
-import Animated, {
-	useAnimatedStyle,
-	useSharedValue,
-	withRepeat,
-	withSequence,
-	withTiming,
-} from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useThemedStyles } from "../../../contexts/ThemeContext";
 import { useIconColors } from "../../../utils/iconColors";
@@ -30,28 +22,12 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
 }) => {
 	const iconColors = useIconColors();
 	const styles = useThemedStyles(createStyles);
-	const bounce = useSharedValue(0);
-
-	useEffect(() => {
-		bounce.value = withRepeat(
-			withSequence(
-				withTiming(-10, { duration: 1000 }),
-				withTiming(0, { duration: 1000 }),
-			),
-			-1,
-			true,
-		);
-	}, []);
-
-	const animatedStyle = useAnimatedStyle(() => ({
-		transform: [{ translateY: bounce.value }],
-	}));
 
 	return (
 		<View style={styles.emptyContainer}>
-			<Animated.View style={animatedStyle}>
+			<View>
 				<Icon name={icon} size={64} color={iconColors.tertiary} />
-			</Animated.View>
+			</View>
 			<Text style={styles.emptyTitle}>{title}</Text>
 			{message && <Text style={styles.emptyMessage}>{message}</Text>}
 			{action && (
