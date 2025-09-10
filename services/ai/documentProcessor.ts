@@ -273,7 +273,10 @@ export class DocumentProcessor {
 				tempTracker.add(manipulatedImage.uri);
 			} else {
 				// Register with memory manager if no tracker provided
-				nativeMemoryManager.registerTempFile(manipulatedImage.uri, "preprocessImage");
+				nativeMemoryManager.registerTempFile(
+					manipulatedImage.uri,
+					"preprocessImage",
+				);
 			}
 
 			// Return the temp file directly - NO CACHING
