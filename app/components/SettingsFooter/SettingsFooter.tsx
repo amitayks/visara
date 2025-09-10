@@ -8,37 +8,41 @@ export function SettingsFooter() {
 	const { theme } = useTheme();
 
 	return (
-		<View style={styles.footer}>
-			<View style={styles.versionSection}>
-				<Text style={styles.version}>Version 1.0.0</Text>
-				<Text style={styles.buildInfo}>
-					Build {Platform.OS === "ios" ? "iOS" : "Android"} •{" "}
-					{new Date().getFullYear()}
-				</Text>
+		<View style={styles.versionSection}>
+			<Text style={[styles.version, { color: theme.primary }]}>
+				Version 1.0.0
+			</Text>
+			<Text style={[styles.buildInfo, { color: theme.primary }]}>
+				Build {Platform.OS === "ios" ? "iOS" : "Android"} •{" "}
+				{new Date().getFullYear()}
+			</Text>
 
-				<View style={styles.infoRow}>
-					<View style={styles.infoItem}>
-						<Icon
-							name="shield-checkmark-outline"
-							size={16}
-							color={theme.textSecondary}
-						/>
-						<Text style={styles.infoText}>Privacy First</Text>
-					</View>
-					<View style={styles.infoItem}>
-						<Icon
-							name="phone-portrait-outline"
-							size={16}
-							color={theme.textSecondary}
-						/>
-						<Text style={styles.infoText}>On-Device AI</Text>
-					</View>
+			<View style={styles.infoRow}>
+				<View style={styles.infoItem}>
+					<Icon
+						name="shield-checkmark-outline"
+						size={16}
+						color={theme.textSecondary}
+					/>
+					<Text style={[styles.infoText, { color: theme.secondary }]}>
+						Privacy First
+					</Text>
 				</View>
-
-				<Text style={styles.copyright}>
-					© {new Date().getFullYear()} Visara. All rights reserved.
-				</Text>
+				<View style={styles.infoItem}>
+					<Icon
+						name="phone-portrait-outline"
+						size={16}
+						color={theme.textSecondary}
+					/>
+					<Text style={[styles.infoText, { color: theme.secondary }]}>
+						On-Device AI
+					</Text>
+				</View>
 			</View>
+
+			<Text style={[styles.copyright, { color: theme.secondary }]}>
+				© {new Date().getFullYear()} Visara. All rights reserved.
+			</Text>
 		</View>
 	);
 }

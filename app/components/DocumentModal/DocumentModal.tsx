@@ -30,6 +30,10 @@ import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useDocumentStore } from "../../../stores/documentStore";
 import { copyToClipboard } from "../../../utils/clipboard";
 import { formatCurrency, formatDate } from "../../../utils/format";
+import {
+	formatDocumentForDisplay,
+	formatDocumentAsJSONString,
+} from "../../../utils/documentFormatter";
 import { ActionButton } from "../ActionButton";
 import { Document } from "../DocumentGrid";
 import { InfoRow } from "../InfoRow";
@@ -58,7 +62,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	const { deleteDocument } = useDocumentStore();
 
 	// Bottom sheet snap points
-	const snapPoints = React.useMemo(() => ["12%", "90%"], []);
+	const snapPoints = React.useMemo(() => ["13%", "90%"], []);
 
 	// Animated values for drag-to-dismiss
 	const translateX = useSharedValue(0);
@@ -293,17 +297,11 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 
 							<ActionButton
 								icon="copy"
-								// label="Copy Text"
+								// label="Copy Document JSON"
 								onPress={() => {
-									if (document.metadata) {
-										handleCopyText(
-											typeof document.metadata === "string"
-												? document.metadata
-												: JSON.stringify(document.metadata),
-										);
-									}
+									const jsonString = formatDocumentAsJSONString(document);
+									handleCopyText(jsonString);
 								}}
-								disabled={!document.metadata}
 								style={styles.actionButton}
 							/>
 
@@ -363,51 +361,25 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 								/>
 							)}
 
-							{/* Extracted text preview */}
-							{document.metadata && (
-								<View style={styles.textPreview}>
+							{/* Complete document data */}
+							<View style={styles.textPreview}>
+								<Text style={[styles.textPreviewLabel, { color: theme.text }]}>
+									Complete Document Data:
+								</Text>
+								<BottomSheetScrollView
+									style={styles.textPreviewScrollView}
+									showsVerticalScrollIndicator={true}
+									bounces={false}
+									contentContainerStyle={{ paddingBottom: 10 }}
+								>
 									<Text
-										style={[styles.textPreviewLabel, { color: theme.text }]}
+										style={[styles.textPreviewContent, { color: theme.text }]}
+										selectable={true}
 									>
-										Extracted Text:
+										{formatDocumentForDisplay(document)}
 									</Text>
-									<BottomSheetScrollView
-										style={styles.textPreviewScrollView}
-										showsVerticalScrollIndicator={true}
-										bounces={false}
-										contentContainerStyle={{ paddingBottom: 10 }}
-									>
-										<Text
-											style={[styles.textPreviewContent, { color: theme.text }]}
-											selectable={true}
-										>
-											ID = {document.id}
-											{"\n"}
-											imageUri = {document.imageUri}
-											{"\n"}
-											imageHash = {document.imageHash}
-											{"\n"}
-											ocrText = {document.ocrText}
-											{"\n"}
-											documentType = {document.documentType}
-											{"\n"}
-											confidence = {document.confidence}
-											{"\n"}
-											processedAt ={" "}
-											{document.processedAt && formatDate(document.processedAt)}
-											{"\n"}
-											metadata = {JSON.stringify(document.metadata, null, 2)}
-											{"\n"}
-											keywords = {JSON.stringify(document.keywords, null, 2)}
-											{"\n"}
-											searchVector ={" "}
-											{document.searchVector
-												? `[${document.searchVector.length} values]`
-												: "null"}
-										</Text>
-									</BottomSheetScrollView>
-								</View>
-							)}
+								</BottomSheetScrollView>
+							</View>
 						</View>
 					</View>
 				</BottomSheet>

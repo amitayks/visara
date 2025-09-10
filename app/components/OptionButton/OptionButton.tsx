@@ -45,7 +45,7 @@ export function OptionButton({
 				</View>
 				{value === option.value && (
 					<View style={styles.checkmarkContainer}>
-						<Icon name="checkmark-circle" size={24} color={theme.primary} />
+						<Icon name="checkmark-circle" size={24} color="#FFFFFF" />
 					</View>
 				)}
 			</View>

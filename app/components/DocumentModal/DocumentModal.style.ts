@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import type { ColorScheme } from "../../../constants/colors";
+import { SCREEN_HEIGHT } from "../../../constants/dimensions";
 
 export const createStyles = (theme: ColorScheme) =>
 	StyleSheet.create({
@@ -62,8 +63,8 @@ export const createStyles = (theme: ColorScheme) =>
 			borderRadius: 8,
 			borderWidth: 1,
 			borderColor: theme.border,
-			minHeight: 400, // Minimum height to show content
-			maxHeight: 800, // Maximum height before scrolling
+			minHeight: SCREEN_HEIGHT * 0.25, // 25% of screen height minimum
+			maxHeight: SCREEN_HEIGHT * 0.6,  // 60% of screen height maximum
 		},
 		textPreviewLabel: {
 			fontSize: 14,
@@ -74,8 +75,8 @@ export const createStyles = (theme: ColorScheme) =>
 			paddingTop: 12,
 		},
 		textPreviewScrollView: {
-			minHeight: 150, // Minimum scrollable height
-			maxHeight: 350, // Maximum scrollable height
+			minHeight: SCREEN_HEIGHT * 0.2, // 20% of screen height minimum scrollable area
+			maxHeight: SCREEN_HEIGHT * 0.55, // 55% of screen height maximum scrollable area  
 			paddingHorizontal: 12,
 			paddingBottom: 12,
 		},

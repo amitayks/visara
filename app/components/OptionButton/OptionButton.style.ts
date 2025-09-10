@@ -10,7 +10,8 @@ export const createStyles = (theme: any) =>
 			borderColor: "transparent",
 		},
 		selectedOption: {
-			borderColor: theme.textTertiary,
+			// borderColor: theme.accent,
+			backgroundColor: theme.backgroundAccent,
 		},
 		optionContent: {
 			flexDirection: "row",
@@ -23,13 +24,14 @@ export const createStyles = (theme: any) =>
 			flex: 1,
 		},
 		optionIconContainer: {
-			width: 48,
-			height: 48,
+			width: 40,
+			height: 40,
 			borderRadius: 24,
 			alignItems: "center",
 			justifyContent: "center",
-			marginRight: 12,
+			marginRight: 20,
 			color: theme.text,
+			backgroundColor: theme.surface,
 		},
 		optionTextContainer: {
 			flex: 1,
