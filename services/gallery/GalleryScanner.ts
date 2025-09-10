@@ -933,6 +933,11 @@ export class GalleryScanner {
 			const permanentUri = permanentPath.startsWith('file://') ? permanentPath : `file://${permanentPath}`;
 
 			console.log(`[GalleryScanner] Copying from "${tempUri}" to "${permanentPath}"`);
+			
+			// Log URI type for debugging
+			const uriType = tempUri.startsWith('content://') ? 'content URI' : 
+			              tempUri.startsWith('file://') ? 'file URI' : 'file path';
+			console.log(`[GalleryScanner] Source type: ${uriType}`);
 
 			// Copy file to permanent location
 			await RNFS.copyFile(tempUri, permanentPath);
@@ -970,17 +975,27 @@ export class GalleryScanner {
 				return null;
 			}
 
-			// Check if image exists
-			const exists = await RNFS.exists(imageUri);
-			if (!exists) {
-				console.error(`[GalleryScanner] ❌ Image does not exist: ${imageUri}`);
-				return null;
-			}
+			// Handle different URI types appropriately
+			let imageHash: string;
+			let effectiveUri = imageUri;
+			
+			if (imageUri.startsWith('content://')) {
+				console.log(`[GalleryScanner] 📍 Detected content URI - will convert to file URI after processing`);
+				// For content URIs, create hash from URI itself (can't get file stats)
+				imageHash = CryptoJS.MD5(imageUri + Date.now()).toString();
+			} else {
+				// Handle file URIs with original logic
+				const exists = await RNFS.exists(imageUri);
+				if (!exists) {
+					console.error(`[GalleryScanner] ❌ File does not exist: ${imageUri}`);
+					return null;
+				}
 
-			// Get file info from original URI for duplicate checking
-			console.log(`[GalleryScanner] 📊 Getting stat for original URI: "${imageUri}"`);
-			const stat = await RNFS.stat(imageUri);
-			const imageHash = CryptoJS.MD5(imageUri + stat.size).toString();
+				// Get file info for duplicate checking
+				console.log(`[GalleryScanner] 📊 Getting stat for file URI: "${imageUri}"`);
+				const stat = await RNFS.stat(imageUri);
+				imageHash = CryptoJS.MD5(imageUri + stat.size).toString();
+			}
 
 			// Check if already processed
 			const existingDoc = await documentStorage.checkDuplicateByHash(imageHash);
@@ -1008,16 +1023,29 @@ export class GalleryScanner {
 					const permanentUri = await this.copyImageToPermanentLocation(imageUri);
 					console.log(`[GalleryScanner] 📋 Copied to permanent location: "${permanentUri}"`);
 					
-					// Update the result to use the permanent URI
+					// CRITICAL: Update the result to use the permanent FILE URI
+					// This ensures we NEVER store content URIs in the database
 					result.imageUri = permanentUri;
 					
 					// Update hash for permanent location
-					const permanentStat = await RNFS.stat(permanentUri);
+					const permanentPath = permanentUri.replace('file://', '');
+					const permanentStat = await RNFS.stat(permanentPath);
 					result.imageHash = CryptoJS.MD5(permanentUri + permanentStat.size).toString();
 					
+					if (imageUri.startsWith('content://')) {
+						console.log(`[GalleryScanner] ✅ Successfully converted content URI to file URI: ${permanentUri}`);
+					}
+					
 				} catch (copyError) {
-					console.error(`[GalleryScanner] ⚠️ Failed to copy to permanent storage, keeping temp URI:`, copyError);
-					// Keep original URI and hash if copy fails
+					console.error(`[GalleryScanner] ⚠️ Failed to copy to permanent storage:`, copyError);
+					
+					if (imageUri.startsWith('content://')) {
+						console.error(`[GalleryScanner] ❌ Cannot save content URI without copying to permanent storage - skipping`);
+						return null; // Don't save content URIs that can't be copied
+					}
+					
+					// For file URIs, keep original if copy fails
+					console.log(`[GalleryScanner] 📝 Keeping original file URI: ${imageUri}`);
 				}
 			} else {
 				console.log(`[GalleryScanner] 🗑️ Low confidence image (${result ? (result.confidence * 100).toFixed(1) : 'N/A'}%) - not saving permanently`);

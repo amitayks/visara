@@ -35,6 +35,7 @@ import { Document } from "../DocumentGrid";
 import { InfoRow } from "../InfoRow";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./DocumentModal.style";
+import { documentProcessor } from "@/services/ai/documentProcessor";
 
 interface DocumentModalProps {
 	visible: boolean;
@@ -57,7 +58,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	const { deleteDocument } = useDocumentStore();
 
 	// Bottom sheet snap points
-	const snapPoints = React.useMemo(() => ["20%", "60%", "90%"], []);
+	const snapPoints = React.useMemo(() => ["12%", "60%", "90%"], []);
 
 	// Animated values for drag-to-dismiss
 	const translateX = useSharedValue(0);
@@ -372,12 +373,29 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 									</Text>
 									<Text
 										style={[styles.textPreviewContent, { color: theme.text }]}
-										numberOfLines={3}
+										numberOfLines={40}
 										ellipsizeMode="tail"
 									>
-										{typeof document.metadata === "string"
-											? document.metadata
-											: JSON.stringify(document.metadata)}
+										ID = {document.id}
+										{"\n"}
+										imageUri = {document.imageUri}
+										{"\n"}
+										imageHash = {document.imageHash}
+										{"\n"}
+										ocrText = {document.ocrText}
+										{"\n"}
+										documentType = {document.documentType}
+										{"\n"}
+										confidence = {document.confidence}
+										{"\n"}
+										processedAt ={" "}
+										{document.processedAt && formatDate(document.processedAt)}
+										{"\n"}
+										metadata = {JSON.stringify(document.metadata)}
+										{"\n"}
+										keywords = {JSON.stringify(document.keywords)}
+										{"\n"}
+										searchVector = {JSON.stringify(document.searchVector)}
 									</Text>
 								</View>
 							)}

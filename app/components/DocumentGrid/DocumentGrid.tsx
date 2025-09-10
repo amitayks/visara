@@ -24,6 +24,16 @@ export interface Document {
 	totalAmount?: number;
 	metadata?: any;
 	createdAt: Date;
+	imageHash?: string;
+	ocrText?: string;
+	searchVector?: number[];
+	keywords?: string[];
+	confidence?: number;
+	processedAt?: Date;
+	imageWidth?: number;
+	imageHeight?: number;
+	imageSize?: number;
+	imageTakenDate?: Date;
 }
 
 interface DocumentGridProps {

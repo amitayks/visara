@@ -50,6 +50,17 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				totalAmount: doc.totalAmount,
 				metadata: doc.metadata,
 				createdAt: new Date(doc.createdAt),
+				// Preserve all OCR and processing data
+				imageHash: doc.imageHash,
+				ocrText: doc.ocrText,
+				searchVector: doc.searchVector,
+				keywords: doc.keywords,
+				confidence: doc.confidence,
+				processedAt: doc.processedAt ? new Date(doc.processedAt) : undefined,
+				imageWidth: doc.imageWidth,
+				imageHeight: doc.imageHeight,
+				imageSize: doc.imageSize,
+				imageTakenDate: doc.imageTakenDate ? new Date(doc.imageTakenDate) : undefined,
 			}));
 
 			set({ 
@@ -107,6 +118,17 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				totalAmount: doc.totalAmount,
 				metadata: doc.metadata,
 				createdAt: new Date(doc.createdAt),
+				// Preserve all OCR and processing data
+				imageHash: doc.imageHash,
+				ocrText: doc.ocrText,
+				searchVector: doc.searchVector,
+				keywords: doc.keywords,
+				confidence: doc.confidence,
+				processedAt: doc.processedAt ? new Date(doc.processedAt) : undefined,
+				imageWidth: doc.imageWidth,
+				imageHeight: doc.imageHeight,
+				imageSize: doc.imageSize,
+				imageTakenDate: doc.imageTakenDate ? new Date(doc.imageTakenDate) : undefined,
 			}));
 
 			set({ documents: transformedDocs });
