@@ -289,6 +289,8 @@ export default function HomeScreen() {
 				title={isScanning ? "Stop Scan" : "Start Scan"}
 			/> */}
 
+			{/* Toast Container */}
+			<ToastContainer />
 			{/* Document Modal */}
 			<DocumentModal
 				visible={isModalVisible}
@@ -301,9 +303,6 @@ export default function HomeScreen() {
 				visible={showUploadModal}
 				onClose={() => setShowUploadModal(false)}
 			/>
-
-			{/* Toast Container */}
-			<ToastContainer />
 		</SafeAreaView>
 	);
 }

@@ -1,13 +1,14 @@
+import BottomSheet from "@gorhom/bottom-sheet";
 import React, { useCallback, useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	Image,
 	Modal,
-	StyleSheet,
 	Text,
 	TouchableOpacity,
 	View,
 } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import {
 	ImagePickerResponse,
 	launchCamera,
@@ -15,15 +16,13 @@ import {
 	MediaType,
 	PhotoQuality,
 } from "react-native-image-picker";
-import Animated, { Easing, FadeIn, FadeOut } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { galleryScanner } from "../../../services/gallery/GalleryScanner";
 import { useIconColors } from "../../../utils/iconColors";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./UploadModal.style";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import BottomSheet from "@gorhom/bottom-sheet";
 
 interface UploadModalProps {
 	visible: boolean;
@@ -34,7 +33,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 	visible,
 	onClose,
 }) => {
-	const { theme, isDark } = useTheme();
+	const { theme } = useTheme();
 	const iconColors = useIconColors();
 	const styles = useThemedStyles(createStyles);
 
@@ -62,13 +61,15 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
 	const handleImageResponse = (response: ImagePickerResponse) => {
 		if (response.didCancel || response.errorMessage) {
-			if (response.errorMessage) {
-				showToast({
-					type: "error",
-					message: response.errorMessage,
-					// icon: "alert-circle",
-				});
-			}
+			handleClose(); // Close the modal if the user cancels image selection
+			setTimeout(() => {
+				if (response.errorMessage) {
+					showToast({
+						type: "error",
+						message: response.errorMessage,
+					});
+				}
+			}, 300);
 			return;
 		}
 
