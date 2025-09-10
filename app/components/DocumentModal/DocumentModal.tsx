@@ -19,7 +19,7 @@ import Animated, {
 	withSpring,
 } from "react-native-reanimated";
 import { ImageZoom } from "@likashefqet/react-native-image-zoom";
-import BottomSheet from "@gorhom/bottom-sheet";
+import BottomSheet, { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import {
 	GestureHandlerRootView,
 	PanGestureHandler,
@@ -58,7 +58,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	const { deleteDocument } = useDocumentStore();
 
 	// Bottom sheet snap points
-	const snapPoints = React.useMemo(() => ["12%", "60%", "90%"], []);
+	const snapPoints = React.useMemo(() => ["12%", "90%"], []);
 
 	// Animated values for drag-to-dismiss
 	const translateX = useSharedValue(0);
@@ -371,32 +371,41 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 									>
 										Extracted Text:
 									</Text>
-									<Text
-										style={[styles.textPreviewContent, { color: theme.text }]}
-										numberOfLines={40}
-										ellipsizeMode="tail"
+									<BottomSheetScrollView
+										style={styles.textPreviewScrollView}
+										showsVerticalScrollIndicator={true}
+										bounces={false}
+										contentContainerStyle={{ paddingBottom: 10 }}
 									>
-										ID = {document.id}
-										{"\n"}
-										imageUri = {document.imageUri}
-										{"\n"}
-										imageHash = {document.imageHash}
-										{"\n"}
-										ocrText = {document.ocrText}
-										{"\n"}
-										documentType = {document.documentType}
-										{"\n"}
-										confidence = {document.confidence}
-										{"\n"}
-										processedAt ={" "}
-										{document.processedAt && formatDate(document.processedAt)}
-										{"\n"}
-										metadata = {JSON.stringify(document.metadata)}
-										{"\n"}
-										keywords = {JSON.stringify(document.keywords)}
-										{"\n"}
-										searchVector = {JSON.stringify(document.searchVector)}
-									</Text>
+										<Text
+											style={[styles.textPreviewContent, { color: theme.text }]}
+											selectable={true}
+										>
+											ID = {document.id}
+											{"\n"}
+											imageUri = {document.imageUri}
+											{"\n"}
+											imageHash = {document.imageHash}
+											{"\n"}
+											ocrText = {document.ocrText}
+											{"\n"}
+											documentType = {document.documentType}
+											{"\n"}
+											confidence = {document.confidence}
+											{"\n"}
+											processedAt ={" "}
+											{document.processedAt && formatDate(document.processedAt)}
+											{"\n"}
+											metadata = {JSON.stringify(document.metadata, null, 2)}
+											{"\n"}
+											keywords = {JSON.stringify(document.keywords, null, 2)}
+											{"\n"}
+											searchVector ={" "}
+											{document.searchVector
+												? `[${document.searchVector.length} values]`
+												: "null"}
+										</Text>
+									</BottomSheetScrollView>
 								</View>
 							)}
 						</View>

@@ -58,17 +58,26 @@ export const createStyles = (theme: ColorScheme) =>
 		},
 		textPreview: {
 			marginTop: 16,
-			padding: 12,
 			backgroundColor: theme.background,
 			borderRadius: 8,
 			borderWidth: 1,
 			borderColor: theme.border,
+			minHeight: 400, // Minimum height to show content
+			maxHeight: 800, // Maximum height before scrolling
 		},
 		textPreviewLabel: {
 			fontSize: 14,
 			fontWeight: "500",
 			marginBottom: 8,
 			opacity: 0.7,
+			paddingHorizontal: 12,
+			paddingTop: 12,
+		},
+		textPreviewScrollView: {
+			minHeight: 150, // Minimum scrollable height
+			maxHeight: 350, // Maximum scrollable height
+			paddingHorizontal: 12,
+			paddingBottom: 12,
 		},
 		textPreviewContent: {
 			fontSize: 14,
