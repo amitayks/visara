@@ -10,7 +10,7 @@ export const createStyles = (theme: any) =>
 			borderColor: "transparent",
 		},
 		selectedOption: {
-			borderColor: theme.secondary,
+			borderColor: theme.textTertiary,
 		},
 		optionContent: {
 			flexDirection: "row",

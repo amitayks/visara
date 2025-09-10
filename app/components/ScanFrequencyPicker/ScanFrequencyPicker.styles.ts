@@ -114,6 +114,7 @@ export const createStyles = (theme: any) =>
 		},
 		infoItem: {
 			flexDirection: "row",
+			paddingBottom: 8,
 		},
 		infoText: {
 			fontSize: 13,
