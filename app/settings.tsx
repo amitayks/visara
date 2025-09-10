@@ -82,24 +82,6 @@ export default function SettingsScreen() {
 
 				{/* Scanning Section */}
 				<SettingsSectionHeader title="Document Scanning" />
-				<ToggleBar
-					onPress={() => updateSetting("autoScan", !settings.autoScan)}
-					isChange={settings.autoScan}
-					title={["Auto-Scan Enabled", "Auto-Scan Disabled"]}
-					subtitle={[
-						"Automatically scan for new documents",
-						"Only scan when manually triggered",
-					]}
-					iconsName={["scan", "scan-outline"]}
-				/>
-
-				<ScanFrequencyPicker
-					value={settings.scanFrequency}
-					onValueChange={(frequency) =>
-						updateSetting("scanFrequency", frequency)
-					}
-					disabled={!settings.autoScan}
-				/>
 
 				<ToggleBar
 					onPress={() =>
@@ -120,6 +102,25 @@ export default function SettingsScreen() {
 						"Normal scanning frequency",
 					]}
 					iconsName={["battery-half", "battery-full"]}
+				/>
+
+				<ToggleBar
+					onPress={() => updateSetting("autoScan", !settings.autoScan)}
+					isChange={settings.autoScan}
+					title={["Auto-Scan Enabled", "Auto-Scan Disabled"]}
+					subtitle={[
+						"Automatically scan new images",
+						"Only scan when manually triggered",
+					]}
+					iconsName={["scan", "scan"]}
+				/>
+
+				<ScanFrequencyPicker
+					value={settings.scanFrequency}
+					onValueChange={(frequency) =>
+						updateSetting("scanFrequency", frequency)
+					}
+					disabled={!settings.autoScan}
 				/>
 
 				{/* Scanning Status Section */}

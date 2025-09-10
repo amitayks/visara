@@ -34,6 +34,9 @@ export const Colors = {
 		// Component specific
 		skeleton: "#F0F0F0",
 		shadow: "#000000",
+
+		// border radius
+		borderRadius: 16,
 	},
 
 	dark: {
@@ -71,6 +74,9 @@ export const Colors = {
 		// Component specific
 		skeleton: "#2C2C2E",
 		shadow: "#000000",
+
+		// border radius
+		borderRadius: 16,
 	},
 };
 

@@ -34,13 +34,13 @@ export default function HomeScreen() {
 	const { theme, isDark } = useTheme();
 	const styles = useThemedStyles(createStyles);
 
-	const { 
-		loadDocuments, 
-		initializeRealTimeUpdates, 
-		selectedDocument, 
-		isModalVisible, 
-		openDocumentModal, 
-		closeDocumentModal 
+	const {
+		loadDocuments,
+		initializeRealTimeUpdates,
+		selectedDocument,
+		isModalVisible,
+		openDocumentModal,
+		closeDocumentModal,
 	} = useDocumentStore();
 	const { scanProgress: backgroundScanProgress, isBackgroundScanEnabled } =
 		useScannerStore();
@@ -106,9 +106,12 @@ export default function HomeScreen() {
 	});
 
 	// Handle document press
-	const handleDocumentPress = useCallback((doc: Document) => {
-		openDocumentModal(doc);
-	}, [openDocumentModal]);
+	const handleDocumentPress = useCallback(
+		(doc: Document) => {
+			openDocumentModal(doc);
+		},
+		[openDocumentModal],
+	);
 
 	// TODO: REMOVE - This is for testing only, production apps should not have manual scan buttons
 	// Production flow: User sees scan button only on first app open, then all scanning is automatic

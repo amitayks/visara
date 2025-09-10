@@ -31,7 +31,7 @@ export const ToggleBar = ({
 				<View
 					style={[
 						styles.iconContainer,
-						{ backgroundColor: theme.accent + "20" },
+						// { backgroundColor: theme.accent + "20" },
 					]}
 				>
 					<Icon

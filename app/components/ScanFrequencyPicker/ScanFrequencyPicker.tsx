@@ -1,49 +1,29 @@
-import React, { useState } from "react";
-import { Modal, Text, TouchableOpacity, View, ScrollView } from "react-native";
+import React, { useRef, useState } from "react";
+import {
+	Modal,
+	Text,
+	TouchableOpacity,
+	View,
+	ScrollView,
+	TouchableOpacityBase,
+} from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
-import { createStyles } from "./styles";
+import { createStyles } from "./ScanFrequencyPicker.styles";
+import { SCAN_FREQUENCY_OPTIONS } from "./ScanFrequencyPickerConst";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import BottomSheet from "@gorhom/bottom-sheet";
+import { OptionButton } from "../OptionButton";
 
 export type ScanFrequency = "on_new_image" | "hourly" | "daily" | "weekly";
 
-interface ScanFrequencyOption {
+export interface ScanFrequencyOption {
 	value: ScanFrequency;
 	label: string;
-	description: string;
 	icon: string;
 	badge?: string;
 }
-
-const SCAN_FREQUENCY_OPTIONS: ScanFrequencyOption[] = [
-	{
-		value: "on_new_image",
-		label: "When New Images Added",
-		description: "Scan immediately when new photos are detected",
-		icon: "camera-outline",
-		badge: "Real-time",
-	},
-	{
-		value: "hourly",
-		label: "Every Hour",
-		description: "Scan for new documents every 60 minutes",
-		icon: "time-outline",
-		badge: "Frequent",
-	},
-	{
-		value: "daily",
-		label: "Once Daily",
-		description: "Scan once per day for new documents",
-		icon: "calendar-outline",
-		badge: "Recommended",
-	},
-	{
-		value: "weekly",
-		label: "Weekly",
-		description: "Scan once per week for new documents",
-		icon: "calendar-number-outline",
-		badge: "Battery Saver",
-	},
-];
 
 interface ScanFrequencyPickerProps {
 	value: ScanFrequency;
@@ -59,6 +39,8 @@ export function ScanFrequencyPicker({
 	const { theme } = useTheme();
 	const styles = useThemedStyles(createStyles);
 	const [isModalVisible, setIsModalVisible] = useState(false);
+	const bottomSheetRef = useRef<BottomSheet>(null);
+	const snapPoints = React.useMemo(() => ["60%"], []);
 
 	const selectedOption = SCAN_FREQUENCY_OPTIONS.find(
 		(option) => option.value === value,
@@ -66,14 +48,13 @@ export function ScanFrequencyPicker({
 
 	const handleSelect = (selectedValue: ScanFrequency) => {
 		onValueChange(selectedValue);
-		setIsModalVisible(false);
+		// setIsModalVisible(false);
 	};
 
 	return (
-		<>
-			{/* Trigger Button */}
+		<View style={[styles.container, { backgroundColor: theme.surface }]}>
 			<TouchableOpacity
-				style={[styles.triggerButton, disabled && styles.disabled]}
+				style={[styles.row, disabled && styles.disabled]}
 				onPress={() => !disabled && setIsModalVisible(true)}
 				activeOpacity={0.7}
 			>
@@ -83,7 +64,7 @@ export function ScanFrequencyPicker({
 							<Icon
 								name={selectedOption?.icon || "settings-outline"}
 								size={24}
-								color={theme.primary}
+								color={theme.accent}
 							/>
 						</View>
 						<View style={styles.triggerTextContainer}>
@@ -108,120 +89,53 @@ export function ScanFrequencyPicker({
 				</View>
 			</TouchableOpacity>
 
-			{/* Selection Modal */}
 			<Modal
 				visible={isModalVisible}
-				animationType="slide"
-				presentationStyle="pageSheet"
+				transparent
+				animationType="fade"
 				onRequestClose={() => setIsModalVisible(false)}
+				statusBarTranslucent
 			>
-				<View style={styles.modalContainer}>
-					{/* Modal Header */}
-					<View style={styles.modalHeader}>
-						<TouchableOpacity
-							style={styles.closeButton}
-							onPress={() => setIsModalVisible(false)}
-						>
-							<Icon name="close" size={24} color={theme.text} />
-						</TouchableOpacity>
-						<Text style={styles.modalTitle}>Scanning Frequency</Text>
-						<View style={styles.headerSpacer} />
-					</View>
+				<GestureHandlerRootView style={styles.modalContainer}>
+					<Animated.View
+						entering={FadeIn.duration(200)}
+						exiting={FadeOut.duration(150)}
+						style={styles.backdrop}
+					/>
 
-					{/* Options List */}
-					<ScrollView
-						style={styles.optionsList}
-						showsVerticalScrollIndicator={false}
+					<BottomSheet
+						ref={bottomSheetRef}
+						index={0}
+						snapPoints={snapPoints}
+						onClose={() => setIsModalVisible(false)}
+						backgroundStyle={[
+							styles.bottomSheetBackground,
+							{ backgroundColor: theme.surface },
+						]}
+						handleIndicatorStyle={[
+							styles.bottomSheetHandle,
+							{ backgroundColor: theme.text },
+						]}
+						enablePanDownToClose={true}
+						animateOnMount={true}
 					>
-						<Text style={styles.sectionDescription}>
-							Choose when Visara should automatically scan your gallery for new
-							documents.
-						</Text>
+						<View style={styles.optionsList}>
+							<Text style={styles.sectionDescription}>
+								Choose when Visara should automatically scan your gallery for
+								new documents.
+							</Text>
 
-						{SCAN_FREQUENCY_OPTIONS.map((option) => (
-							<TouchableOpacity
-								key={option.value}
-								style={[
-									styles.optionButton,
-									value === option.value && styles.selectedOption,
-								]}
-								onPress={() => handleSelect(option.value)}
-								activeOpacity={0.7}
-							>
-								<View style={styles.optionContent}>
-									<View style={styles.optionLeft}>
-										<View
-											style={[
-												styles.optionIconContainer,
-												value === option.value && styles.selectedIconContainer,
-											]}
-										>
-											<Icon
-												name={option.icon}
-												size={24}
-												color={
-													value === option.value
-														? theme.background
-														: theme.primary
-												}
-											/>
-										</View>
-										<View style={styles.optionTextContainer}>
-											<View style={styles.optionTitleRow}>
-												<Text
-													style={[
-														styles.optionTitle,
-														value === option.value &&
-															styles.selectedOptionTitle,
-													]}
-												>
-													{option.label}
-												</Text>
-												{option.badge && (
-													<View
-														style={[
-															styles.optionBadge,
-															value === option.value && styles.selectedBadge,
-														]}
-													>
-														<Text
-															style={[
-																styles.optionBadgeText,
-																value === option.value &&
-																	styles.selectedBadgeText,
-															]}
-														>
-															{option.badge}
-														</Text>
-													</View>
-												)}
-											</View>
-											<Text
-												style={[
-													styles.optionDescription,
-													value === option.value &&
-														styles.selectedOptionDescription,
-												]}
-											>
-												{option.description}
-											</Text>
-										</View>
-									</View>
-									{value === option.value && (
-										<View style={styles.checkmarkContainer}>
-											<Icon
-												name="checkmark-circle"
-												size={24}
-												color={theme.primary}
-											/>
-										</View>
-									)}
-								</View>
-							</TouchableOpacity>
-						))}
+							<View style={styles.optionsContainer}>
+								{SCAN_FREQUENCY_OPTIONS.map((option) => (
+									<OptionButton
+										key={option.value}
+										option={option}
+										value={value}
+										handleSelect={handleSelect}
+									/>
+								))}
+							</View>
 
-						{/* Info Section */}
-						<View style={styles.infoSection}>
 							<View style={styles.infoItem}>
 								<Icon
 									name="information-circle-outline"
@@ -234,10 +148,10 @@ export function ScanFrequencyPicker({
 								</Text>
 							</View>
 						</View>
-					</ScrollView>
-				</View>
+					</BottomSheet>
+				</GestureHandlerRootView>
 			</Modal>
-		</>
+		</View>
 	);
 }
 
