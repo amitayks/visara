@@ -105,7 +105,7 @@ export const SearchContainer: React.FC = () => {
 						>
 							<Icon
 								name="close-circle"
-								style={{ color: theme.text }}
+								style={{ color: theme.secondary }}
 								size={20}
 							/>
 						</TouchableOpacity>
@@ -125,7 +125,11 @@ export const SearchContainer: React.FC = () => {
 										style={styles.removeButton}
 										hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
 									>
-										<Icon name="close-circle" size={16} />
+										<Icon
+											name="close-circle"
+											size={16}
+											color={theme.secondary}
+										/>
 									</TouchableOpacity>
 								</View>
 							</Animated.View>
@@ -157,7 +161,7 @@ export const SearchContainer: React.FC = () => {
 					<TouchableOpacity
 						onPress={handleSearch}
 						activeOpacity={0.7}
-						disabled={!(searchQuery.length > 0)}
+						disabled={!(searchQuery.length > 0) || queryChips.length >= 4}
 						style={styles.sendButton}
 					>
 						<Icon name="search" size={24} color={iconColors.accent} />

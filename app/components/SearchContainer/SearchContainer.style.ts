@@ -40,6 +40,7 @@ export const createStyles = (theme: any) =>
 			fontSize: 14,
 			fontWeight: "500",
 			maxWidth: 150,
+			color: theme.text,
 		},
 		removeButton: {
 			marginLeft: 6,

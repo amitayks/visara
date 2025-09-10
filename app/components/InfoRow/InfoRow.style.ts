@@ -15,12 +15,12 @@ export const createStyles = (theme: any) =>
 		},
 		infoLabel: {
 			fontSize: 12,
-			color: theme.textTertiary,
+			color: theme.primary,
 			marginBottom: 2,
 		},
 		infoValue: {
 			fontSize: 16,
-			color: theme.text,
+			color: theme.primary,
 			fontWeight: "500",
 		},
 		copyIcon: {

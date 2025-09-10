@@ -9,18 +9,22 @@ import {
 	TouchableOpacity,
 	View,
 } from "react-native";
-import Animated, { 
-	FadeIn, 
-	FadeOut, 
-	useAnimatedGestureHandler, 
-	useAnimatedStyle, 
+import Animated, {
+	FadeIn,
+	FadeOut,
+	useAnimatedGestureHandler,
+	useAnimatedStyle,
 	useSharedValue,
 	runOnJS,
-	withSpring 
+	withSpring,
 } from "react-native-reanimated";
 import { ImageZoom } from "@likashefqet/react-native-image-zoom";
 import BottomSheet from "@gorhom/bottom-sheet";
-import { GestureHandlerRootView, PanGestureHandler, State } from "react-native-gesture-handler";
+import {
+	GestureHandlerRootView,
+	PanGestureHandler,
+	State,
+} from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useDocumentStore } from "../../../stores/documentStore";
@@ -171,11 +175,13 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 		},
 		onEnd: (event) => {
 			const { translationX, translationY, velocityX, velocityY } = event;
-			
+
 			// Calculate distance from center
-			const distance = Math.sqrt(translationX * translationX + translationY * translationY);
+			const distance = Math.sqrt(
+				translationX * translationX + translationY * translationY,
+			);
 			const velocity = Math.sqrt(velocityX * velocityX + velocityY * velocityY);
-			
+
 			// Dismiss if dragged far enough or with enough velocity
 			if (distance > DISMISS_THRESHOLD || velocity > 1000) {
 				// Animate out and close
@@ -309,7 +315,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 								style={styles.actionButton}
 							>
 								{deleting && (
-									<ActivityIndicator size="small" color={theme.surface} />
+									<ActivityIndicator size="small" color={theme.primary} />
 								)}
 							</ActionButton>
 						</View>
