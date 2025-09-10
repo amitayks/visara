@@ -50,7 +50,7 @@ export function ScanFrequencyPicker({
 		onValueChange(selectedValue);
 		setTimeout(() => {
 			setIsModalVisible(false);
-		}, 500); // A small delay to allow the state to update before closing
+		}, 500);
 	};
 
 	return (
