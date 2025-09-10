@@ -256,11 +256,6 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 					</Animated.View>
 				</PanGestureHandler>
 
-				{/* Close button */}
-				{/* <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-					<Icon name="close" size={24} color={theme.surface} />
-				</TouchableOpacity> */}
-
 				{/* Bottom drawer */}
 				<BottomSheet
 					ref={bottomSheetRef}
@@ -374,7 +369,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 								>
 									<Text
 										style={[styles.textPreviewContent, { color: theme.text }]}
-										selectable={true}
+										selectable={false}
 									>
 										{formatDocumentForDisplay(document)}
 									</Text>

@@ -63,8 +63,8 @@ export const createStyles = (theme: ColorScheme) =>
 			borderRadius: 8,
 			borderWidth: 1,
 			borderColor: theme.border,
-			minHeight: SCREEN_HEIGHT * 0.25, // 25% of screen height minimum
-			maxHeight: SCREEN_HEIGHT * 0.6,  // 60% of screen height maximum
+			minHeight: SCREEN_HEIGHT * 0.45, // 25% of screen height minimum
+			maxHeight: SCREEN_HEIGHT * 0.6, // 60% of screen height maximum
 		},
 		textPreviewLabel: {
 			fontSize: 14,
@@ -75,13 +75,13 @@ export const createStyles = (theme: ColorScheme) =>
 			paddingTop: 12,
 		},
 		textPreviewScrollView: {
-			minHeight: SCREEN_HEIGHT * 0.2, // 20% of screen height minimum scrollable area
-			maxHeight: SCREEN_HEIGHT * 0.55, // 55% of screen height maximum scrollable area  
+			minHeight: SCREEN_HEIGHT * 0.4, // 20% of screen height minimum scrollable area
+			maxHeight: SCREEN_HEIGHT * 0.55, // 55% of screen height maximum scrollable area
 			paddingHorizontal: 12,
 			paddingBottom: 12,
 		},
 		textPreviewContent: {
-			fontSize: 14,
+			fontSize: 16,
 			lineHeight: 20,
 		},
 		actionButtons: {
