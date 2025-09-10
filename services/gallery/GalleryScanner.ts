@@ -452,12 +452,9 @@ export class GalleryScanner {
 						);
 						this.failedImages.set(assetInfo.uri, 1);
 						return;
-					} else if (
-						error.message.includes("Failed to construct") ||
-						error.message.includes("content://")
-					) {
+					} else if (error.message.includes("Failed to construct")) {
 						console.log(
-							`Content URI error for ${asset.image.filename}, skipping...`,
+							`URI construction error for ${asset.image.filename}, skipping...`,
 						);
 						this.failedImages.set(assetInfo.uri, 1);
 						return;
@@ -953,14 +950,6 @@ export class GalleryScanner {
 				`[GalleryScanner] Copying from "${tempUri}" to "${permanentPath}"`,
 			);
 
-			// Log URI type for debugging
-			const uriType = tempUri.startsWith("content://")
-				? "content URI"
-				: tempUri.startsWith("file://")
-					? "file URI"
-					: "file path";
-			console.log(`[GalleryScanner] Source type: ${uriType}`);
-
 			// Copy file to permanent location
 			await RNFS.copyFile(tempUri, permanentPath);
 
@@ -1002,31 +991,16 @@ export class GalleryScanner {
 				return null;
 			}
 
-			// Handle different URI types appropriately
-			let imageHash: string;
-			let effectiveUri = imageUri;
-
-			if (imageUri.startsWith("content://")) {
-				console.log(
-					`[GalleryScanner] 📍 Detected content URI - will convert to file URI after processing`,
-				);
-				// For content URIs, create hash from URI itself (can't get file stats)
-				imageHash = CryptoJS.MD5(imageUri + Date.now()).toString();
-			} else {
-				// Handle file URIs with original logic
-				const exists = await RNFS.exists(imageUri);
-				if (!exists) {
-					console.error(`[GalleryScanner] ❌ File does not exist: ${imageUri}`);
-					return null;
-				}
-
-				// Get file info for duplicate checking
-				console.log(
-					`[GalleryScanner] 📊 Getting stat for file URI: "${imageUri}"`,
-				);
-				const stat = await RNFS.stat(imageUri);
-				imageHash = CryptoJS.MD5(imageUri + stat.size).toString();
+			// Check if file exists and get hash for duplicate detection
+			const exists = await RNFS.exists(imageUri);
+			if (!exists) {
+				console.error(`[GalleryScanner] ❌ File does not exist: ${imageUri}`);
+				return null;
 			}
+
+			// Get file info for duplicate checking
+			const stat = await RNFS.stat(imageUri);
+			const imageHash = CryptoJS.MD5(imageUri + stat.size).toString();
 
 			// Check if already processed
 			const existingDoc = await documentStorage.checkDuplicateByHash(imageHash);
@@ -1079,25 +1053,16 @@ export class GalleryScanner {
 						permanentUri + permanentStat.size,
 					).toString();
 
-					if (imageUri.startsWith("content://")) {
-						console.log(
-							`[GalleryScanner] ✅ Successfully converted content URI to file URI: ${permanentUri}`,
-						);
-					}
+					console.log(
+						`[GalleryScanner] ✅ Successfully copied to permanent storage: ${permanentUri}`,
+					);
 				} catch (copyError) {
 					console.error(
 						`[GalleryScanner] ⚠️ Failed to copy to permanent storage:`,
 						copyError,
 					);
 
-					if (imageUri.startsWith("content://")) {
-						console.error(
-							`[GalleryScanner] ❌ Cannot save content URI without copying to permanent storage - skipping`,
-						);
-						return null; // Don't save content URIs that can't be copied
-					}
-
-					// For file URIs, keep original if copy fails
+					// Keep original file URI if copy fails
 					console.log(
 						`[GalleryScanner] 📝 Keeping original file URI: ${imageUri}`,
 					);
@@ -1112,11 +1077,8 @@ export class GalleryScanner {
 			// At this point, result should have proper URI and hash set
 			if (result && result.confidence > 0.5) {
 				const sanitizedResult = documentValidator.validateAndSanitize(result);
-
-				// Save to database
 				const savedDoc = await documentStorage.saveDocument(sanitizedResult);
 
-				// const savedDoc = await documentStorage.saveDocument(result);
 				console.log(`[GalleryScanner] 📚 Document saved: ${savedDoc.id}`);
 
 				// Add to processed hashes (use the final hash, which might be from permanent location)
