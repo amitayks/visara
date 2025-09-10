@@ -48,7 +48,9 @@ export function ScanFrequencyPicker({
 
 	const handleSelect = (selectedValue: ScanFrequency) => {
 		onValueChange(selectedValue);
-		// setIsModalVisible(false);
+		setTimeout(() => {
+			setIsModalVisible(false);
+		}, 500); // A small delay to allow the state to update before closing
 	};
 
 	return (
