@@ -127,6 +127,8 @@ export class ToastContainer extends React.Component<{}, ToastState> {
 						transform: [{ translateY }, { scale }],
 						opacity,
 						backgroundColor: this.getBackgroundColor(config.type),
+						zIndex: 9999,
+						elevation: 9999, // For Android
 					},
 				]}
 				pointerEvents="none"

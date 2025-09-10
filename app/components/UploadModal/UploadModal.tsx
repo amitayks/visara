@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	Image,
@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import {
 	ImagePickerResponse,
+	launchCamera,
 	launchImageLibrary,
 	MediaType,
 	PhotoQuality,
@@ -21,6 +22,8 @@ import { galleryScanner } from "../../../services/gallery/GalleryScanner";
 import { useIconColors } from "../../../utils/iconColors";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./UploadModal.style";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import BottomSheet from "@gorhom/bottom-sheet";
 
 interface UploadModalProps {
 	visible: boolean;
@@ -38,6 +41,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 	const [processing, setProcessing] = useState(false);
 	const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
+	const bottomSheetRef = useRef<BottomSheet>(null);
+	const snapPoints = React.useMemo(() => ["50%"], []);
+
 	const imagePickerOptions = {
 		mediaType: "photo" as MediaType,
 		includeBase64: false,
@@ -50,9 +56,9 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 		launchImageLibrary(imagePickerOptions, handleImageResponse);
 	};
 
-	// const handleLaunchCamera = () => {
-	// 	launchCamera(imagePickerOptions, handleImageResponse);
-	// };
+	const handleLaunchCamera = () => {
+		launchCamera(imagePickerOptions, handleImageResponse);
+	};
 
 	const handleImageResponse = (response: ImagePickerResponse) => {
 		if (response.didCancel || response.errorMessage) {
@@ -60,7 +66,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 				showToast({
 					type: "error",
 					message: response.errorMessage,
-					icon: "alert-circle",
+					// icon: "alert-circle",
 				});
 			}
 			return;
@@ -128,94 +134,103 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 	return (
 		<Modal
 			visible={visible}
-			animationType="fade"
 			transparent
-			onRequestClose={handleClose}
+			animationType="fade"
+			onRequestClose={onClose}
+			statusBarTranslucent
 		>
-			<View style={styles.backdrop}>
-				<TouchableOpacity
-					style={StyleSheet.absoluteFillObject}
-					activeOpacity={1}
-					onPress={handleClose}
+			<GestureHandlerRootView style={styles.container}>
+				{/* Background overlay */}
+				<Animated.View
+					entering={FadeIn.duration(200)}
+					exiting={FadeOut.duration(150)}
+					style={styles.backdrop}
 				/>
 
-				<Animated.View
-					entering={FadeIn.duration(250).easing(Easing.out(Easing.cubic))}
-					exiting={FadeOut.duration(200)}
-					style={styles.container}
+				{/* <TouchableOpacity style={styles.backdrop} onPress={onClose}> */}
+				{/* Bottom drawer */}
+				<BottomSheet
+					ref={bottomSheetRef}
+					index={0}
+					snapPoints={snapPoints}
+					onClose={onClose}
+					backgroundStyle={[
+						styles.bottomSheetBackground,
+						{ backgroundColor: theme.surface },
+					]}
+					handleIndicatorStyle={[
+						styles.bottomSheetHandle,
+						{ backgroundColor: theme.text },
+					]}
+					enablePanDownToClose={true}
+					animateOnMount={true}
 				>
-					{/* <View style={styles.handle} /> */}
-
-					<View style={styles.header}>
-						<Text style={styles.title}>Upload Document</Text>
-						{/* <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <Icon name="close" size={24} color="#333" />
-            </TouchableOpacity> */}
-					</View>
-
-					{processing ? (
-						<View style={styles.processingContainer}>
-							{selectedImage && (
-								<Image
-									source={{ uri: selectedImage }}
-									style={styles.previewImage}
-									resizeMode="contain"
-								/>
-							)}
-							<ActivityIndicator size="large" color={theme.accent} />
-							<Text style={styles.processingText}>Processing document...</Text>
+					<View style={styles.bottomSheetContent}>
+						<View style={styles.header}>
+							<Text style={styles.title}>Upload Document</Text>
 						</View>
-					) : (
-						<View style={styles.content}>
-							<Text style={styles.subtitle}>
-								Choose a document from your gallery
-							</Text>
 
-							<View style={styles.options}>
-								<TouchableOpacity
-									style={styles.optionButton}
-									onPress={handleLaunchGallery}
-									activeOpacity={0.7}
-								>
-									<View style={styles.optionIcon}>
-										<Icon name="images" size={32} color={iconColors.accent} />
-									</View>
-									<Text style={styles.optionTitle}>Gallery</Text>
-									<Text style={styles.optionDescription}>
-										Select from your photos
-									</Text>
-								</TouchableOpacity>
-
-								{/* <TouchableOpacity
-                  style={styles.optionButton}
-                  onPress={handleLaunchCamera}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.optionIcon}>
-                    <Icon name="camera" size={32} color="#6366F1" />
-                  </View>
-                  <Text style={styles.optionTitle}>Camera</Text>
-                  <Text style={styles.optionDescription}>
-                    Take a new photo
-                  </Text>
-                </TouchableOpacity> */}
-							</View>
-
-							<View style={styles.tipContainer}>
-								<Icon
-									name="information-circle"
-									size={20}
-									color={iconColors.tertiary}
-								/>
-								<Text style={styles.tipText}>
-									For best results, ensure the document is well-lit and clearly
-									visible
+						{processing ? (
+							<View style={styles.processingContainer}>
+								{selectedImage && (
+									<Image
+										source={{ uri: selectedImage }}
+										style={styles.previewImage}
+										resizeMode="contain"
+									/>
+								)}
+								<ActivityIndicator size="large" color={theme.accent} />
+								<Text style={styles.processingText}>
+									Processing document...
 								</Text>
 							</View>
-						</View>
-					)}
-				</Animated.View>
-			</View>
+						) : (
+							<View style={styles.content}>
+								<Text style={styles.subtitle}>
+									Choose or upload a document to scan
+								</Text>
+
+								<View style={styles.options}>
+									<TouchableOpacity
+										style={styles.optionButton}
+										onPress={handleLaunchGallery}
+										activeOpacity={0.7}
+									>
+										<View style={styles.optionIcon}>
+											<Icon name="images" size={32} color={iconColors.accent} />
+										</View>
+										<Text style={styles.optionTitle}>Gallery</Text>
+									</TouchableOpacity>
+
+									<TouchableOpacity
+										style={styles.optionButton}
+										onPress={handleLaunchCamera}
+										activeOpacity={0.7}
+									>
+										<View style={styles.optionIcon}>
+											<Icon name="camera" size={32} color={iconColors.accent} />
+										</View>
+										<Text style={styles.optionTitle}>Camera</Text>
+									</TouchableOpacity>
+								</View>
+
+								<View style={styles.tipContainer}>
+									<Icon
+										name="information-circle"
+										size={20}
+										color={iconColors.tertiary}
+									/>
+									<Text style={styles.tipText}>
+										For best results, ensure the document is well-lit and
+										clearly visible
+									</Text>
+								</View>
+							</View>
+						)}
+					</View>
+				</BottomSheet>
+				{/* </TouchableOpacity> */}
+			</GestureHandlerRootView>
 		</Modal>
 	);
 };
