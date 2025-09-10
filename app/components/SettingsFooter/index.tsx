@@ -1,0 +1,1 @@
+export { SettingsFooter } from "./SettingsFooter";

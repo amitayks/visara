@@ -1,7 +1,6 @@
 import { useNavigation } from "@react-navigation/native";
 import { useEffect, useState } from "react";
 import {
-	Platform,
 	ScrollView,
 	StatusBar,
 	Text,
@@ -11,13 +10,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
+import { backgroundScanner } from "../services/gallery/backgroundScanner";
 import { useSettingsStore } from "../stores/settingsStore";
 import { ScanFrequencyPicker } from "./components/ScanFrequencyPicker";
 import { ScanStatus } from "./components/ScanStatus";
+import { SettingsFooter } from "./components/SettingsFooter";
 import { SettingsSectionHeader } from "./components/SettingsSectionHeader";
 import { ToggleBar } from "./components/ToggleBar";
 import { createStyles } from "./settings.style";
-import { backgroundScanner } from "../services/gallery/backgroundScanner";
 
 export default function SettingsScreen() {
 	const navigation = useNavigation();
@@ -124,49 +124,14 @@ export default function SettingsScreen() {
 					disabled={!settings.autoScan}
 				/>
 
-				{/* Scanning Status Section */}
 				{settings.autoScan && scanStatus && (
 					<>
 						<SettingsSectionHeader title="Scanning Status" />
 						<ScanStatus scanStatus={scanStatus} />
 					</>
 				)}
-				<View style={styles.footer}>
-					<View style={styles.versionSection}>
-						{/* <Text style={styles.appName}>Visara</Text> */}
-						<Text style={styles.version}>Version 1.0.0</Text>
-						<Text style={styles.buildInfo}>
-							Build {Platform.OS === "ios" ? "iOS" : "Android"} •{" "}
-							{new Date().getFullYear()}
-						</Text>
-
-						<View style={styles.infoRow}>
-							<View style={styles.infoItem}>
-								<Icon
-									name="shield-checkmark-outline"
-									size={16}
-									color={theme.textSecondary}
-								/>
-								<Text style={styles.infoText}>Privacy First</Text>
-							</View>
-							<View style={styles.infoItem}>
-								<Icon
-									name="phone-portrait-outline"
-									size={16}
-									color={theme.textSecondary}
-								/>
-								<Text style={styles.infoText}>On-Device AI</Text>
-							</View>
-						</View>
-
-						<Text style={styles.copyright}>
-							© {new Date().getFullYear()} Visara. All rights reserved.
-						</Text>
-					</View>
-				</View>
+				<SettingsFooter />
 			</ScrollView>
-
-			{/* Version Info Section at Bottom */}
 		</SafeAreaView>
 	);
 }
