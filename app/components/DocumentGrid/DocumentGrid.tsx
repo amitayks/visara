@@ -157,13 +157,9 @@ export const DocumentGrid = memo(
 				data={documents}
 				renderItem={renderDocument}
 				keyExtractor={keyExtractor}
-				// Use numColumns for basic multi-column layout
-				// FlashList v1 doesn't have masonry prop, but performs well with dynamic heights
 				numColumns={2}
-				// Infinite Scroll
 				onEndReached={handleEndReached}
 				onEndReachedThreshold={0.5}
-				// Pull to Refresh
 				refreshControl={
 					<RefreshControl
 						refreshing={refreshing}

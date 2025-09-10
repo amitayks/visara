@@ -11,8 +11,6 @@ export const createStyles = (theme: any) =>
 			minHeight: 700,
 		},
 		cardContainer: {
-			// marginBottom: SPACING,
-			marginHorizontal: SPACING / 2, // Small horizontal spacing for masonry
 			padding: 8,
 		},
 		loadingFooter: {

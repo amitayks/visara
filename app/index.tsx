@@ -186,35 +186,6 @@ export default function HomeScreen() {
 		}
 	}, [loadDocuments]);
 
-	// TODO: REMOVE - This is for testing only, production apps should not have manual stop buttons
-	const handleStopBackgroundScan = useCallback(async () => {
-		try {
-			console.log("[HomeScreen] Stopping all scanning activities...");
-
-			// Set a flag to prevent auto-restart
-			await ScannerStorage.setItem("manual_scan_stopped", "true");
-
-			// Stop both types of scanning
-			await backgroundScanner.stopPeriodicScan(); // Stop background service
-			await galleryScanner.stopScan(); // Stop regular gallery scanner
-
-			showToast({
-				type: "info",
-				message: "Scanning stopped.",
-			});
-
-			// Update local scanning state immediately
-			setIsScanning(false);
-			setScanProgress(null);
-		} catch (error) {
-			console.error("Stop scan error:", error);
-			showToast({
-				type: "error",
-				message: "Failed to stop scanning",
-			});
-		}
-	}, []);
-
 	// Periodically check background scanner status to keep UI in sync
 	useEffect(() => {
 		const interval = setInterval(async () => {
@@ -255,10 +226,8 @@ export default function HomeScreen() {
 			<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
 				{/* * biome-ignore lint/complexity/noUselessFragments: <explanation> */}
 				<>
-					{/* Header */}
 					<AppHeader setShowUploadModal={setShowUploadModal} />
 
-					{/* Scanning Progress */}
 					{isScanning && scanProgress && (
 						<ScanProgressBar
 							current={scanProgress.processedImages}
@@ -267,8 +236,6 @@ export default function HomeScreen() {
 						/>
 					)}
 
-					{/* Flash Document Grid - Pinterest-style masonry layout */}
-
 					<DocumentGrid
 						onDocumentPress={handleDocumentPress}
 						handleStartBackgroundScan={handleStartBackgroundScan}
@@ -276,33 +243,20 @@ export default function HomeScreen() {
 				</>
 			</TouchableWithoutFeedback>
 
-			{/* Search Section - Fixed at bottom */}
 			<Animated.View style={[styles.searchWrapper, searchBarStyle]}>
 				<SearchContainer />
 			</Animated.View>
 
-			{/* TODO: REMOVE - Manual scan controls are for testing only */}
-			{/* Production: Show this button only on first app open for initial scan */}
-			{/* <FloatingActionButton
-				onPress={isScanning ? handleStopBackgroundScan : handleStartBackgroundScan}
-				icon={isScanning ? "stop" : "play-arrow"}
-				title={isScanning ? "Stop Scan" : "Start Scan"}
-			/> */}
-
-			{/* Toast Container */}
-			<ToastContainer />
-			{/* Document Modal */}
 			<DocumentModal
 				visible={isModalVisible}
 				document={selectedDocument}
 				onClose={closeDocumentModal}
 			/>
-
-			{/* Upload Modal */}
 			<UploadModal
 				visible={showUploadModal}
 				onClose={() => setShowUploadModal(false)}
 			/>
+			<ToastContainer />
 		</SafeAreaView>
 	);
 }
