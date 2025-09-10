@@ -1,5 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
 	Platform,
 	ScrollView,
@@ -11,12 +11,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
-import { backgroundScanner } from "../services/gallery/backgroundScanner";
 import { useSettingsStore } from "../stores/settingsStore";
+import { ScanFrequencyPicker } from "./components/ScanFrequencyPicker";
+import { ScanStatus } from "./components/ScanStatus";
 import { SettingsSectionHeader } from "./components/SettingsSectionHeader";
 import { ToggleBar } from "./components/ToggleBar";
-import { ScanFrequencyPicker } from "./components/ScanFrequencyPicker";
 import { createStyles } from "./settings.style";
+import { backgroundScanner } from "../services/gallery/backgroundScanner";
 
 export default function SettingsScreen() {
 	const navigation = useNavigation();
@@ -127,74 +128,45 @@ export default function SettingsScreen() {
 				{settings.autoScan && scanStatus && (
 					<>
 						<SettingsSectionHeader title="Scanning Status" />
-						<View style={styles.statusContainer}>
-							<View style={styles.statusHeader}>
-								<Icon
-									name={scanStatus.isRunning ? "pulse" : "pause-circle-outline"}
-									size={20}
-									color={
-										scanStatus.isRunning ? theme.success : theme.textSecondary
-									}
-								/>
-								<Text style={styles.statusTitle}>
-									{scanStatus.isRunning ? "Active" : "Idle"}
-								</Text>
-							</View>
-							<Text style={styles.statusDescription}>
-								{scanStatus.scanFrequency === "on_new_image" &&
-								scanStatus.galleryMonitoring?.isActive
-									? `Monitoring gallery • Last check: ${scanStatus.galleryMonitoring.lastCheckTime ? new Date(scanStatus.galleryMonitoring.lastCheckTime).toLocaleTimeString() : "Never"}`
-									: scanStatus.isRunning
-										? "Background scanning is active"
-										: scanStatus.autoScanEnabled
-											? "Waiting for next scan cycle"
-											: "Automatic scanning is disabled"}
-							</Text>
-							{scanStatus.lastScanTime && (
-								<Text style={styles.statusDetail}>
-									Last scan:{" "}
-									{new Date(scanStatus.lastScanTime).toLocaleString()}
-								</Text>
-							)}
-						</View>
+						<ScanStatus scanStatus={scanStatus} />
 					</>
 				)}
+				<View style={styles.footer}>
+					<View style={styles.versionSection}>
+						{/* <Text style={styles.appName}>Visara</Text> */}
+						<Text style={styles.version}>Version 1.0.0</Text>
+						<Text style={styles.buildInfo}>
+							Build {Platform.OS === "ios" ? "iOS" : "Android"} •{" "}
+							{new Date().getFullYear()}
+						</Text>
+
+						<View style={styles.infoRow}>
+							<View style={styles.infoItem}>
+								<Icon
+									name="shield-checkmark-outline"
+									size={16}
+									color={theme.textSecondary}
+								/>
+								<Text style={styles.infoText}>Privacy First</Text>
+							</View>
+							<View style={styles.infoItem}>
+								<Icon
+									name="phone-portrait-outline"
+									size={16}
+									color={theme.textSecondary}
+								/>
+								<Text style={styles.infoText}>On-Device AI</Text>
+							</View>
+						</View>
+
+						<Text style={styles.copyright}>
+							© {new Date().getFullYear()} Visara. All rights reserved.
+						</Text>
+					</View>
+				</View>
 			</ScrollView>
 
 			{/* Version Info Section at Bottom */}
-			<View style={styles.footer}>
-				<View style={styles.versionSection}>
-					{/* <Text style={styles.appName}>Visara</Text> */}
-					<Text style={styles.version}>Version 1.0.0</Text>
-					<Text style={styles.buildInfo}>
-						Build {Platform.OS === "ios" ? "iOS" : "Android"} •{" "}
-						{new Date().getFullYear()}
-					</Text>
-
-					<View style={styles.infoRow}>
-						<View style={styles.infoItem}>
-							<Icon
-								name="shield-checkmark-outline"
-								size={16}
-								color={theme.textSecondary}
-							/>
-							<Text style={styles.infoText}>Privacy First</Text>
-						</View>
-						<View style={styles.infoItem}>
-							<Icon
-								name="phone-portrait-outline"
-								size={16}
-								color={theme.textSecondary}
-							/>
-							<Text style={styles.infoText}>On-Device AI</Text>
-						</View>
-					</View>
-
-					<Text style={styles.copyright}>
-						© {new Date().getFullYear()} Visara. All rights reserved.
-					</Text>
-				</View>
-			</View>
 		</SafeAreaView>
 	);
 }

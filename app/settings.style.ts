@@ -32,31 +32,9 @@ export const createStyles = (theme: any) =>
 		content: {
 			flex: 1,
 		},
-		// comingSoon: {
-		// 	flex: 1,
-		// 	alignItems: "center",
-		// 	justifyContent: "center",
-		// 	paddingHorizontal: 40,
-		// 	minHeight: SCREEN_HEIGHT * 0.3,
-		// 	marginTop: 60,
-		// },
-		// comingSoonTitle: {
-		// 	fontSize: 24,
-		// 	fontWeight: "600",
-		// 	color: theme.text,
-		// 	marginTop: 20,
-		// 	marginBottom: 12,
-		// },
-		// comingSoonText: {
-		// 	fontSize: 16,
-		// 	color: theme.textSecondary,
-		// 	textAlign: "center",
-		// 	lineHeight: 24,
-		// },
+
 		footer: {
 			borderTopWidth: 1,
-			// borderTopColor: theme.borderLight,
-			// backgroundColor: theme.surfaceSecondary,
 		},
 		versionSection: {
 			alignItems: "center",
@@ -98,36 +76,5 @@ export const createStyles = (theme: any) =>
 			fontSize: 12,
 			color: theme.textTertiary,
 			textAlign: "center",
-		},
-		
-		// Status Section
-		statusContainer: {
-			backgroundColor: theme.surface,
-			marginHorizontal: 20,
-			marginBottom: 8,
-			borderRadius: 12,
-			padding: 16,
-		},
-		statusHeader: {
-			flexDirection: "row",
-			alignItems: "center",
-			marginBottom: 8,
-		},
-		statusTitle: {
-			fontSize: 16,
-			fontWeight: "600",
-			color: theme.text,
-			marginLeft: 8,
-		},
-		statusDescription: {
-			fontSize: 14,
-			color: theme.textSecondary,
-			lineHeight: 20,
-			marginBottom: 4,
-		},
-		statusDetail: {
-			fontSize: 12,
-			color: theme.textSecondary,
-			fontStyle: "italic",
 		},
 	});
