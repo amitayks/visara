@@ -236,7 +236,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 				{/* Background overlay */}
 				<Animated.View
 					entering={FadeIn.duration(200)}
-					exiting={FadeOut.duration(150)}
+					exiting={FadeOut.duration(100)}
 					style={styles.backdrop}
 				/>
 
