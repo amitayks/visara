@@ -1,6 +1,6 @@
 import { StyleSheet } from "react-native";
 import type { ColorScheme } from "../../../constants/colors";
-import { SCREEN_HEIGHT } from "../../../constants/dimensions";
+import { SCREEN_HEIGHT, SCREEN_WIDTH } from "../../../constants/dimensions";
 
 export const createStyles = (theme: ColorScheme) =>
 	StyleSheet.create({
@@ -14,8 +14,10 @@ export const createStyles = (theme: ColorScheme) =>
 		},
 		image: {
 			flex: 1,
-			width: "100%",
-			height: "100%",
+			width: SCREEN_WIDTH * 0.9, // 90% of screen width
+			height: SCREEN_HEIGHT * 0.7, // 70% of screen height
+			alignSelf: "center",
+			borderRadius: theme.borderRadius,
 		},
 		closeButton: {
 			position: "absolute",

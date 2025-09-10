@@ -240,7 +240,6 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 					style={styles.backdrop}
 				/>
 
-				{/* Full screen image with drag-to-dismiss */}
 				<PanGestureHandler onGestureEvent={panGestureHandler}>
 					<Animated.View style={[styles.image, imageStyle]}>
 						<ImageZoom
