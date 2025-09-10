@@ -1,3 +1,5 @@
+// app/components/InfoRow/InfoRow.tsx
+import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import Icon from "react-native-vector-icons/Ionicons";
 import { createStyles } from "./InfoRow.style";
@@ -10,11 +12,28 @@ interface InfoRowProps {
 	onPress?: () => void;
 }
 
-export const InfoRow: React.FC<InfoRowProps> = ({ icon, label, value, onPress }) => {
+export const InfoRow: React.FC<InfoRowProps> = ({
+	icon,
+	label,
+	value,
+	onPress,
+}) => {
 	const iconColors = useIconColors();
 	const styles = createStyles(iconColors);
 
-	if (!value) return null;
+	// CRITICAL: Early return if value is null, undefined, or empty string
+	if (!value || value === "" || value === "N/A") {
+		return null;
+	}
+
+	// CRITICAL: Ensure value is always a string
+	const safeValue = String(value);
+
+	// Validate that safeValue is actually a string
+	if (typeof safeValue !== "string") {
+		console.error("[InfoRow] Value is not a string after conversion:", value);
+		return null;
+	}
 
 	const content = (
 		<View style={styles.infoRow}>
@@ -27,8 +46,8 @@ export const InfoRow: React.FC<InfoRowProps> = ({ icon, label, value, onPress })
 				/>
 			)}
 			<View style={styles.infoContent}>
-				<Text style={styles.infoLabel}>{label}</Text>
-				<Text style={styles.infoValue}>{value}</Text>
+				<Text style={styles.infoLabel}>{String(label)}</Text>
+				<Text style={styles.infoValue}>{safeValue}</Text>
 			</View>
 			{onPress && (
 				<Icon

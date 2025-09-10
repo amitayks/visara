@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	Linking,
@@ -29,23 +29,29 @@ import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useDocumentStore } from "../../../stores/documentStore";
 import { copyToClipboard } from "../../../utils/clipboard";
-import { formatCurrency, formatDate } from "../../../utils/format";
-import {
-	formatDocumentForDisplay,
-	formatDocumentAsJSONString,
-} from "../../../utils/documentFormatter";
+// import { formatCurrency, formatDate } from "../../../utils/format";
+// import {
+// 	formatDocumentForDisplay,
+// 	formatDocumentAsJSONString,
+// } from "../../../utils/documentFormatter";
 import { ActionButton } from "../ActionButton";
 import { Document } from "../DocumentGrid";
 import { InfoRow } from "../InfoRow";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./DocumentModal.style";
 import { documentProcessor } from "@/services/ai/documentProcessor";
+import { formatCurrency, formatDate, safeString } from "../../../utils/format";
+import {
+	formatDocumentForDisplay,
+	formatDocumentAsJSONString,
+} from "../../../utils/documentFormatter";
 
 interface DocumentModalProps {
 	visible: boolean;
 	document: Document | null;
 	onClose: () => void;
-	onShare?: (doc: Document) => void;
+	onShare?: (document: Document) => void;
+	onDelete?: (documentId: string) => void;
 }
 
 export const DocumentModal: React.FC<DocumentModalProps> = ({
@@ -53,6 +59,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	document,
 	onClose,
 	onShare,
+	onDelete,
 }) => {
 	const { theme } = useTheme();
 	const styles = useThemedStyles(createStyles);
@@ -71,6 +78,19 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 
 	// Dismiss threshold - how far to drag before dismissing
 	const DISMISS_THRESHOLD = 150;
+
+	useEffect(() => {
+		if (document) {
+			console.log("[DocumentModal] Document received:", {
+				id: document.id,
+				type: document.documentType,
+				vendor: document.vendor,
+				totalAmount: document.totalAmount,
+				date: document.date,
+				hasMetadata: !!document.metadata,
+			});
+		}
+	}, [document]);
 
 	const handleOpenInGallery = useCallback(async () => {
 		if (!document?.imageUri) return;
@@ -96,6 +116,11 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 			});
 		}
 	}, [document, onClose]);
+
+	// if (!document || !document.imageUri) {
+	// 	console.log("[DocumentModal] Invalid document or missing imageUri");
+	// 	return null;
+	// }
 
 	const handleDelete = async () => {
 		if (!document) return;
@@ -224,6 +249,53 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 
 	if (!document) return null;
 
+	const getSafeDocumentType = (): string => {
+		return safeString(document.documentType) || "Unknown";
+	};
+
+	const getSafeVendor = (): string | null => {
+		const vendor = safeString(document.vendor);
+		return vendor || null; // Return null if empty to trigger InfoRow's null check
+	};
+
+	const getSafeTotalAmount = (): string | null => {
+		if (document.totalAmount === null || document.totalAmount === undefined) {
+			return null; // Return null to trigger InfoRow's null check
+		}
+		return formatCurrency(document.totalAmount);
+	};
+
+	const getSafeDate = (): string => {
+		return formatDate(document.createdAt);
+	};
+
+	const getSafeDocumentDate = (): string | null => {
+		if (!document.date) {
+			return null; // Return null to trigger InfoRow's null check
+		}
+		return formatDate(document.date);
+	};
+
+	// Safe document formatting for display
+	const getSafeFormattedDocument = (): string => {
+		try {
+			return formatDocumentForDisplay(document);
+		} catch (error) {
+			console.error("[DocumentModal] Error formatting document:", error);
+			return "Error formatting document data";
+		}
+	};
+
+	// Safe JSON formatting
+	const getSafeJSONString = (): string => {
+		try {
+			return formatDocumentAsJSONString(document);
+		} catch (error) {
+			console.error("[DocumentModal] Error formatting JSON:", error);
+			return "{}";
+		}
+	};
+
 	return (
 		<Modal
 			visible={visible}
@@ -291,9 +363,8 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 
 							<ActionButton
 								icon="copy"
-								// label="Copy Document JSON"
 								onPress={() => {
-									const jsonString = formatDocumentAsJSONString(document);
+									const jsonString = getSafeJSONString();
 									handleCopyText(jsonString);
 								}}
 								style={styles.actionButton}
@@ -318,42 +389,48 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 								Document Details
 							</Text>
 
-							{document.documentType && (
-								<InfoRow
-									label="Type"
-									value={document.documentType}
-									onPress={() => handleCopyText(document.documentType!)}
-								/>
-							)}
-
 							<InfoRow
-								label="Date"
-								value={formatDate(document.createdAt)}
-								onPress={() => handleCopyText(formatDate(document.createdAt))}
+								label="Type"
+								value={getSafeDocumentType()}
+								onPress={() => handleCopyText(getSafeDocumentType())}
 							/>
 
-							{document.vendor && (
-								<InfoRow
-									label="Vendor"
-									value={document.vendor}
-									onPress={() => handleCopyText(document.vendor!)}
-								/>
-							)}
+							<InfoRow
+								label="Created"
+								value={getSafeDate()}
+								onPress={() => handleCopyText(getSafeDate())}
+							/>
 
-							{document.totalAmount && (
-								<InfoRow
-									label="Amount"
-									value={formatCurrency(document.totalAmount)}
-									onPress={() => {
-										const formattedAmount = formatCurrency(
-											document.totalAmount,
-										);
-										if (formattedAmount) {
-											handleCopyText(formattedAmount);
-										}
-									}}
-								/>
-							)}
+							{/* Optional fields - InfoRow handles null values */}
+							<InfoRow
+								label="Vendor"
+								value={getSafeVendor()}
+								onPress={
+									getSafeVendor()
+										? () => handleCopyText(getSafeVendor()!)
+										: undefined
+								}
+							/>
+
+							<InfoRow
+								label="Amount"
+								value={getSafeTotalAmount()}
+								onPress={
+									getSafeTotalAmount()
+										? () => handleCopyText(getSafeTotalAmount()!)
+										: undefined
+								}
+							/>
+
+							<InfoRow
+								label="Document Date"
+								value={getSafeDocumentDate()}
+								onPress={
+									getSafeDocumentDate()
+										? () => handleCopyText(getSafeDocumentDate()!)
+										: undefined
+								}
+							/>
 
 							{/* Complete document data */}
 							<View style={styles.textPreview}>
@@ -370,7 +447,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 										style={[styles.textPreviewContent, { color: theme.text }]}
 										selectable={false}
 									>
-										{formatDocumentForDisplay(document)}
+										{getSafeFormattedDocument()}
 									</Text>
 								</BottomSheetScrollView>
 							</View>

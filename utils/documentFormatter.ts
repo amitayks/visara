@@ -1,118 +1,151 @@
+// utils/documentFormatter.ts
 import type { Document } from "../app/components/DocumentGrid";
-import { formatDate, formatCurrency } from "./format";
+import { formatDate, formatCurrency, safeString } from "./format";
 
 export interface FormattedDocumentData {
 	basicInfo: {
 		id: string;
-		documentType: string | null;
-		confidence: number | null;
+		documentType: string;
+		confidence: string;
 		createdAt: string;
-		processedAt: string | null;
+		processedAt: string;
 	};
 	imageInfo: {
 		imageUri: string;
-		imageHash: string | null;
-		imageWidth: number | null;
-		imageHeight: number | null;
-		imageSize: number | null;
-		imageTakenDate: string | null;
+		imageHash: string;
+		imageWidth: string;
+		imageHeight: string;
+		imageSize: string;
+		imageTakenDate: string;
 	};
 	extractedContent: {
-		ocrText: string | null;
-		keywords: string[] | null;
-		searchVector: string | null; // Simplified representation
+		ocrText: string;
+		keywords: string;
+		searchVector: string;
 	};
 	businessData: {
-		vendor: string | null;
-		totalAmount: string | null;
-		date: string | null;
-		metadata: any;
+		vendor: string;
+		totalAmount: string;
+		date: string;
+		metadata: string;
 	};
 }
 
-export function formatDocumentAsJSON(document: Document): FormattedDocumentData {
+// CRITICAL: All fields must return strings, never null or undefined
+export function formatDocumentAsJSON(
+	document: Document,
+): FormattedDocumentData {
 	return {
 		basicInfo: {
-			id: document.id,
-			documentType: document.documentType || null,
-			confidence: document.confidence ? Math.round(document.confidence * 100) / 100 : null,
+			id: safeString(document.id) || "Unknown ID",
+			documentType: safeString(document.documentType) || "Unknown",
+			confidence: document.confidence
+				? `${Math.round(document.confidence * 100)}%`
+				: "N/A",
 			createdAt: formatDate(document.createdAt),
-			processedAt: document.processedAt ? formatDate(document.processedAt) : null,
+			processedAt: formatDate(document.processedAt),
 		},
 		imageInfo: {
-			imageUri: document.imageUri,
-			imageHash: document.imageHash || null,
-			imageWidth: document.imageWidth || null,
-			imageHeight: document.imageHeight || null,
-			imageSize: document.imageSize || null,
-			imageTakenDate: document.imageTakenDate ? formatDate(document.imageTakenDate) : null,
+			imageUri: safeString(document.imageUri) || "No URI",
+			imageHash: safeString(document.imageHash) || "N/A",
+			imageWidth: document.imageWidth ? `${document.imageWidth}px` : "N/A",
+			imageHeight: document.imageHeight ? `${document.imageHeight}px` : "N/A",
+			imageSize: document.imageSize
+				? `${Math.round(document.imageSize / 1024)} KB`
+				: "N/A",
+			imageTakenDate: formatDate(document.imageTakenDate),
 		},
 		extractedContent: {
-			ocrText: document.ocrText || null,
-			keywords: document.keywords || null,
-			searchVector: document.searchVector 
+			ocrText: safeString(document.ocrText) || "No OCR text available",
+			keywords:
+				Array.isArray(document.keywords) && document.keywords.length > 0
+					? document.keywords.join(", ")
+					: "No keywords",
+			searchVector: Array.isArray(document.searchVector)
 				? `Array of ${document.searchVector.length} float values`
-				: null,
+				: "No search vector",
 		},
 		businessData: {
-			vendor: document.vendor || null,
-			totalAmount: document.totalAmount ? formatCurrency(document.totalAmount) : null,
-			date: document.date ? formatDate(document.date) : null,
-			metadata: document.metadata || null,
+			vendor: safeString(document.vendor) || "N/A",
+			totalAmount: formatCurrency(document.totalAmount),
+			date: formatDate(document.date),
+			metadata: document.metadata
+				? JSON.stringify(document.metadata, null, 2)
+				: "No metadata",
 		},
 	};
 }
 
-export function formatDocumentAsJSONString(document: Document, indent: number = 2): string {
-	const formattedData = formatDocumentAsJSON(document);
-	return JSON.stringify(formattedData, null, indent);
+export function formatDocumentAsJSONString(
+	document: Document,
+	indent: number = 2,
+): string {
+	try {
+		const formattedData = formatDocumentAsJSON(document);
+		return JSON.stringify(formattedData, null, indent);
+	} catch (error) {
+		console.error("[formatDocumentAsJSONString] Error:", error);
+		return "{}";
+	}
 }
 
 export function formatDocumentForDisplay(document: Document): string {
-	const formattedData = formatDocumentAsJSON(document);
-	
-	let output = "";
-	
-	// Basic Information
-	output += "=== BASIC INFORMATION ===\n";
-	output += `ID: ${formattedData.basicInfo.id}\n`;
-	output += `Document Type: ${formattedData.basicInfo.documentType || "Unknown"}\n`;
-	output += `Confidence: ${formattedData.basicInfo.confidence ? formattedData.basicInfo.confidence + "%" : "N/A"}\n`;
-	output += `Created: ${formattedData.basicInfo.createdAt}\n`;
-	output += `Processed: ${formattedData.basicInfo.processedAt || "N/A"}\n\n`;
-	
-	// Image Information
-	output += "=== IMAGE INFORMATION ===\n";
-	output += `Image URI: ${formattedData.imageInfo.imageUri}\n`;
-	output += `Image Hash: ${formattedData.imageInfo.imageHash || "N/A"}\n`;
-	if (formattedData.imageInfo.imageWidth && formattedData.imageInfo.imageHeight) {
-		output += `Dimensions: ${formattedData.imageInfo.imageWidth} × ${formattedData.imageInfo.imageHeight} px\n`;
+	try {
+		const formattedData = formatDocumentAsJSON(document);
+
+		let output = "";
+
+		// Basic Information
+		output += "=== BASIC INFORMATION ===\n";
+		output += `ID: ${formattedData.basicInfo.id}\n`;
+		output += `Document Type: ${formattedData.basicInfo.documentType}\n`;
+		output += `Confidence: ${formattedData.basicInfo.confidence}\n`;
+		output += `Created: ${formattedData.basicInfo.createdAt}\n`;
+		output += `Processed: ${formattedData.basicInfo.processedAt}\n\n`;
+
+		// Image Information
+		output += "=== IMAGE INFORMATION ===\n";
+		output += `Image URI: ${formattedData.imageInfo.imageUri}\n`;
+		output += `Image Hash: ${formattedData.imageInfo.imageHash}\n`;
+
+		if (
+			formattedData.imageInfo.imageWidth !== "N/A" &&
+			formattedData.imageInfo.imageHeight !== "N/A"
+		) {
+			output += `Dimensions: ${formattedData.imageInfo.imageWidth} × ${formattedData.imageInfo.imageHeight}\n`;
+		} else {
+			output += `Dimensions: N/A\n`;
+		}
+
+		output += `File Size: ${formattedData.imageInfo.imageSize}\n`;
+		output += `Image Taken: ${formattedData.imageInfo.imageTakenDate}\n\n`;
+
+		// Business Data
+		output += "=== BUSINESS DATA ===\n";
+		output += `Vendor: ${formattedData.businessData.vendor}\n`;
+		output += `Amount: ${formattedData.businessData.totalAmount}\n`;
+		output += `Date: ${formattedData.businessData.date}\n\n`;
+
+		// Extracted Content
+		output += "=== EXTRACTED CONTENT ===\n";
+		output += `Keywords: ${formattedData.extractedContent.keywords}\n`;
+		output += `Search Vector: ${formattedData.extractedContent.searchVector}\n\n`;
+
+		// OCR Text (only if not "No OCR text available")
+		if (formattedData.extractedContent.ocrText !== "No OCR text available") {
+			output += "=== OCR TEXT ===\n";
+			output += formattedData.extractedContent.ocrText + "\n\n";
+		}
+
+		// Metadata (only if not "No metadata")
+		if (formattedData.businessData.metadata !== "No metadata") {
+			output += "=== METADATA ===\n";
+			output += formattedData.businessData.metadata + "\n";
+		}
+
+		return output;
+	} catch (error) {
+		console.error("[formatDocumentForDisplay] Error:", error);
+		return "Error: Unable to format document data";
 	}
-	output += `File Size: ${formattedData.imageInfo.imageSize ? `${Math.round(formattedData.imageInfo.imageSize / 1024)} KB` : "N/A"}\n`;
-	output += `Image Taken: ${formattedData.imageInfo.imageTakenDate || "N/A"}\n\n`;
-	
-	// Business Data
-	output += "=== BUSINESS DATA ===\n";
-	output += `Vendor: ${formattedData.businessData.vendor || "N/A"}\n`;
-	output += `Amount: ${formattedData.businessData.totalAmount || "N/A"}\n`;
-	output += `Date: ${formattedData.businessData.date || "N/A"}\n\n`;
-	
-	// Extracted Content
-	output += "=== EXTRACTED CONTENT ===\n";
-	output += `Keywords: ${formattedData.extractedContent.keywords ? formattedData.extractedContent.keywords.join(", ") : "N/A"}\n`;
-	output += `Search Vector: ${formattedData.extractedContent.searchVector || "N/A"}\n\n`;
-	
-	// OCR Text
-	if (formattedData.extractedContent.ocrText) {
-		output += "=== OCR TEXT ===\n";
-		output += formattedData.extractedContent.ocrText + "\n\n";
-	}
-	
-	// Metadata
-	if (formattedData.businessData.metadata) {
-		output += "=== METADATA ===\n";
-		output += JSON.stringify(formattedData.businessData.metadata, null, 2) + "\n";
-	}
-	
-	return output;
 }
