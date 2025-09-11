@@ -1052,18 +1052,20 @@ export class BackgroundScanner {
 	}
 
 	cleanup() {
-		console.log("[BackgroundScanner] Cleaning up");
-
-		// Stop watchdog
-		this.stopServiceWatchdog();
-
-		// Clean up app state listener
+		this.stopPeriodicScan();
+		
 		if (this.appStateSubscription) {
 			this.appStateSubscription.remove();
+			this.appStateSubscription = null;
 		}
-
-		// Stop any running scans
-		this.stopPeriodicScan();
+		
+		if (this.heartbeatInterval) {
+			clearInterval(this.heartbeatInterval);
+			this.heartbeatInterval = null;
+		}
+		
+		// Unsubscribe from monitor
+		GalleryMonitorV2.getInstance().cleanup();
 	}
 }
 

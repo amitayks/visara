@@ -656,6 +656,37 @@ export class ImprovedFileTracker {
 	}
 
 	/**
+	 * Detect deleted files by comparing current gallery URIs with tracked files
+	 */
+	async detectDeletedFiles(currentUris: Set<string>): Promise<string[]> {
+		const deletedFiles: string[] = [];
+		
+		for (const [id, fingerprint] of this.fingerprints.entries()) {
+			// Skip already processed files
+			if (fingerprint.isProcessed) continue;
+			
+			// Check if file still exists in gallery
+			const exists = currentUris.has(fingerprint.uri) || 
+						  currentUris.has(fingerprint.originalUri);
+			
+			if (!exists) {
+				// File was deleted from gallery
+				deletedFiles.push(fingerprint.uri);
+				
+				// Mark as deleted
+				fingerprint.processingStatus = "skipped";
+				fingerprint.lastError = "File deleted from gallery";
+			}
+		}
+		
+		if (deletedFiles.length > 0) {
+			await this.saveToStorage();
+		}
+		
+		return deletedFiles;
+	}
+
+	/**
 	 * Storage operations with compression
 	 */
 	private async saveToStorage(): Promise<void> {

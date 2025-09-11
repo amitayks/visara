@@ -13,7 +13,7 @@ import { useSettingsStore } from "../stores/settingsStore";
 import type { RootStackParamList } from "../types/navigation";
 import HomeScreen from "./index";
 import SettingsScreen from "./settings";
-
+import { galleryPermissions } from "../services/permissions/galleryPermissions";
 // Load icon font
 Icon.loadFont();
 
@@ -22,7 +22,7 @@ const queryClient = new QueryClient();
 
 export default function RootLayout() {
 	const { settings } = useSettingsStore();
-	
+
 	useEffect(() => {
 		// Initialize permissions and background scanning on app mount
 		const initializeApp = async () => {
@@ -30,31 +30,41 @@ export default function RootLayout() {
 				// Initialize database first
 				await initializeDatabase();
 
-				// Check if we have gallery permissions
-				const hasPermission = await galleryScanner.hasPermissions();
+				const permissionResult = await galleryPermissions.checkPermission();
 
-				if (!hasPermission) {
+				if (permissionResult.status !== "granted") {
 					// Don't request permissions automatically - let user decide
 					console.log("Gallery permissions not granted yet");
 					return;
 				}
 
 				// Check if we should start automatic scanning based on user settings
-				const manualStopped = await ScannerStorage.getItem("manual_scan_stopped");
-				
+				const manualStopped = await ScannerStorage.getItem(
+					"manual_scan_stopped",
+				);
+
 				if (!manualStopped && settings.autoScan) {
-					console.log(`[App Launch] Starting automatic scanning with frequency: ${settings.scanFrequency}`);
-					
+					console.log(
+						`[App Launch] Starting automatic scanning with frequency: ${settings.scanFrequency}`,
+					);
+
 					try {
 						// Always use the background scanner for automatic scanning
 						// This handles both initial scans and ongoing automatic scanning
 						await backgroundScanner.startPeriodicScan();
-						console.log("[App Launch] Background scanning service started successfully");
+						console.log(
+							"[App Launch] Background scanning service started successfully",
+						);
 					} catch (error) {
-						console.error("[App Launch] Failed to start background scanning:", error);
+						console.error(
+							"[App Launch] Failed to start background scanning:",
+							error,
+						);
 					}
 				} else if (manualStopped) {
-					console.log("[App Launch] Automatic scanning disabled - user manually stopped");
+					console.log(
+						"[App Launch] Automatic scanning disabled - user manually stopped",
+					);
 				} else if (!settings.autoScan) {
 					console.log("[App Launch] Automatic scanning disabled in settings");
 				}

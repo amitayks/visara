@@ -172,6 +172,7 @@ export const DocumentGrid = memo(
 				// Styling
 				contentContainerStyle={{
 					paddingBottom: 100,
+					// paddingRight: 12,
 				}}
 				showsVerticalScrollIndicator={false}
 				// Keyboard handling

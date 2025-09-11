@@ -116,92 +116,57 @@ export class GalleryMonitorV2 {
 	 */
 	private async checkForChanges(): Promise<void> {
 		try {
-			console.log(
-				"[GalleryMonitorV2] Checking for changes with fingerprint tracking",
-			);
-
-			// Quick discovery scan using GalleryScanner
+			console.log("[GalleryMonitorV2] Checking for changes with fingerprint tracking");
+			
+			// Store previous stats for comparison
+			const previousStats = improvedFileTracker.getStats();
+			
+			// Run discovery scan
 			await galleryScanner.startScan({
 				type: "incremental",
 				processImmediately: false,
 				smartFilterEnabled: true,
 				batchSize: 100,
 			});
-
-			// Get the results from the scan progress
+			
+			// Get updated stats after scan
+			const currentStats = improvedFileTracker.getStats();
 			const scanProgress = galleryScanner.getProgress();
-			const result = {
-				newFiles: scanProgress.newFiles || 0,
-				changedFiles: scanProgress.changedFiles || 0, 
-				deletedFiles: scanProgress.failedFiles || 0, // Using failedFiles as deletedFiles approximation
-				batch: { id: scanProgress.batchId || "discovery_" + Date.now() },
-			};
-
-			// Get current tracker stats
-			const stats = improvedFileTracker.getStats();
+			
+			// Calculate changes
+			const newFiles = scanProgress.newFiles || 0;
+			const changedFiles = scanProgress.changedFiles || 0;
+			const deletedFiles = previousStats.totalFiles - currentStats.totalFiles + newFiles;
+			
 			const now = new Date();
-
-			// Check if this is first run
 			const isInitialRun = this.lastStats.lastCheckTime === null;
-
-			// Determine if we have changes
-			const hasNewImages = result.newFiles > 0;
-			const hasChangedImages = result.changedFiles > 0;
-			const hasDeletedImages = result.deletedFiles > 0;
-			const hasChanges = hasNewImages || hasChangedImages || hasDeletedImages;
-
-			// Create event
+			const hasChanges = newFiles > 0 || changedFiles > 0 || deletedFiles > 0;
+			
+			// Create event with URIs
 			const event: GalleryChangeEvent = {
-				newImagesCount: result.newFiles,
-				changedImagesCount: result.changedFiles,
-				deletedImagesCount: result.deletedFiles,
-				totalImagesCount: stats.totalFiles,
-				hasNewImages,
+				newImagesCount: newFiles,
+				changedImagesCount: changedFiles,
+				deletedImagesCount: Math.max(0, deletedFiles),
+				totalImagesCount: currentStats.totalFiles,
+				hasNewImages: newFiles > 0,
 				hasChanges,
 				lastCheckTime: now,
-				newImageUris: [], // Would need to track URIs in scan results
-				changedImageUris: [], // Would need to track URIs in scan results
-				batchId: result.batch.id,
+				newImageUris: scanProgress.currentFile ? [scanProgress.currentFile] : [],
+				batchId: scanProgress.batchId,
 			};
-
-			// Update cached stats
+			
+			// Update cached stats and notify
 			this.lastStats = {
-				totalFiles: stats.totalFiles,
-				processedFiles: stats.processedFiles,
+				totalFiles: currentStats.totalFiles,
+				processedFiles: currentStats.processedFiles,
 				lastCheckTime: now,
 			};
-
-			// Save state
+			
 			await this.saveState();
-
-			// Log results
-			if (hasChanges) {
-				console.log(
-					`[GalleryMonitorV2] ✅ Changes detected: ` +
-						`${result.newFiles} new, ` +
-						`${result.changedFiles} changed, ` +
-						`${result.deletedFiles} deleted`,
-				);
-			} else if (!isInitialRun) {
-				console.log(
-					`[GalleryMonitorV2] No changes. ` +
-						`Tracking ${stats.totalFiles} files ` +
-						`(${stats.processedFiles} processed)`,
-				);
-			}
-
-			// Notify callbacks if changes detected or initial run
+			
 			if (hasChanges || isInitialRun) {
-				console.log(
-					`[GalleryMonitorV2] 📢 Notifying ${this.callbacks.size} callbacks`,
-				);
-				this.callbacks.forEach((callback) => {
-					try {
-						callback(event);
-					} catch (error) {
-						console.error("[GalleryMonitorV2] Error in callback:", error);
-					}
-				});
+				console.log(`[GalleryMonitorV2] Changes: +${newFiles} new, ~${changedFiles} changed, -${Math.max(0, deletedFiles)} deleted`);
+				this.callbacks.forEach(callback => callback(event));
 			}
 		} catch (error) {
 			console.error("[GalleryMonitorV2] Error checking for changes:", error);
@@ -346,9 +311,10 @@ export class GalleryMonitorV2 {
 		console.log("[GalleryMonitorV2] Cleaning up");
 		this.stopMonitoring();
 		this.callbacks.clear();
-
+		
 		if (this.appStateSubscription) {
 			this.appStateSubscription.remove();
+			this.appStateSubscription = null;
 		}
 	}
 }

@@ -132,6 +132,33 @@ export class GalleryScanner {
 	}
 
 	/**
+	 * Quick check for new images without full scan (performance optimization)
+	 */
+	async quickNewImageCheck(): Promise<number> {
+		try {
+			// Get only recent images (last 100)
+			const photos = await CameraRoll.getPhotos({
+				first: 100,
+				assetType: "Photos",
+			});
+			
+			let newCount = 0;
+			for (const asset of photos.edges) {
+				const uri = asset.node.image.uri;
+				if (!uri) continue;
+				
+				const exists = await improvedFileTracker.findExistingFingerprint(uri);
+				if (!exists) newCount++;
+			}
+			
+			return newCount;
+		} catch (error) {
+			console.error("[GalleryScanner] Quick check failed:", error);
+			return 0;
+		}
+	}
+
+	/**
 	 * Subscribe to progress updates (legacy compatibility)
 	 */
 	observeProgress(): BehaviorSubject<ScanProgress> {
@@ -202,9 +229,6 @@ export class GalleryScanner {
 		}
 	}
 
-	/**
-	 * Discover and process changes using enhanced file tracking
-	 */
 	private async discoverAndProcessChanges(options: ScanOptions): Promise<{
 		newFiles: number;
 		changedFiles: number;
@@ -212,99 +236,117 @@ export class GalleryScanner {
 		failedFiles: number;
 		lastProcessedUri: string | null;
 	}> {
-		let newFiles = 0;
-		let changedFiles = 0;
+		const newFingerprints: FileFingerprint[] = [];
+		const changedFingerprints: FileFingerprint[] = [];
 		let skippedFiles = 0;
 		let failedFiles = 0;
 		let lastProcessedUri: string | null = null;
-
-		// Fetch gallery images
-		const allAssets = await this.fetchAllGalleryImages();
-		console.log(`[GalleryScanner] Found ${allAssets.length} total images in gallery`);
-
-		// Update progress
-		this.progress.totalImages = allAssets.length;
-		this.progress.phase = "discovering";
-		this.updateProgressSubject();
-
-		// Process in chunks
-		const chunkSize = options.batchSize || 50;
 		
-		for (let i = 0; i < allAssets.length && !this.shouldStop; i += chunkSize) {
-			const chunk = allAssets.slice(i, Math.min(i + chunkSize, allAssets.length));
-
-			for (const asset of chunk) {
-				if (this.shouldStop) break;
-
-				const uri = asset.node.image.uri;
-				this.progress.currentFile = uri;
+		try {
+			// Fetch all gallery images
+			const galleryImages = await this.fetchAllGalleryImages();
+			const totalImages = galleryImages.length;
+			
+			console.log(`[GalleryScanner] Found ${totalImages} images in gallery`);
+			
+			// Process in chunks for memory efficiency
+			const chunkSize = options.batchSize || 50;
+			
+			for (let i = 0; i < totalImages && !this.shouldStop; i += chunkSize) {
+				const chunk = galleryImages.slice(i, Math.min(i + chunkSize, totalImages));
+				
+				// Update progress
+				this.progress.totalImages = totalImages;
+				this.progress.processedImages = i;
+				this.progress.phase = "discovering";
+				this.progress.currentFile = chunk[0]?.node.image.uri || "";
 				this.updateProgressSubject();
-
-				try {
-					// Apply smart filter
-					if (options.smartFilterEnabled) {
-						const shouldProcess = await this.shouldProcessImage(asset);
-						if (!shouldProcess) {
-							skippedFiles++;
-							continue;
-						}
-					}
-
-					// Check if we've seen this file before
+				
+				// Process chunk
+				for (const asset of chunk) {
+					const uri = asset.node.image.uri;
+					if (!uri) continue;
+					
+					lastProcessedUri = uri;
+					
+					// Check with enhanced tracker
 					const existingFingerprint = await improvedFileTracker.findExistingFingerprint(uri);
-
+					
 					if (!existingFingerprint) {
 						// New file
 						const fingerprint = await improvedFileTracker.createFingerprint(uri, asset);
-						await improvedFileTracker.addFingerprint(fingerprint, this.currentBatch!.id);
 						
-						if (options.processImmediately) {
-							const success = await this.processFileWithFingerprint(fingerprint);
-							if (success) {
-								lastProcessedUri = uri;
-							} else {
-								failedFiles++;
-							}
+						if (!improvedFileTracker.isDuplicate(fingerprint)) {
+							await improvedFileTracker.addFingerprint(fingerprint, this.currentBatch!.id);
+							newFingerprints.push(fingerprint);
+						} else {
+							skippedFiles++;
 						}
-						newFiles++;
-
-					} else if (options.retryFailedImages && existingFingerprint.processingStatus === "failed") {
-						// Retry failed
-						if (options.processImmediately) {
-							const success = await this.processFileWithFingerprint(existingFingerprint);
-							if (success) {
-								lastProcessedUri = uri;
-								changedFiles++;
-							} else {
-								failedFiles++;
-							}
-						}
+					} else if (!existingFingerprint.isProcessed) {
+						// Unprocessed file
+						changedFingerprints.push(existingFingerprint);
+					} else if (await improvedFileTracker.hasFileChanged(uri, existingFingerprint)) {
+						// Changed file
+						const fingerprint = await improvedFileTracker.createFingerprint(uri, asset);
+						await improvedFileTracker.addFingerprint(fingerprint, this.currentBatch!.id);
+						changedFingerprints.push(fingerprint);
+					} else {
+						skippedFiles++;
 					}
-
-				} catch (error) {
-					console.error(`[GalleryScanner] Error processing ${uri}:`, error);
-					failedFiles++;
 				}
-
-				// Update progress
-				this.progress.processedImages = i + 1;
-				this.progress.newFiles = newFiles;
-				this.progress.changedFiles = changedFiles;
-				this.progress.skippedFiles = skippedFiles;
-				this.progress.failedFiles = failedFiles;
-				this.onProgressCallback?.(this.progress);
+				
+				// Check memory pressure
+				const memStatus = await nativeMemoryManager.getMemoryStatus();
+				if (memStatus.isCriticalMemory) {
+					await nativeMemoryManager.emergencyCleanup();
+					await new Promise(resolve => setTimeout(resolve, 1000));
+				}
 			}
-
-			// Memory management
-			const memStatus = await nativeMemoryManager.getMemoryStatus();
-			if (memStatus.isCriticalMemory) {
-				console.warn("[GalleryScanner] Memory pressure detected, pausing");
-				await nativeMemoryManager.emergencyCleanup();
-				await new Promise(resolve => setTimeout(resolve, 2000));
+			
+			// Process if immediate processing requested
+			if (options.processImmediately && (newFingerprints.length > 0 || changedFingerprints.length > 0)) {
+				console.log(`[GalleryScanner] Processing ${newFingerprints.length + changedFingerprints.length} files`);
+				
+				const allToProcess = [...newFingerprints, ...changedFingerprints];
+				let processed = 0;
+				
+				for (const fingerprint of allToProcess) {
+					if (this.shouldStop) break;
+					
+					this.progress.totalImages = allToProcess.length;
+					this.progress.processedImages = processed;
+					this.progress.phase = "processing";
+					this.progress.currentFile = fingerprint.uri;
+					this.updateProgressSubject();
+					
+					const success = await this.processFileWithFingerprint(fingerprint);
+					if (success) {
+						processed++;
+					} else {
+						failedFiles++;
+					}
+				}
 			}
+			
+			// Update batch stats
+			if (this.currentBatch) {
+				await improvedFileTracker.updateBatchStats(this.currentBatch.id, {
+					totalTimeMs: Date.now() - this.currentBatch.timestamp,
+					successRate: newFingerprints.length / (newFingerprints.length + failedFiles) || 0,
+				});
+			}
+			
+		} catch (error) {
+			console.error("[GalleryScanner] Discovery error:", error);
 		}
-
-		return { newFiles, changedFiles, skippedFiles, failedFiles, lastProcessedUri };
+		
+		return {
+			newFiles: newFingerprints.length,
+			changedFiles: changedFingerprints.length,
+			skippedFiles,
+			failedFiles,
+			lastProcessedUri,
+		};
 	}
 
 	/**
@@ -358,20 +400,25 @@ export class GalleryScanner {
 	private async fetchAllGalleryImages(): Promise<PhotoIdentifier[]> {
 		const allAssets: PhotoIdentifier[] = [];
 		let after: string | undefined;
-
+		
 		do {
 			const photos = await CameraRoll.getPhotos({
 				first: 1000,
 				assetType: "Photos",
 				after,
 			});
-
+			
 			allAssets.push(...photos.edges);
 			after = photos.page_info.has_next_page ? photos.page_info.end_cursor : undefined;
 		} while (after);
-
-		// Sort by timestamp (oldest first)
-		allAssets.sort((a, b) => (a.node.timestamp || 0) - (b.node.timestamp || 0));
+		
+		// Fix: Correct property access
+		allAssets.sort((a, b) => {
+			const timestampA = a.node.timestamp || 0;
+			const timestampB = b.node.timestamp || 0;
+			return timestampA - timestampB;
+		});
+		
 		return allAssets;
 	}
 
@@ -380,20 +427,24 @@ export class GalleryScanner {
 	 */
 	private async shouldProcessImage(asset: PhotoIdentifier): Promise<boolean> {
 		try {
+			// Handle both structures
+			const node = asset.node || asset;
+			const image = node.image || node;
+			
 			const assetInfo: AssetInfo = {
-				uri: asset.node.image.uri,
-				filename: asset.node.image.filename || "",
-				width: asset.node.image.width,
-				height: asset.node.image.height,
+				uri: image.uri,
+				filename: image.filename || "",
+				width: image.width,
+				height: image.height,
 				fileSize: 0,
-				timestamp: asset.node.timestamp,
-				mimeType: asset.node.type || "image/jpeg",
+				timestamp: node.timestamp,
+				mimeType: node.type || "image/jpeg",
 			};
-
+			
 			const result = await smartFilter.shouldProcess(assetInfo);
 			return result.shouldProcess;
 		} catch (error) {
-			return true; // Process if filter fails
+			return true;
 		}
 	}
 

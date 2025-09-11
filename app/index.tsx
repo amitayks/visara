@@ -61,10 +61,12 @@ export default function HomeScreen() {
 
 	// Scan progress subscription (for regular gallery scanner)
 	useEffect(() => {
-		const subscription = galleryScanner.observeProgress().subscribe((progress) => {
-			setIsScanning(progress.isScanning);
-			setScanProgress(progress);
-		});
+		const subscription = galleryScanner
+			.observeProgress()
+			.subscribe((progress) => {
+				setIsScanning(progress.isScanning);
+				setScanProgress(progress);
+			});
 
 		return () => subscription?.unsubscribe?.();
 	}, []);
@@ -119,7 +121,6 @@ export default function HomeScreen() {
 		try {
 			// Check if background scanning is already running
 			const isRunning = backgroundScanner.isBackgroundServiceRunning();
-			// const isRunning = true;
 			if (isRunning) {
 				showToast({
 					type: "info",

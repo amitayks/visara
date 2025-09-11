@@ -12,6 +12,9 @@ export const createStyles = (theme: any) =>
 		},
 		cardContainer: {
 			padding: 8,
+			alignItems: "center",
+
+			justifyContent: "center",
 		},
 		loadingFooter: {
 			paddingVertical: 20,
