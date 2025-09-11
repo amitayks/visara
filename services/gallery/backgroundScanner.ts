@@ -182,16 +182,15 @@ export class BackgroundScanner {
 		console.log("[BackgroundScanner] startPeriodicScan called");
 
 		if (this.isStarting) {
-			console.log(
-				"[BackgroundScanner] Already starting, ignoring duplicate call",
-			);
-			return;
+			console.log("[BackgroundScanner] Already starting, resetting stuck state and retrying");
+			// Reset stuck state
+			this.isStarting = false;
+			this.isRunning = false;
+			galleryScanner.resetState();
 		}
 
 		if (this.isRunning) {
-			console.log(
-				"[BackgroundScanner] Already running, ignoring start request",
-			);
+			console.log("[BackgroundScanner] Already running, ignoring start request");
 			return;
 		}
 
