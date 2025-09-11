@@ -61,7 +61,7 @@ export default function HomeScreen() {
 
 	// Scan progress subscription (for regular gallery scanner)
 	useEffect(() => {
-		const subscription = galleryScanner.observeProgress((progress) => {
+		const subscription = galleryScanner.observeProgress().subscribe((progress) => {
 			setIsScanning(progress.isScanning);
 			setScanProgress(progress);
 		});

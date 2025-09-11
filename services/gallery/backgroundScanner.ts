@@ -4,7 +4,7 @@ import { settingsStore } from "../../stores/settingsStore";
 import { useScannerStore } from "../../stores/scannerStore";
 import { galleryScanner } from "./GalleryScanner";
 import { galleryPermissions } from "../permissions/galleryPermissions";
-import { galleryMonitor } from "./galleryMonitor";
+import { GalleryMonitorV2, type GalleryChangeEvent } from "./GalleryMonitorV2";
 import { nativeDeviceInfo } from "../../utils/nativeDeviceInfo";
 import {
 	AppState,
@@ -282,10 +282,10 @@ export class BackgroundScanner {
 			console.log(
 				"[BackgroundScanner] Starting gallery monitoring for new image detection",
 			);
-			await galleryMonitor.startMonitoring();
+			await GalleryMonitorV2.getInstance().startMonitoring();
 
 			// Subscribe to gallery changes
-			galleryMonitor.subscribe((event) => {
+			GalleryMonitorV2.getInstance().subscribe((event: GalleryChangeEvent) => {
 				console.log(`[BackgroundScanner] Gallery event received:`, event);
 				if (event.hasNewImages && !this.isPaused) {
 					console.log(
@@ -988,7 +988,7 @@ export class BackgroundScanner {
 			this.stopServiceWatchdog();
 
 			// Stop gallery monitoring
-			galleryMonitor.stopMonitoring();
+			GalleryMonitorV2.getInstance().stopMonitoring();
 
 			// Clear interval if any
 			if (this.scanInterval) {
@@ -1032,7 +1032,7 @@ export class BackgroundScanner {
 
 	async getBackgroundServiceStatus() {
 		const settings = settingsStore.getState().settings;
-		const galleryMonitorStatus = galleryMonitor.getStatus();
+		const galleryMonitorStatus = GalleryMonitorV2.getInstance().getStatus();
 
 		return {
 			isRunning: this.isRunning,
