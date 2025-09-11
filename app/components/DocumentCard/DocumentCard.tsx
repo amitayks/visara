@@ -2,7 +2,6 @@ import React, { memo, useState } from "react";
 import {
 	ActivityIndicator,
 	Image,
-	Text,
 	TouchableOpacity,
 	View,
 	ViewStyle,
@@ -11,6 +10,7 @@ import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useIconColors } from "../../../utils/iconColors";
 import { Document } from "../DocumentGrid";
+import { ITEM_WIDTH } from "../DocumentGrid/documentGridConst";
 import { createStyles } from "./DocumentCard.style";
 
 interface DocumentCardProps {
@@ -63,7 +63,10 @@ export const DocumentCard = memo(
 						<>
 							<Image
 								source={{ uri: document.imageUri }}
-								style={[styles.image, { width: width, height: height || width * 1.4 }]}
+								style={[
+									styles.image,
+									{ width: width, height: height || ITEM_WIDTH },
+								]}
 								onLoad={() => setImageLoading(false)}
 								onError={() => {
 									setImageLoading(false);
@@ -79,7 +82,7 @@ export const DocumentCard = memo(
 						</>
 					)}
 
-					{document.documentType && (
+					{/* {document.documentType && (
 						<View style={styles.typeBadge}>
 							<Icon
 								name={getDocumentIcon(document.documentType)}
@@ -88,7 +91,7 @@ export const DocumentCard = memo(
 							/>
 							<Text style={styles.typeText}>{document.documentType}</Text>
 						</View>
-					)}
+					)} */}
 				</View>
 			</TouchableOpacity>
 		);

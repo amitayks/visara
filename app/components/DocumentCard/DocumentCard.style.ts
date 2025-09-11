@@ -4,7 +4,7 @@ export const createStyles = (theme: any) =>
 	StyleSheet.create({
 		container: {
 			backgroundColor: theme.surface,
-			borderRadius: 12,
+			borderRadius: theme.borderRadius,
 			overflow: "hidden",
 			shadowColor: theme.shadow,
 			shadowOffset: {

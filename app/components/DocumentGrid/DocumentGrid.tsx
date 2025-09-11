@@ -13,7 +13,7 @@ import { DocumentCard } from "../DocumentCard";
 import { EmptyState } from "../EmptyState";
 import { showToast } from "../Toast";
 import { createStyles } from "./DocumentGrid.style";
-import { ITEM_WIDTH } from "./documentGridConst";
+import { COLUMNS, ITEM_HEIGHT, ITEM_WIDTH } from "./documentGridConst";
 
 export interface Document {
 	id: string;
@@ -91,15 +91,13 @@ export const DocumentGrid = memo(
 
 		const renderDocument = useCallback(
 			({ item: doc }: { item: Document }) => {
-				const height = 300;
-
 				return (
-					<View style={[styles.cardContainer]}>
+					<View style={styles.cardContainer}>
 						<DocumentCard
 							document={doc}
 							onPress={() => onDocumentPress(doc)}
 							width={ITEM_WIDTH}
-							height={height}
+							height={ITEM_HEIGHT}
 						/>
 					</View>
 				);
@@ -157,7 +155,7 @@ export const DocumentGrid = memo(
 				data={documents}
 				renderItem={renderDocument}
 				keyExtractor={keyExtractor}
-				numColumns={2}
+				numColumns={COLUMNS}
 				onEndReached={handleEndReached}
 				onEndReachedThreshold={0.5}
 				refreshControl={

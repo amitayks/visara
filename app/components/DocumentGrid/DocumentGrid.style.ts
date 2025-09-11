@@ -1,5 +1,4 @@
 import { StyleSheet } from "react-native";
-import { SPACING } from "./documentGridConst";
 
 export const createStyles = (theme: any) =>
 	StyleSheet.create({
@@ -11,10 +10,9 @@ export const createStyles = (theme: any) =>
 			minHeight: 700,
 		},
 		cardContainer: {
-			padding: 8,
+			paddingVertical: 4,
+			flex: 1,
 			alignItems: "center",
-
-			justifyContent: "center",
 		},
 		loadingFooter: {
 			paddingVertical: 20,
