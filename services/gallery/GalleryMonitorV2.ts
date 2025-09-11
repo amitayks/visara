@@ -118,36 +118,41 @@ export class GalleryMonitorV2 {
 		try {
 			console.log("[GalleryMonitorV2] Checking for changes with fingerprint tracking");
 			
-			// Store previous stats for comparison
-			const previousStats = improvedFileTracker.getStats();
+			// Get stats BEFORE scan
+			const statsBefore = improvedFileTracker.getStats();
 			
-			// Run discovery scan
+			// Quick discovery scan (no processing)
 			await galleryScanner.startScan({
 				type: "incremental",
-				processImmediately: false,
+				processImmediately: false, // Just discovery, no processing
 				smartFilterEnabled: true,
 				batchSize: 100,
 			});
 			
-			// Get updated stats after scan
-			const currentStats = improvedFileTracker.getStats();
+			// Get stats AFTER scan
+			const statsAfter = improvedFileTracker.getStats();
 			const scanProgress = galleryScanner.getProgress();
 			
-			// Calculate changes
+			// Calculate ACTUAL changes
 			const newFiles = scanProgress.newFiles || 0;
 			const changedFiles = scanProgress.changedFiles || 0;
-			const deletedFiles = previousStats.totalFiles - currentStats.totalFiles + newFiles;
+			
+			// Only calculate deletions if total files decreased
+			let deletedFiles = 0;
+			if (statsAfter.totalFiles < statsBefore.totalFiles) {
+				deletedFiles = statsBefore.totalFiles - statsAfter.totalFiles;
+			}
 			
 			const now = new Date();
 			const isInitialRun = this.lastStats.lastCheckTime === null;
 			const hasChanges = newFiles > 0 || changedFiles > 0 || deletedFiles > 0;
 			
-			// Create event with URIs
+			// Create event with accurate data
 			const event: GalleryChangeEvent = {
 				newImagesCount: newFiles,
 				changedImagesCount: changedFiles,
-				deletedImagesCount: Math.max(0, deletedFiles),
-				totalImagesCount: currentStats.totalFiles,
+				deletedImagesCount: deletedFiles,
+				totalImagesCount: statsAfter.totalFiles,
 				hasNewImages: newFiles > 0,
 				hasChanges,
 				lastCheckTime: now,
@@ -155,18 +160,36 @@ export class GalleryMonitorV2 {
 				batchId: scanProgress.batchId,
 			};
 			
-			// Update cached stats and notify
+			// Update cached stats
 			this.lastStats = {
-				totalFiles: currentStats.totalFiles,
-				processedFiles: currentStats.processedFiles,
+				totalFiles: statsAfter.totalFiles,
+				processedFiles: statsAfter.processedFiles,
 				lastCheckTime: now,
 			};
 			
 			await this.saveState();
 			
+			// Log meaningful changes only
+			if (hasChanges) {
+				console.log(
+					`[GalleryMonitorV2] ✅ Real changes detected: ` +
+					`+${newFiles} new, ~${changedFiles} changed, -${deletedFiles} deleted`
+				);
+			} else if (!isInitialRun) {
+				console.log(
+					`[GalleryMonitorV2] No changes. Tracking ${statsAfter.totalFiles} files`
+				);
+			}
+			
+			// Notify callbacks only for real changes or initial run
 			if (hasChanges || isInitialRun) {
-				console.log(`[GalleryMonitorV2] Changes: +${newFiles} new, ~${changedFiles} changed, -${Math.max(0, deletedFiles)} deleted`);
-				this.callbacks.forEach(callback => callback(event));
+				this.callbacks.forEach(callback => {
+					try {
+						callback(event);
+					} catch (error) {
+						console.error("[GalleryMonitorV2] Error in callback:", error);
+					}
+				});
 			}
 		} catch (error) {
 			console.error("[GalleryMonitorV2] Error checking for changes:", error);

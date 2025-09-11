@@ -182,7 +182,9 @@ export class BackgroundScanner {
 		console.log("[BackgroundScanner] startPeriodicScan called");
 
 		if (this.isStarting) {
-			console.log("[BackgroundScanner] Already starting, resetting stuck state and retrying");
+			console.log(
+				"[BackgroundScanner] Already starting, resetting stuck state and retrying",
+			);
 			// Reset stuck state
 			this.isStarting = false;
 			this.isRunning = false;
@@ -190,7 +192,9 @@ export class BackgroundScanner {
 		}
 
 		if (this.isRunning) {
-			console.log("[BackgroundScanner] Already running, ignoring start request");
+			console.log(
+				"[BackgroundScanner] Already running, ignoring start request",
+			);
 			return;
 		}
 
@@ -710,17 +714,15 @@ export class BackgroundScanner {
 				console.log("[BackgroundScanner] Running with wake lock");
 			}
 
-			// Run scan with background-optimized settings
+			// Use streaming processing for background scanning
 			const scanOptions = {
-				batchSize: Platform.OS === "android" ? 2 : 3, // Smaller batches on Android
+				batchSize: Platform.OS === "android" ? 5 : 10, // Smaller batches for streaming
 				wifiOnly: settings.scanWifiOnly,
 				smartFilterEnabled: settings.smartFilterEnabled,
 				batterySaver: settings.batterySaver,
-				isBackground: true,
+				type: "incremental" as const,
+				processImmediately: true, // Enable immediate processing
 				maxConcurrentProcessing: 1,
-				// Add flag to keep scan alive in background
-				keepAlive: true,
-				// IMPORTANT: Only scan new images, not all gallery images
 				scanNewOnly: true,
 			};
 
@@ -1052,17 +1054,17 @@ export class BackgroundScanner {
 
 	cleanup() {
 		this.stopPeriodicScan();
-		
+
 		if (this.appStateSubscription) {
 			this.appStateSubscription.remove();
 			this.appStateSubscription = null;
 		}
-		
+
 		if (this.heartbeatInterval) {
 			clearInterval(this.heartbeatInterval);
 			this.heartbeatInterval = null;
 		}
-		
+
 		// Unsubscribe from monitor
 		GalleryMonitorV2.getInstance().cleanup();
 	}

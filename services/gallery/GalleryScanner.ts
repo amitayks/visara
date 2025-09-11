@@ -17,6 +17,7 @@ import {
 	documentProcessor,
 } from "../ai/documentProcessor";
 import { documentStorage } from "../database/documentStorage";
+import { visualDocumentDetector } from "../ai/visualDocumentDetector";
 import {
 	improvedFileTracker,
 	type FileFingerprint,
@@ -281,142 +282,173 @@ export class GalleryScanner {
 		let lastProcessedUri: string | null = null;
 
 		try {
-			console.log(
-				"[GalleryScanner] Starting efficient single-pass image discovery",
-			);
+			console.log("[GalleryScanner] Starting streaming discovery and processing");
 
 			// Fetch all gallery images
 			const galleryImages = await this.fetchAllGalleryImages();
 			const totalImages = galleryImages.length;
 
-			console.log(
-				`[GalleryScanner] Found ${totalImages} images - starting single-loop processing`,
-			);
+			console.log(`[GalleryScanner] Found ${totalImages} images in gallery`);
 
-			// Set initial progress immediately
-			this.progress.totalImages = totalImages;
-			this.progress.processedImages = 0;
-			this.progress.phase = "discovering";
-			this.updateProgressSubject();
+			// STREAMING PROCESSING: Process in small batches with immediate results
+			const STREAM_BATCH_SIZE = 10; // Process 10 images at a time
 
-			const progressUpdateInterval = Math.max(1, Math.floor(totalImages / 50)); // Update every 2%
+			for (let i = 0; i < totalImages && !this.shouldStop; i += STREAM_BATCH_SIZE) {
+				const batchEnd = Math.min(i + STREAM_BATCH_SIZE, totalImages);
+				const batch = galleryImages.slice(i, batchEnd);
 
-			// Single efficient loop - no nested loops!
-			for (let i = 0; i < totalImages && !this.shouldStop; i++) {
-				const asset = galleryImages[i];
-				const uri = asset.node.image.uri;
+				console.log(`[GalleryScanner] Processing batch ${i}-${batchEnd} of ${totalImages}`);
 
-				if (!uri) {
-					failedFiles++;
-					continue;
-				}
+				// Process each image in the batch
+				for (const asset of batch) {
+					const uri = asset.node?.image?.uri || (asset as any).image?.uri;
+					if (!uri) continue;
 
-				lastProcessedUri = uri;
+					lastProcessedUri = uri;
 
-				try {
-					// Check if file already exists with timeout
-					const existingFingerprint = await Promise.race([
-						improvedFileTracker.findExistingFingerprint(uri),
-						new Promise((_, reject) =>
-							setTimeout(() => reject(new Error("Lookup timeout")), 5000),
-						),
-					]);
-
-					if (!existingFingerprint) {
-						// New file detected - use proper createFingerprint
-						newFiles++;
-						console.log(
-							`[GalleryScanner] New: ${uri.substring(uri.lastIndexOf("/") + 1)} (${newFiles})`,
-						);
-
-						try {
-							// Create proper fingerprint with timeout
-							const fingerprint = await Promise.race([
-								improvedFileTracker.createFingerprint(uri, asset),
-								// new Promise((_, reject) => setTimeout(() => reject(new Error('Fingerprint timeout')), 8000))
-							]);
-
-							// Check for duplicates before adding
-							if (!improvedFileTracker.isDuplicate(fingerprint)) {
-								await improvedFileTracker.addFingerprint(
-									fingerprint,
-									this.currentBatch!.id,
-								);
-							} else {
-								skippedFiles++;
-								newFiles--; // Don't count duplicates as new
-							}
-						} catch (fingerprintError) {
-							console.error(
-								`[GalleryScanner] Fingerprint error for ${uri}:`,
-								fingerprintError,
-							);
-							failedFiles++;
-							newFiles--; // Don't count failed as new
-						}
-					} else if (!(existingFingerprint as FileFingerprint).isProcessed) {
-						// Unprocessed existing file
-						changedFiles++;
-					} else {
-						// Already processed
-						skippedFiles++;
-					}
-				} catch (error) {
-					console.error(`[GalleryScanner] Error processing ${uri}:`, error);
-					failedFiles++;
-				}
-
-				// Update progress efficiently - every 2% or significant milestones
-				const shouldUpdateProgress =
-					i % progressUpdateInterval === 0 ||
-					i === totalImages - 1 ||
-					newFiles % 10 === 0; // Update when we find every 10 new files
-
-				if (shouldUpdateProgress) {
-					this.progress.processedImages = i + 1;
-					this.progress.currentFile = uri;
-					this.progress.newFiles = newFiles;
-					this.progress.changedFiles = changedFiles;
-					this.progress.skippedFiles = skippedFiles;
-					this.progress.failedFiles = failedFiles;
+					// Update progress for discovery phase
+					this.progress = {
+						...this.progress,
+						totalImages,
+						processedImages: i + batch.indexOf(asset),
+						phase: "discovering",
+						currentFile: uri,
+						newFiles,
+						changedFiles,
+						skippedFiles,
+						failedFiles,
+					};
 					this.updateProgressSubject();
 
-					const progressPercent = Math.round(((i + 1) / totalImages) * 100);
-					console.log(
-						`[GalleryScanner] Progress: ${i + 1}/${totalImages} (${progressPercent}%) - ${newFiles} new, ${skippedFiles} skipped`,
-					);
-				}
-
-				// Memory pressure check every 100 images to prevent endless loops
-				if (i % 100 === 0 && i > 0) {
 					try {
-						const memStatus = await Promise.race([
-							nativeMemoryManager.getMemoryStatus(),
-							new Promise((_, reject) =>
-								setTimeout(
-									() => reject(new Error("Memory check timeout")),
-									2000,
-								),
-							),
-						]);
+						// Check if we've seen this image before
+						const existingFingerprint = await improvedFileTracker.findExistingFingerprint(uri);
 
-						if ((memStatus as any)?.isCriticalMemory) {
-							console.log(
-								"[GalleryScanner] Memory pressure - performing cleanup",
-							);
-							await nativeMemoryManager.emergencyCleanup();
-							await new Promise((resolve) => setTimeout(resolve, 500));
+						if (!existingFingerprint) {
+							// NEW IMAGE: Create fingerprint and process immediately
+							console.log(`[GalleryScanner] New image found: ${uri}`);
+
+							// Create fingerprint
+							const fingerprint = await improvedFileTracker.createFingerprint(uri, asset);
+
+							// Check for duplicates
+							if (improvedFileTracker.isDuplicate(fingerprint)) {
+								console.log(`[GalleryScanner] Duplicate detected, skipping: ${uri}`);
+								skippedFiles++;
+								continue;
+							}
+
+							// Add fingerprint to tracker
+							await improvedFileTracker.addFingerprint(fingerprint, this.currentBatch!.id);
+							newFiles++;
+
+							// IMMEDIATE PROCESSING if requested
+							if (options.processImmediately) {
+								console.log(`[GalleryScanner] Processing new image immediately: ${uri}`);
+
+								// Update UI to show processing
+								this.progress = {
+									...this.progress,
+									totalImages,
+									processedImages: i + batch.indexOf(asset),
+									phase: "processing",
+									currentFile: uri,
+									newFiles,
+									changedFiles,
+									skippedFiles,
+									failedFiles,
+								};
+								this.updateProgressSubject();
+
+								// Process the image with confidence check
+								const success = await this.processFileWithConfidenceCheck(fingerprint);
+								if (!success) {
+									failedFiles++;
+								}
+
+								// Small delay to allow UI to update
+								await new Promise(resolve => setTimeout(resolve, 10));
+							}
+
+						} else if (!existingFingerprint.isProcessed) {
+							// UNPROCESSED IMAGE: Process it now
+							console.log(`[GalleryScanner] Unprocessed image found: ${uri}`);
+							changedFiles++;
+
+							if (options.processImmediately) {
+								const success = await this.processFileWithConfidenceCheck(existingFingerprint);
+								if (!success) {
+									failedFiles++;
+								}
+							}
+
+						} else if (await improvedFileTracker.hasFileChanged(uri, existingFingerprint)) {
+							// CHANGED IMAGE: Update fingerprint and reprocess
+							console.log(`[GalleryScanner] Changed image found: ${uri}`);
+
+							const fingerprint = await improvedFileTracker.createFingerprint(uri, asset);
+							await improvedFileTracker.addFingerprint(fingerprint, this.currentBatch!.id);
+							changedFiles++;
+
+							if (options.processImmediately) {
+								const success = await this.processFileWithConfidenceCheck(fingerprint);
+								if (!success) {
+									failedFiles++;
+								}
+							}
+
+						} else {
+							// Already processed, skip
+							skippedFiles++;
 						}
-					} catch (memError) {
-						console.warn("[GalleryScanner] Memory check failed:", memError);
+
+					} catch (error) {
+						console.error(`[GalleryScanner] Error processing ${uri}:`, error);
+						failedFiles++;
 					}
 				}
+
+				// Memory management between batches
+				const memStatus = await nativeMemoryManager.getMemoryStatus();
+				if (memStatus.isCriticalMemory) {
+					console.log("[GalleryScanner] Memory pressure detected, cleaning up");
+					await nativeMemoryManager.emergencyCleanup();
+					await new Promise(resolve => setTimeout(resolve, 1000));
+				}
+
+				// Update progress after each batch
+				this.progress = {
+					...this.progress,
+					totalImages,
+					processedImages: Math.min(batchEnd, totalImages),
+					phase: options.processImmediately ? "processing" : "discovering",
+					currentFile: lastProcessedUri || undefined,
+					newFiles,
+					changedFiles,
+					skippedFiles,
+					failedFiles,
+				};
+				this.updateProgressSubject();
 			}
 
-			console.log(`[GalleryScanner] Single-pass discovery complete!`);
+			// Final statistics
 			console.log(
-				`[GalleryScanner] Results: ${newFiles} new, ${changedFiles} changed, ${skippedFiles} skipped, ${failedFiles} failed`,
+				`[GalleryScanner] Streaming complete: ${newFiles} new, ${changedFiles} changed, ` +
+				`${skippedFiles} skipped, ${failedFiles} failed`,
 			);
+
+			// Update batch stats
+			if (this.currentBatch) {
+				this.currentBatch.newFiles = newFiles;
+				this.currentBatch.changedFiles = changedFiles;
+				this.currentBatch.skippedFiles = skippedFiles;
+				this.currentBatch.failedFiles = failedFiles;
+
+				await improvedFileTracker.updateBatchStats(this.currentBatch.id, {
+					totalTimeMs: Date.now() - this.currentBatch.timestamp,
+					successRate: newFiles > 0 ? (newFiles - failedFiles) / newFiles : 0,
+				});
+			}
 
 			// Final progress update
 			this.progress.processedImages = totalImages;
@@ -427,8 +459,7 @@ export class GalleryScanner {
 			this.progress.failedFiles = failedFiles;
 			this.updateProgressSubject();
 		} catch (error) {
-			console.error("[GalleryScanner] Discovery error:", error);
-			throw error;
+			console.error("[GalleryScanner] Streaming discovery error:", error);
 		}
 
 		return {
@@ -449,6 +480,108 @@ export class GalleryScanner {
 		try {
 			// Process with document processor
 			const result = await documentProcessor.processImage(fingerprint.uri);
+
+			// Validate and sanitize
+			const sanitizedResult = documentValidator.validateAndSanitize(result);
+
+			// Save to database
+			const document = await documentStorage.saveDocument(sanitizedResult);
+
+			// Mark as processed
+			await improvedFileTracker.markAsProcessed(
+				improvedFileTracker.getFingerprintId(fingerprint),
+				{
+					success: true,
+					documentId: document.id,
+					documentHash: result.imageHash,
+					processingTimeMs: 0,
+				},
+				this.currentBatch!.id,
+			);
+
+			return true;
+		} catch (error) {
+			console.error(
+				`[GalleryScanner] Failed to process ${fingerprint.uri}:`,
+				error,
+			);
+
+			// Mark as failed
+			await improvedFileTracker.markAsProcessed(
+				improvedFileTracker.getFingerprintId(fingerprint),
+				{
+					success: false,
+					error: (error as Error).message,
+					processingTimeMs: 0,
+				},
+				this.currentBatch!.id,
+			);
+
+			return false;
+		}
+	}
+
+	/**
+	 * Process file with confidence check to avoid processing non-document images
+	 */
+	private async processFileWithConfidenceCheck(
+		fingerprint: FileFingerprint,
+	): Promise<boolean> {
+		try {
+			// First check if image is likely a document using visual detection
+			const visualFeatures = await visualDocumentDetector.detectDocument(fingerprint.uri);
+			const confidenceScore = visualFeatures.overallScore;
+
+			console.log(
+				`[GalleryScanner] Document confidence: ${(confidenceScore * 100).toFixed(1)}% for ${fingerprint.uri}`,
+			);
+
+			// Skip processing if confidence is too low (not a document)
+			if (confidenceScore < 0.5) {
+				console.log(
+					`[GalleryScanner] Low confidence (${(confidenceScore * 100).toFixed(1)}%) - skipping non-document image`,
+				);
+
+				// Mark as processed but with low confidence flag
+				await improvedFileTracker.markAsProcessed(
+					improvedFileTracker.getFingerprintId(fingerprint),
+					{
+						success: false,
+						error: "Low confidence - not a document",
+						processingTimeMs: 0,
+					},
+					this.currentBatch!.id,
+				);
+
+				return false;
+			}
+
+			// High confidence - proceed with OCR processing
+			console.log(
+				`[GalleryScanner] High confidence (${(confidenceScore * 100).toFixed(1)}%) - processing document`,
+			);
+
+			// Process with document processor
+			const result = await documentProcessor.processImage(fingerprint.uri);
+
+			// Additional confidence check from OCR result
+			if (result.confidence < 0.5) {
+				console.log(
+					`[GalleryScanner] OCR confidence too low (${(result.confidence * 100).toFixed(1)}%) - discarding`,
+				);
+
+				await improvedFileTracker.markAsProcessed(
+					improvedFileTracker.getFingerprintId(fingerprint),
+					{
+						success: false,
+						error: "OCR confidence too low",
+						processingTimeMs: 0,
+					},
+					this.currentBatch!.id,
+				);
+
+				return false;
+			}
 
 			// Validate and sanitize
 			const sanitizedResult = documentValidator.validateAndSanitize(result);
