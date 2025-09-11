@@ -23,6 +23,12 @@ export const createStyles = (theme: any) =>
 			fontSize: 14,
 			color: theme.textTertiary,
 		},
+		subtitle: {
+			fontSize: 12,
+			color: theme.textSecondary,
+			marginTop: 4,
+			marginBottom: 8,
+		},
 		progressBar: {
 			height: 4,
 			backgroundColor: theme.border,

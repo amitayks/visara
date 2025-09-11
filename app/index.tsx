@@ -59,31 +59,38 @@ export default function HomeScreen() {
 		return unsubscribe;
 	}, [initializeRealTimeUpdates]);
 
-	// Scan progress subscription (for regular gallery scanner)
+	// Optimized scan progress subscription
 	useEffect(() => {
-		const subscription = galleryScanner
-			.observeProgress()
-			.subscribe((progress) => {
+		let unsubscribe: (() => void) | undefined;
+		
+		// Only subscribe if we don't have background scanning
+		if (!isBackgroundScanEnabled) {
+			unsubscribe = galleryScanner.subscribeToProgress((progress) => {
+				// Only update if there's a significant change
+				setScanProgress((prev) => {
+					if (!prev || 
+					    prev.isScanning !== progress.isScanning ||
+					    Math.abs(prev.processedImages - progress.processedImages) >= 10 ||
+					    prev.scanType !== progress.scanType) {
+						return progress;
+					}
+					return prev;
+				});
+				
+				// Update isScanning separately for immediate UI response
 				setIsScanning(progress.isScanning);
-				setScanProgress(progress);
 			});
+		}
 
-		return () => subscription?.unsubscribe?.();
-	}, []);
+		return () => unsubscribe?.();
+	}, [isBackgroundScanEnabled]);
 
-	// Update scanning state based on background or foreground scanning
+	// Simplified scanning state check - reduced logging
 	useEffect(() => {
 		const isBackgroundScanning =
 			isBackgroundScanEnabled && backgroundScanProgress.isScanning;
-		const isForegroundScanning = scanProgress?.isScanning || false; // Use scanProgress from galleryScanner
+		const isForegroundScanning = scanProgress?.isScanning || false;
 		const overallScanning = isBackgroundScanning || isForegroundScanning;
-
-		console.log("[HomeScreen] Scan state check:", {
-			isBackgroundScanning,
-			isForegroundScanning,
-			overallScanning,
-			currentIsScanning: isScanning,
-		});
 
 		// Update local state to reflect the current scanning status
 		setIsScanning(overallScanning);
@@ -231,8 +238,7 @@ export default function HomeScreen() {
 
 					{isScanning && scanProgress && (
 						<ScanProgressBar
-							current={scanProgress.processedImages}
-							total={scanProgress.totalImages}
+							progress={scanProgress}
 							animated
 						/>
 					)}

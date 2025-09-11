@@ -738,31 +738,31 @@ export class BackgroundScanner {
 					return;
 				}
 
-				// Detect if scan is actually processing new images
-				if (!scanStarted && progress.processedImages > 0) {
-					scanStarted = true;
-					console.log("[BackgroundScanner] Scan started processing images");
-					await progressManager.forceUpdate(
-						progress,
-						`Found ${progress.totalImages} images to check, processing...`,
-					);
-				}
+				// Detect scan type
+				const isMonitoring =
+					progress.lastScanDate &&
+					Date.now() - progress.lastScanDate.getTime() < 3600000;
 
-				// Check for no-work scenario (same totalImages as processedImages immediately)
-				const timeSinceStart = Date.now() - lastProgressUpdate;
-				if (!scanStarted && timeSinceStart > 3000) {
-					// If no progress after 3 seconds, likely no new images
-					console.log(
-						"[BackgroundScanner] No new images detected after 3 seconds",
-					);
-					await progressManager.forceUpdate(
-						{ processedImages: 0, totalImages: 0, isScanning: false },
-						"No new documents found. Gallery is up to date.",
-					);
-				}
+				const enhancedProgress = {
+					...progress,
+					scanType: isMonitoring
+						? ("monitoring" as const)
+						: ("initial" as const),
+					discoveredNewImages: isMonitoring ? progress.totalImages : undefined,
+				};
 
-				// Use our smart progress manager for real updates
-				await progressManager.updateProgress(progress);
+				// Update progress with appropriate message
+				if (progress.processedImages === 0 && progress.totalImages > 0) {
+					await progressManager.forceUpdate(
+						enhancedProgress,
+						isMonitoring
+							? `Found ${progress.totalImages} new images to check...`
+							: `Scanning ${progress.totalImages} images...`,
+					);
+				} else if (progress.processedImages % 20 === 0) {
+					// Update less frequently
+					await progressManager.updateProgress(enhancedProgress);
+				}
 			});
 
 			console.log(
@@ -892,7 +892,7 @@ export class BackgroundScanner {
 	private getIntervalMs(frequency: string): number {
 		switch (frequency) {
 			case "on_new_image":
-				return 30000; // Check every 30 seconds for new images
+				return 30 * 1000; // Check every 30 seconds for new images
 			case "hourly":
 				return 60 * 60 * 1000; // 1 hour
 			case "daily":

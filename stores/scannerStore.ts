@@ -2,6 +2,10 @@ import { ScannerStorage } from "../storage/MMKVStorage";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { ScanProgress } from "../services/gallery/GalleryScanner";
+import { debounce } from "lodash";
+
+// Add after the imports
+const PROGRESS_UPDATE_THROTTLE = 500; // Update UI max every 500ms
 
 interface ScanStatistics {
 	totalScans: number;
@@ -29,6 +33,7 @@ interface ScannerData {
 
 interface ScannerActions {
 	setScanProgress: (progress: ScanProgress) => void;
+	setImmediateScanProgress: (progress: ScanProgress) => void;
 	setLastNotificationTime: (time: Date) => void;
 	setBackgroundScanEnabled: (enabled: boolean) => void;
 	addScanHistoryEntry: (entry: {
@@ -78,7 +83,33 @@ export const useScannerStore = create<
 			isScanningPaused: false,
 			nextScheduledScan: null,
 
-			setScanProgress: (progress) => set({ scanProgress: progress }),
+			setScanProgress: debounce((progress: ScanProgress) => {
+				set((state) => {
+					// Only update if there's a meaningful change
+					const currentProgress = state.scanProgress;
+
+					// Check if this is a meaningful update
+					const hasChanged =
+						currentProgress.isScanning !== progress.isScanning ||
+						currentProgress.processedImages !== progress.processedImages ||
+						currentProgress.totalImages !== progress.totalImages ||
+						currentProgress.scanType !== progress.scanType ||
+						Math.abs(
+							(currentProgress.processedImages || 0) -
+								(progress.processedImages || 0),
+						) >= 10;
+
+					if (hasChanged) {
+						return { scanProgress: progress };
+					}
+					return state;
+				});
+			}, PROGRESS_UPDATE_THROTTLE),
+
+			// Add a new method for immediate updates (for start/stop events)
+			setImmediateScanProgress: (progress: ScanProgress) => {
+				set({ scanProgress: progress });
+			},
 
 			setLastNotificationTime: (time) => set({ lastNotificationTime: time }),
 
