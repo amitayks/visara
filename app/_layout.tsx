@@ -3,10 +3,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+// import { AutocompleteDropdownContextProvider } from "react-native-autocomplete-dropdown"; // Commented out - package removed
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { backgroundScanner } from "../services/gallery/backgroundScanner";
 import { initializeMemoryManagement } from "../services/memory/initializeMemoryManagement";
+import { MiniSearchService } from "../services/search/MiniSearchService";
 import { AppStorage, ScannerStorage } from "../storage/MMKVStorage";
 import { settingsStore, useSettingsStore } from "../stores/settingsStore";
 import type { RootStackParamList } from "../types/navigation";
@@ -51,6 +53,15 @@ export default function RootLayout() {
 				// Initialize memory management first
 				await initializeMemoryManagement();
 				console.log("[App Launch] Memory management initialized");
+
+				// Initialize search service
+				try {
+					const searchService = MiniSearchService.getInstance();
+					await searchService.initialize();
+					console.log("[App Launch] Search service initialized");
+				} catch (error) {
+					console.error("[App Launch] Failed to initialize search:", error);
+				}
 
 				// Initialize permission handler
 				permissionChangeHandler.initialize();
@@ -107,35 +118,37 @@ export default function RootLayout() {
 
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>
-			<ThemeProvider>
-				<QueryClientProvider client={queryClient}>
-					<Stack.Navigator
-						initialRouteName="Home"
-						screenOptions={{
-							headerShown: false,
-							gestureEnabled: true,
-							gestureDirection:
-								Platform.OS === "ios" ? "horizontal" : "vertical",
-						}}
-					>
-						<Stack.Screen
-							name="Home"
-							component={HomeScreen}
-							options={{
-								gestureEnabled: false, // Disable swipe back on home screen
-							}}
-						/>
-						<Stack.Screen
-							name="Settings"
-							component={SettingsScreen}
-							options={{
+			{/* <AutocompleteDropdownContextProvider> */}
+				<ThemeProvider>
+					<QueryClientProvider client={queryClient}>
+						<Stack.Navigator
+							initialRouteName="Home"
+							screenOptions={{
 								headerShown: false,
 								gestureEnabled: true,
+								gestureDirection:
+									Platform.OS === "ios" ? "horizontal" : "vertical",
 							}}
-						/>
-					</Stack.Navigator>
-				</QueryClientProvider>
-			</ThemeProvider>
+						>
+							<Stack.Screen
+								name="Home"
+								component={HomeScreen}
+								options={{
+									gestureEnabled: false, // Disable swipe back on home screen
+								}}
+							/>
+							<Stack.Screen
+								name="Settings"
+								component={SettingsScreen}
+								options={{
+									headerShown: false,
+									gestureEnabled: true,
+								}}
+							/>
+						</Stack.Navigator>
+					</QueryClientProvider>
+				</ThemeProvider>
+			{/* </AutocompleteDropdownContextProvider> */}
 		</GestureHandlerRootView>
 	);
 }

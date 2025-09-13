@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { documentStorage } from "../services/database/documentStorage";
 import type { Document } from "../app/components/DocumentGrid";
 import { useSearchStore } from "./searchStore";
+import { MiniSearchService } from "../services/search/MiniSearchService";
 
 interface DocumentStore {
 	documents: Document[];
@@ -67,6 +68,11 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				documents: transformedDocs, 
 				filteredDocuments: transformedDocs 
 			});
+
+			// Initialize search index with all documents
+			const searchService = MiniSearchService.getInstance();
+			await searchService.reindexAll(docs);
+			console.log("[DocumentStore] Search index updated with all documents");
 		} catch (error) {
 			console.error("Failed to load documents:", error);
 			throw error;
@@ -87,6 +93,11 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 			if (selectedDocument?.id === docId) {
 				set({ selectedDocument: null, isModalVisible: false });
 			}
+			
+			// Remove from search index
+			const searchService = MiniSearchService.getInstance();
+			await searchService.removeDocument(docId);
+			console.log(`[DocumentStore] Removed document ${docId} from search index`);
 		} catch (error) {
 			console.error("Delete error:", error);
 			throw error;
@@ -103,7 +114,7 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 	},
 
 	initializeRealTimeUpdates: () => {
-		const subscription = documentStorage.observeDocuments((docs) => {
+		const subscription = documentStorage.observeDocuments(async (docs) => {
 			const sortedDocs = docs.sort(
 				(a, b) =>
 					new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -135,8 +146,17 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 			
 			// Only update filtered documents if no active search
 			const searchState = useSearchStore.getState();
-			if (!searchState.isSearchActive) {
+			if (!searchState.searchQuery) {
 				set({ filteredDocuments: transformedDocs });
+			}
+
+			// Update search index with new documents
+			try {
+				const searchService = MiniSearchService.getInstance();
+				await searchService.reindexAll(docs);
+				console.log("[DocumentStore] Search index updated from real-time changes");
+			} catch (error) {
+				console.error("[DocumentStore] Failed to update search index:", error);
 			}
 		});
 

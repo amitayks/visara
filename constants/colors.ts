@@ -3,6 +3,7 @@ export const Colors = {
 		// Primary colors
 		primary: "#000000",
 		secondary: "#666666",
+		tertiary: "#d1d1d1ff",
 		accent: "#0066FF",
 
 		// Background colors
@@ -44,6 +45,7 @@ export const Colors = {
 		// Primary colors
 		primary: "#FFFFFF",
 		secondary: "#AAAAAA",
+		tertiary: "#4a4a4aff",
 		accent: "#0A84FF",
 
 		// Background colors

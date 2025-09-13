@@ -1,121 +1,115 @@
 import { create } from "zustand";
-import { database } from "../services/database";
-import { SearchOrchestrator } from "../services/search/searchOrchestrator";
-import type { Document } from "../app/components/DocumentGrid";
-import type { QueryChip } from "../app/components/SearchContainer";
+import { persist } from "zustand/middleware";
+import { AppStorage } from "../storage/MMKVStorage";
+import type { SearchResult } from "../services/search/MiniSearchService";
 
-interface SearchStore {
+interface SearchFilters {
+	documentType?: string;
+	dateRange?: {
+		start: Date;
+		end: Date;
+	};
+	hasOCR?: boolean;
+	minConfidence?: number;
+}
+
+interface SearchState {
+	// Current search state
 	searchQuery: string;
-	queryChips: QueryChip[];
-	searchOrchestrator: SearchOrchestrator;
+	searchResults: SearchResult[];
+	isSearching: boolean;
+	searchError: string | null;
 
-	// Computed
-	isSearchActive: boolean;
+	// Search history (persisted)
+	searchHistory: string[];
+
+	// Filters
+	filters: SearchFilters;
 
 	// Actions
 	setSearchQuery: (query: string) => void;
-	addQueryChip: (text: string) => Promise<Document[]>;
-	removeQueryChip: (chipId: string) => Promise<Document[]>;
+	setSearchResults: (results: SearchResult[]) => void;
+	setIsSearching: (isSearching: boolean) => void;
+	setSearchError: (error: string | null) => void;
+	addToHistory: (query: string) => void;
+	removeFromHistory: (query: string) => void;
+	clearHistory: () => void;
+	setFilters: (filters: SearchFilters) => void;
+	clearFilters: () => void;
 	clearSearch: () => void;
 }
 
-export const useSearchStore = create<SearchStore>((set, get) => ({
-	searchQuery: "",
-	queryChips: [],
-	isSearching: false,
-	searchOrchestrator: new SearchOrchestrator(database),
-
-	get isSearchActive() {
-		return get().queryChips.length > 0;
-	},
-
-	setSearchQuery: (query: string) => {
-		set({ searchQuery: query });
-	},
-
-	addQueryChip: async (text: string) => {
-		const { queryChips, searchOrchestrator } = get();
-
-		const newChip: QueryChip = {
-			id: Date.now().toString(),
-			text,
-			type: "search",
-		};
-		set({ queryChips: [...queryChips, newChip], searchQuery: "" });
-
-		try {
-			// Build combined search query from all chips
-			const allChips = [...queryChips, newChip];
-			const combinedQuery = allChips.map((chip) => chip.text).join(" ");
-
-			const result = await searchOrchestrator.search(combinedQuery, {
-				useSemanticSearch: true,
-				usePhoneticMatching: true,
-				useFuzzyMatching: true,
-				maxResults: 50,
-			});
-
-			const docs: Document[] = result.documents.map((scored) => ({
-				id: scored.document.id,
-				imageUri: scored.document.imageUri,
-				documentType: scored.document.documentType,
-				vendor: scored.document.vendor,
-				date: scored.document.date ? new Date(scored.document.date) : undefined,
-				totalAmount: scored.document.totalAmount,
-				metadata: scored.document.metadata,
-				createdAt: new Date(scored.document.createdAt),
-			}));
-
-			return docs;
-		} catch (error) {
-			console.error("Search error:", error);
-			// Remove the chip if search failed
-			set({ queryChips: queryChips });
-			throw error;
-		} finally {
-		}
-	},
-
-	removeQueryChip: async (chipId: string) => {
-		const { queryChips, searchOrchestrator } = get();
-		const updatedChips = queryChips.filter((chip) => chip.id !== chipId);
-		set({ queryChips: updatedChips });
-
-		if (updatedChips.length === 0) {
-			set({ searchQuery: "" });
-			return [];
-		}
-
-		try {
-			const combinedQuery = updatedChips.map((chip) => chip.text).join(" ");
-			const result = await searchOrchestrator.search(combinedQuery, {
-				useSemanticSearch: true,
-				usePhoneticMatching: true,
-				useFuzzyMatching: true,
-				maxResults: 50,
-			});
-			const docs: Document[] = result.documents.map((scored) => ({
-				id: scored.document.id,
-				imageUri: scored.document.imageUri,
-				documentType: scored.document.documentType,
-				vendor: scored.document.vendor,
-				date: scored.document.date ? new Date(scored.document.date) : undefined,
-				totalAmount: scored.document.totalAmount,
-				metadata: scored.document.metadata,
-				createdAt: new Date(scored.document.createdAt),
-			}));
-			return docs;
-		} catch (error) {
-			console.error("Re-search error:", error);
-			throw error;
-		} finally {
-		}
-	},
-
-	clearSearch: () => {
-		set({
+export const useSearchStore = create<SearchState>()(
+	persist(
+		(set, get) => ({
+			// Initial state
 			searchQuery: "",
-			queryChips: [],
-		});
-	},
-}));
+			searchResults: [],
+			isSearching: false,
+			searchError: null,
+			searchHistory: [],
+			filters: {},
+
+			// Actions
+			setSearchQuery: (query) => set({ searchQuery: query }),
+
+			setSearchResults: (results) => set({ searchResults: results }),
+
+			setIsSearching: (isSearching) => set({ isSearching }),
+
+			setSearchError: (error) => set({ searchError: error }),
+
+			addToHistory: (query) =>
+				set((state) => {
+					const trimmedQuery = query.trim();
+					if (!trimmedQuery) return state;
+
+					// Remove if already exists, then add to front
+					const newHistory = [
+						trimmedQuery,
+						...state.searchHistory.filter((q) => q !== trimmedQuery),
+					].slice(0, 20); // Keep max 20 items
+
+					return { searchHistory: newHistory };
+				}),
+
+			removeFromHistory: (query) =>
+				set((state) => ({
+					searchHistory: state.searchHistory.filter((q) => q !== query),
+				})),
+
+			clearHistory: () => set({ searchHistory: [] }),
+
+			setFilters: (filters) => set({ filters }),
+
+			clearFilters: () => set({ filters: {} }),
+
+			clearSearch: () =>
+				set({
+					searchQuery: "",
+					searchResults: [],
+					isSearching: false,
+					searchError: null,
+				}),
+		}),
+		{
+			name: "search-storage",
+			storage: {
+				getItem: async (name) => {
+					const data = await AppStorage.getObject(name);
+					return data as any;
+				},
+				setItem: async (name, value) => {
+					await AppStorage.setObject(name, value);
+				},
+				removeItem: async (name) => {
+					await AppStorage.removeItem(name);
+				},
+			},
+			partialize: (state) => ({
+				// Only persist search history
+				searchHistory: state.searchHistory,
+			}) as SearchState,
+		},
+	),
+);

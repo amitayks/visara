@@ -26,9 +26,10 @@ import { type Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
 import { FloatingActionButton } from "./components/FloatingActionButton";
 import { ScanProgressBar } from "./components/ScanProgressBar";
-import { SearchContainer } from "./components/SearchContainer";
+import { SearchBar } from "./components/SearchBar";
 import { showToast, ToastContainer } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
+import { useSearchStore } from "../stores/searchStore";
 
 export default function HomeScreen() {
 	const { theme, isDark } = useTheme();
@@ -251,7 +252,14 @@ export default function HomeScreen() {
 			</TouchableWithoutFeedback>
 
 			<Animated.View style={[styles.searchWrapper, searchBarStyle]}>
-				<SearchContainer />
+				<SearchBar
+					onResultsChange={(results) => {
+						// Update your document grid with search results
+						console.log("Search results:", results);
+					}}
+					showHistory={true}
+					autoFocus={false}
+				/>
 			</Animated.View>
 
 			<DocumentModal

@@ -1,5 +1,5 @@
 import { FlashList } from "@shopify/flash-list";
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useState, useMemo } from "react";
 import {
 	ActivityIndicator,
 	Keyboard,
@@ -49,9 +49,17 @@ export const DocumentGrid = memo(
 		const [isLoadingMore, setIsLoadingMore] = useState(false);
 
 		const { filteredDocuments, loadDocuments } = useDocumentStore();
-		const { searchQuery, queryChips } = useSearchStore();
+		const { searchQuery, searchResults } = useSearchStore();
 
-		const documents = filteredDocuments;
+		// Filter documents based on search results
+		const documents = useMemo(() => {
+			if (searchQuery && searchResults.length > 0) {
+				// Map search results back to documents
+				const resultIds = new Set(searchResults.map(r => r.id));
+				return filteredDocuments.filter(doc => resultIds.has(doc.id));
+			}
+			return filteredDocuments;
+		}, [filteredDocuments, searchQuery, searchResults]);
 
 		const handleRefresh = useCallback(async () => {
 			setRefreshing(true);
@@ -108,13 +116,13 @@ export const DocumentGrid = memo(
 		const keyExtractor = useCallback((item: Document) => item.id, []);
 
 		const ListEmptyComponent = useCallback(() => {
-			if (queryChips.length > 0) {
+			if (searchQuery.length > 0) {
 				return (
 					<View style={styles.emptyListContainer}>
 						<EmptyState
 							icon="search-outline"
 							title="No results found"
-							message={`No documents found for "${queryChips[0]?.text || searchQuery}"`}
+							message={`No documents found for "${searchQuery}"`}
 						/>
 					</View>
 				);
@@ -134,7 +142,6 @@ export const DocumentGrid = memo(
 				</View>
 			);
 		}, [
-			queryChips,
 			searchQuery,
 			handleStartBackgroundScan,
 			styles.emptyListContainer,

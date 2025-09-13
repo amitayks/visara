@@ -3,7 +3,7 @@ import RNFS from "react-native-fs";
 import CryptoJS from "crypto-js";
 import nlp from "compromise";
 import ImageResizer from "@bam.tech/react-native-image-resizer";
-import { embeddingService } from "../search/simpleEmbeddingService";
+// import { embeddingService } from "../search/simpleEmbeddingService"; // Removed - using new search system
 import { keywordExtractor } from "./keywordExtractor";
 import { ocrEngineManager } from "./OCREngineManager";
 import type { OCREngineName } from "./ocrTypes";
@@ -601,8 +601,9 @@ export class DocumentProcessor {
 	}
 
 	private async generateSearchVector(text: string): Promise<number[]> {
-		// Generate embedding for the document using the new embedding service
-		return await embeddingService.generateEmbedding(text);
+		// For now, return empty array since we're using MiniSearch for text-based search
+		// This can be enhanced later with a proper embedding service if needed
+		return [];
 	}
 
 	async extractReceiptMetadata(text: string): Promise<ExtractedMetadata> {
