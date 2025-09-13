@@ -5,15 +5,14 @@ import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Icon from "react-native-vector-icons/MaterialIcons";
 import { ThemeProvider } from "../contexts/ThemeContext";
-import { initializeDatabase } from "../services/database";
 import { backgroundScanner } from "../services/gallery/backgroundScanner";
-import { galleryScanner } from "../services/gallery/GalleryScanner";
-import { ScannerStorage } from "../storage/MMKVStorage";
-import { useSettingsStore } from "../stores/settingsStore";
+import { initializeMemoryManagement } from "../services/memory/initializeMemoryManagement";
+import { AppStorage, ScannerStorage } from "../storage/MMKVStorage";
+import { settingsStore, useSettingsStore } from "../stores/settingsStore";
 import type { RootStackParamList } from "../types/navigation";
+import { permissionChangeHandler } from "../utils/permissionChangeHandler";
 import HomeScreen from "./index";
 import SettingsScreen from "./settings";
-import { galleryPermissions } from "../services/permissions/galleryPermissions";
 // Load icon font
 Icon.loadFont();
 
@@ -24,34 +23,61 @@ export default function RootLayout() {
 	const { settings } = useSettingsStore();
 
 	useEffect(() => {
-		// Initialize permissions and background scanning on app mount
 		const initializeApp = async () => {
 			try {
-				// Initialize database first
-				await initializeDatabase();
+				console.log("[App Launch] Initializing app services...");
 
-				const permissionResult = await galleryPermissions.checkPermission();
+				// CRITICAL: Check for incomplete scan first
+				const resumeState = (await ScannerStorage.getObject(
+					"scan_resume_state",
+				)) as any;
+				if (resumeState && resumeState.lastProcessedIndex) {
+					console.log("[App Launch] Found incomplete scan, will resume");
 
-				if (permissionResult.status !== "granted") {
-					// Don't request permissions automatically - let user decide
-					console.log("Gallery permissions not granted yet");
-					return;
+					// Set flag to resume scan
+					await ScannerStorage.setObject("should_resume_scan", true);
 				}
 
-				// Check if we should start automatic scanning based on user settings
+				// Check for crash recovery
+				const lastCrashReason = await AppStorage.getItem("last_crash_reason");
+				if (lastCrashReason) {
+					console.log(`[App Launch] Recovering from crash: ${lastCrashReason}`);
+					await AppStorage.removeItem("last_crash_reason");
+
+					// Clear any stuck states
+					await backgroundScanner.cleanup();
+				}
+
+				// Initialize memory management first
+				await initializeMemoryManagement();
+				console.log("[App Launch] Memory management initialized");
+
+				// Initialize permission handler
+				permissionChangeHandler.initialize();
+				console.log("[App Launch] Permission handler initialized");
+
+				// Check auto-scan settings
+				const settings = settingsStore.getState().settings;
 				const manualStopped = await ScannerStorage.getItem(
 					"manual_scan_stopped",
 				);
 
-				if (!manualStopped && settings.autoScan) {
-					console.log(
-						`[App Launch] Starting automatic scanning with frequency: ${settings.scanFrequency}`,
-					);
-
+				if (settings.autoScan && !manualStopped) {
 					try {
-						// Always use the background scanner for automatic scanning
-						// This handles both initial scans and ongoing automatic scanning
-						await backgroundScanner.startPeriodicScan();
+						// Check if we should resume scan
+						const shouldResume =
+							await ScannerStorage.getObject("should_resume_scan");
+
+						if (shouldResume) {
+							console.log("[App Launch] Resuming incomplete scan...");
+							await ScannerStorage.removeItem("should_resume_scan");
+
+							// Start background scanner (it will handle resume automatically)
+							await backgroundScanner.startPeriodicScan();
+						} else {
+							await backgroundScanner.startPeriodicScan();
+						}
+
 						console.log(
 							"[App Launch] Background scanning service started successfully",
 						);
@@ -60,13 +86,13 @@ export default function RootLayout() {
 							"[App Launch] Failed to start background scanning:",
 							error,
 						);
+
+						// Save error for diagnostics
+						await AppStorage.setItem(
+							"last_startup_error",
+							(error as Error).toString(),
+						);
 					}
-				} else if (manualStopped) {
-					console.log(
-						"[App Launch] Automatic scanning disabled - user manually stopped",
-					);
-				} else if (!settings.autoScan) {
-					console.log("[App Launch] Automatic scanning disabled in settings");
 				}
 			} catch (error) {
 				console.error("App initialization error:", error);

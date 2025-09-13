@@ -18,6 +18,7 @@ import {
 } from "../ai/documentProcessor";
 import { documentStorage } from "../database/documentStorage";
 import { visualDocumentDetector } from "../ai/visualDocumentDetector";
+import { useScannerStore } from "../../stores/scannerStore";
 import {
 	improvedFileTracker,
 	type FileFingerprint,
@@ -301,9 +302,22 @@ export class GalleryScanner {
 		let lastProcessedUri: string | null = null;
 
 		try {
-			console.log(
-				"[GalleryScanner] Starting streaming discovery and processing",
-			);
+			console.log("[GalleryScanner] Starting streaming discovery and processing");
+
+			// CRITICAL: Save state before starting
+			const savedProgress = await ScannerStorage.getObject("scan_resume_state") as any;
+			let startIndex = 0;
+			
+			if (savedProgress && savedProgress.lastProcessedIndex) {
+				startIndex = savedProgress.lastProcessedIndex;
+				console.log(`[GalleryScanner] Resuming from index ${startIndex}`);
+				
+				// Restore counts from saved state
+				newFiles = savedProgress.newFiles || 0;
+				changedFiles = savedProgress.changedFiles || 0;
+				skippedFiles = savedProgress.skippedFiles || 0;
+				failedFiles = savedProgress.failedFiles || 0;
+			}
 
 			// Fetch all gallery images
 			const galleryImages = await this.fetchAllGalleryImages();
@@ -311,20 +325,51 @@ export class GalleryScanner {
 
 			console.log(`[GalleryScanner] Found ${totalImages} images in gallery`);
 
-			// STREAMING PROCESSING: Process in small batches with immediate results
-			const STREAM_BATCH_SIZE = 10; // Process 10 images at a time
+			// REDUCED BATCH SIZE for memory management
+			const STREAM_BATCH_SIZE = 5; // Reduced from 10
+			const SAVE_STATE_INTERVAL = 20; // Save state every 20 images
+			let processedInBatch = 0;
 
-			for (
-				let i = 0;
-				i < totalImages && !this.shouldStop;
-				i += STREAM_BATCH_SIZE
-			) {
+			for (let i = startIndex; i < totalImages && !this.shouldStop; i += STREAM_BATCH_SIZE) {
 				const batchEnd = Math.min(i + STREAM_BATCH_SIZE, totalImages);
 				const batch = galleryImages.slice(i, batchEnd);
 
-				console.log(
-					`[GalleryScanner] Processing batch ${i}-${batchEnd} of ${totalImages}`,
-				);
+				console.log(`[GalleryScanner] Processing batch ${i}-${batchEnd} of ${totalImages}`);
+
+				// Check memory before processing batch
+				const memStatus = await nativeMemoryManager.getMemoryStatus();
+				if (memStatus.isCriticalMemory) {
+					console.warn("[GalleryScanner] Critical memory - emergency cleanup");
+					await nativeMemoryManager.emergencyCleanup();
+					
+					// Force garbage collection if available
+					if (global.gc) {
+						global.gc();
+					}
+					
+					// Wait for memory to free up
+					await new Promise(resolve => setTimeout(resolve, 2000));
+					
+					// Check again after cleanup
+					const memStatusAfter = await nativeMemoryManager.getMemoryStatus();
+					if (memStatusAfter.isCriticalMemory) {
+						console.error("[GalleryScanner] Still critical memory after cleanup - pausing scan");
+						
+						// Save state before stopping
+						await this.saveResumeState({
+							lastProcessedIndex: i,
+							newFiles,
+							changedFiles,
+							skippedFiles,
+							failedFiles,
+							lastProcessedUri,
+							totalImages,
+							timestamp: Date.now()
+						});
+						
+						throw new Error("Critical memory pressure - scan paused");
+					}
+				}
 
 				// Process each image in the batch
 				for (const asset of batch) {
@@ -332,130 +377,55 @@ export class GalleryScanner {
 					if (!uri) continue;
 
 					lastProcessedUri = uri;
+					processedInBatch++;
 
-					// Update progress for discovery phase
+					// Update progress more frequently for better UI feedback
 					this.progress = {
 						...this.progress,
 						totalImages,
-						processedImages: i + batch.indexOf(asset),
-						phase: "discovering",
+						processedImages: i + batch.indexOf(asset) + 1,
+						phase: options.processImmediately ? "processing" : "discovering",
 						currentFile: uri,
 						newFiles,
 						changedFiles,
 						skippedFiles,
 						failedFiles,
 					};
-					this.updateProgressSubject();
+					
+					// Use immediate update for every 5th image
+					if (processedInBatch % 5 === 0) {
+						this.updateProgressSubject();
+						
+						// Also force update the store
+						useScannerStore.getState().setImmediateScanProgress(this.progress);
+					}
 
 					try {
-						// Check if we've seen this image before
-						const existingFingerprint =
-							await improvedFileTracker.findExistingFingerprint(uri);
+						const existingFingerprint = await improvedFileTracker.findExistingFingerprint(uri);
 
 						if (!existingFingerprint) {
-							// NEW IMAGE: Create fingerprint and process immediately
 							console.log(`[GalleryScanner] New image found: ${uri}`);
-
-							// Create fingerprint
-							const fingerprint = await improvedFileTracker.createFingerprint(
-								uri,
-								asset,
-							);
-
-							// Check for duplicates
+							const fingerprint = await improvedFileTracker.createFingerprint(uri, asset);
+							
 							if (improvedFileTracker.isDuplicate(fingerprint)) {
-								console.log(
-									`[GalleryScanner] Duplicate detected, skipping: ${uri}`,
-								);
 								skippedFiles++;
 								continue;
 							}
 
-							// Add fingerprint to tracker
-							await improvedFileTracker.addFingerprint(
-								fingerprint,
-								this.currentBatch!.id,
-							);
+							await improvedFileTracker.addFingerprint(fingerprint, this.currentBatch!.id);
 							newFiles++;
 
-							// IMMEDIATE PROCESSING if requested (check current options which may have been updated)
-							const shouldProcess =
-								this.currentScanOptions?.processImmediately ||
-								options.processImmediately;
-							if (shouldProcess) {
-								console.log(
-									`[GalleryScanner] Processing new image immediately: ${uri}`,
-								);
-
-								// Update UI to show processing
-								this.progress = {
-									...this.progress,
-									totalImages,
-									processedImages: i + batch.indexOf(asset),
-									phase: "processing",
-									currentFile: uri,
-									newFiles,
-									changedFiles,
-									skippedFiles,
-									failedFiles,
-								};
-								this.updateProgressSubject();
-
-								// Process the image with confidence check
-								const success =
-									await this.processFileWithConfidenceCheck(fingerprint);
-								if (!success) {
-									failedFiles++;
-								}
-
-								// Small delay to allow UI to update
-								await new Promise((resolve) => setTimeout(resolve, 10));
+							if (options.processImmediately) {
+								const success = await this.processFileWithConfidenceCheck(fingerprint);
+								if (!success) failedFiles++;
 							}
 						} else if (!existingFingerprint.isProcessed) {
-							// UNPROCESSED IMAGE: Process it now
-							console.log(`[GalleryScanner] Unprocessed image found: ${uri}`);
 							changedFiles++;
-
-							const shouldProcessUnprocessed =
-								this.currentScanOptions?.processImmediately ||
-								options.processImmediately;
-							if (shouldProcessUnprocessed) {
-								const success =
-									await this.processFileWithConfidenceCheck(
-										existingFingerprint,
-									);
-								if (!success) {
-									failedFiles++;
-								}
-							}
-						} else if (
-							await improvedFileTracker.hasFileChanged(uri, existingFingerprint)
-						) {
-							// CHANGED IMAGE: Update fingerprint and reprocess
-							console.log(`[GalleryScanner] Changed image found: ${uri}`);
-
-							const fingerprint = await improvedFileTracker.createFingerprint(
-								uri,
-								asset,
-							);
-							await improvedFileTracker.addFingerprint(
-								fingerprint,
-								this.currentBatch!.id,
-							);
-							changedFiles++;
-
-							const shouldProcessChanged =
-								this.currentScanOptions?.processImmediately ||
-								options.processImmediately;
-							if (shouldProcessChanged) {
-								const success =
-									await this.processFileWithConfidenceCheck(fingerprint);
-								if (!success) {
-									failedFiles++;
-								}
+							if (options.processImmediately) {
+								const success = await this.processFileWithConfidenceCheck(existingFingerprint);
+								if (!success) failedFiles++;
 							}
 						} else {
-							// Already processed, skip
 							skippedFiles++;
 						}
 					} catch (error) {
@@ -464,71 +434,87 @@ export class GalleryScanner {
 					}
 				}
 
-				// Memory management between batches
-				const memStatus = await nativeMemoryManager.getMemoryStatus();
-				if (memStatus.isCriticalMemory) {
-					console.log("[GalleryScanner] Memory pressure detected, cleaning up");
-					await nativeMemoryManager.emergencyCleanup();
-					await new Promise((resolve) => setTimeout(resolve, 1000));
+				// Save resume state periodically
+				if (processedInBatch >= SAVE_STATE_INTERVAL) {
+					await this.saveResumeState({
+						lastProcessedIndex: batchEnd,
+						newFiles,
+						changedFiles,
+						skippedFiles,
+						failedFiles,
+						lastProcessedUri,
+						totalImages,
+						timestamp: Date.now()
+					});
+					processedInBatch = 0;
 				}
 
-				// Update progress after each batch
-				this.progress = {
-					...this.progress,
-					totalImages,
-					processedImages: Math.min(batchEnd, totalImages),
-					phase:
-						this.currentScanOptions?.processImmediately ||
-						options.processImmediately
-							? "processing"
-							: "discovering",
-					currentFile: lastProcessedUri || undefined,
-					newFiles,
-					changedFiles,
-					skippedFiles,
-					failedFiles,
-				};
-				this.updateProgressSubject();
+				// Add delay between batches to prevent overheating
+				await new Promise(resolve => setTimeout(resolve, 100));
 			}
 
-			// Final statistics
+			// Clear resume state on successful completion
+			await ScannerStorage.removeItem("scan_resume_state");
+			
 			console.log(
 				`[GalleryScanner] Streaming complete: ${newFiles} new, ${changedFiles} changed, ` +
-					`${skippedFiles} skipped, ${failedFiles} failed`,
+				`${skippedFiles} skipped, ${failedFiles} failed`
 			);
 
-			// Update batch stats
-			if (this.currentBatch) {
-				this.currentBatch.newFiles = newFiles;
-				this.currentBatch.changedFiles = changedFiles;
-				this.currentBatch.skippedFiles = skippedFiles;
-				this.currentBatch.failedFiles = failedFiles;
-
-				await improvedFileTracker.updateBatchStats(this.currentBatch.id, {
-					totalTimeMs: Date.now() - this.currentBatch.timestamp,
-					successRate: newFiles > 0 ? (newFiles - failedFiles) / newFiles : 0,
-				});
-			}
-
-			// Final progress update
-			this.progress.processedImages = totalImages;
-			this.progress.phase = "completed";
-			this.progress.newFiles = newFiles;
-			this.progress.changedFiles = changedFiles;
-			this.progress.skippedFiles = skippedFiles;
-			this.progress.failedFiles = failedFiles;
-			this.updateProgressSubject();
 		} catch (error) {
 			console.error("[GalleryScanner] Streaming discovery error:", error);
+			
+			// Save state on error
+			await this.saveResumeState({
+				lastProcessedIndex: this.progress.processedImages,
+				newFiles,
+				changedFiles,
+				skippedFiles,
+				failedFiles,
+				lastProcessedUri,
+				totalImages: this.progress.totalImages,
+				timestamp: Date.now(),
+				error: (error as Error).message
+			});
+			
+			throw error;
 		}
 
-		return {
-			newFiles,
-			changedFiles,
-			skippedFiles,
-			failedFiles,
-			lastProcessedUri,
-		};
+		return { newFiles, changedFiles, skippedFiles, failedFiles, lastProcessedUri };
+	}
+
+	// Add this new method for saving resume state
+	private async saveResumeState(state: {
+		lastProcessedIndex: number;
+		newFiles: number;
+		changedFiles: number;
+		skippedFiles: number;
+		failedFiles: number;
+		lastProcessedUri: string | null;
+		totalImages: number;
+		timestamp: number;
+		error?: string;
+	}): Promise<void> {
+		try {
+			await ScannerStorage.setObject("scan_resume_state", state);
+			console.log("[GalleryScanner] Resume state saved");
+		} catch (error) {
+			console.error("[GalleryScanner] Failed to save resume state:", error);
+		}
+	}
+
+	private async getDynamicBatchSize(): Promise<number> {
+		const memStatus = await nativeMemoryManager.getMemoryStatus();
+		
+		if (memStatus.isCriticalMemory) {
+			return 2; // Minimal batch size
+		} else if (memStatus.isLowMemory) {
+			return 3; // Small batch size
+		} else if (memStatus.availableDeviceMemory < 500 * 1024 * 1024) { // Less than 500MB
+			return 5; // Conservative batch size
+		} else {
+			return 10; // Normal batch size
+		}
 	}
 
 	/**

@@ -21,6 +21,10 @@ export interface GalleryChangeEvent {
 	batchId?: string;
 }
 
+interface MonitorOptions {
+	triggerScan?: boolean;
+}
+
 type GalleryChangeCallback = (event: GalleryChangeEvent) => void;
 
 /**
@@ -114,7 +118,7 @@ export class GalleryMonitorV2 {
 	/**
 	 * Main change detection using enhanced file tracking
 	 */
-	private async checkForChanges(): Promise<void> {
+	async checkForChanges(options: MonitorOptions = {}): Promise<void> {
 		try {
 			console.log(
 				"[GalleryMonitorV2] Checking for changes with fingerprint tracking",
@@ -177,8 +181,26 @@ export class GalleryMonitorV2 {
 			if (hasChanges) {
 				console.log(
 					`[GalleryMonitorV2] ✅ Real changes detected: ` +
-						`+${newFiles} new, ~${changedFiles} changed, -${deletedFiles} deleted`,
+					`+${newFiles} new, ~${changedFiles} changed, -${deletedFiles} deleted`
 				);
+				
+				// CRITICAL: Trigger scan if new files detected
+				if (newFiles > 0 && !galleryScanner.getProgress().isScanning) {
+					console.log(`[GalleryMonitorV2] Triggering scan for ${newFiles} new files`);
+					
+					// Use a small delay to prevent race conditions
+					setTimeout(async () => {
+						try {
+							await galleryScanner.startScan({
+								type: "incremental",
+								processImmediately: true,
+								scanNewOnly: true
+							});
+						} catch (error) {
+							console.error("[GalleryMonitorV2] Failed to start scan:", error);
+						}
+					}, 1000);
+				}
 			} else if (!isInitialRun) {
 				console.log(
 					`[GalleryMonitorV2] No changes. Tracking ${statsAfter.totalFiles} files`,
