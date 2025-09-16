@@ -39,7 +39,7 @@ import { Document } from "../DocumentGrid";
 import { InfoRow } from "../InfoRow";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./DocumentModal.style";
-import { documentProcessor } from "@/services/ai/documentProcessor";
+import { simpleDocumentProcessor } from "@/services/ai/SimpleDocumentProcessor";
 import { formatCurrency, formatDate, safeString } from "../../../utils/format";
 import {
 	formatDocumentForDisplay,

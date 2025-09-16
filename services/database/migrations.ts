@@ -32,5 +32,13 @@ export default schemaMigrations({
 				// so we'll handle this in the model by ignoring the column
 			],
 		},
+		{
+			toVersion: 4,
+			steps: [
+				// Remove search_vector column as we simplified to keyword-based search only
+				// Note: WatermelonDB doesn't support dropping columns directly,
+				// Column will be ignored in the model
+			],
+		},
 	],
 });

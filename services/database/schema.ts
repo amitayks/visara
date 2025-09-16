@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from "@nozbe/watermelondb";
 
 export const schema = appSchema({
-	version: 3,
+	version: 4,
 	tables: [
 		tableSchema({
 			name: "documents",
@@ -17,7 +17,6 @@ export const schema = appSchema({
 				{ name: "date", type: "number", isOptional: true }, // Document date from OCR
 				{ name: "image_taken_date", type: "number", isOptional: true }, // EXIF or file date
 				{ name: "keywords", type: "string", isOptional: true }, // JSON array
-				{ name: "search_vector", type: "string", isOptional: true }, // JSON array of numbers
 				{ name: "image_width", type: "number", isOptional: true },
 				{ name: "image_height", type: "number", isOptional: true },
 				{ name: "image_size", type: "number", isOptional: true }, // in bytes

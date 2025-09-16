@@ -21,7 +21,6 @@ export interface FormattedDocumentData {
 	extractedContent: {
 		ocrText: string;
 		keywords: string;
-		searchVector: string;
 	};
 	businessData: {
 		vendor: string;
@@ -61,9 +60,6 @@ export function formatDocumentAsJSON(
 				Array.isArray(document.keywords) && document.keywords.length > 0
 					? document.keywords.join(", ")
 					: "No keywords",
-			searchVector: Array.isArray(document.searchVector)
-				? `Array of ${document.searchVector.length} float values`
-				: "No search vector",
 		},
 		businessData: {
 			vendor: safeString(document.vendor) || "N/A",
@@ -128,8 +124,7 @@ export function formatDocumentForDisplay(document: Document): string {
 
 		// Extracted Content
 		output += "=== EXTRACTED CONTENT ===\n";
-		output += `Keywords: ${formattedData.extractedContent.keywords}\n`;
-		output += `Search Vector: ${formattedData.extractedContent.searchVector}\n\n`;
+		output += `Keywords: ${formattedData.extractedContent.keywords}\n\n`;
 
 		// OCR Text (only if not "No OCR text available")
 		if (formattedData.extractedContent.ocrText !== "No OCR text available") {

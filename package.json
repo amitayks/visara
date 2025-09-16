@@ -20,7 +20,6 @@
 		"@likashefqet/react-native-image-zoom": "^4.3.0",
 		"@nozbe/watermelondb": "^0.27.1",
 		"@nozbe/with-observables": "^1.6.0",
-		"@onlytabs/react-native-tesseract-ocr": "^2.1.1",
 		"@react-native-camera-roll/camera-roll": "^7.8.3",
 		"@react-native-community/netinfo": "^11.4.1",
 		"@react-native-ml-kit/text-recognition": "^2.0.0",

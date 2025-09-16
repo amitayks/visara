@@ -1,4 +1,4 @@
-export type OCREngineName = "mlkit" | "vision-camera" | "tesseract" | "mock";
+export type OCREngineName = "mlkit" | "mock"; // Simplified - only MLKit and mock for testing
 
 export interface OCRBoundingBox {
 	text: string;
@@ -13,14 +13,14 @@ export interface OCRBlock {
 	text: string;
 	confidence: number;
 	boundingBox: OCRBoundingBox;
-	language: string; // Always 'en'
+	language: string; // 'en', 'he', or 'auto' for mixed
 }
 
 export interface OCRResult {
 	text: string;
 	confidence: number;
 	blocks: OCRBlock[];
-	language: string; // Always 'en'
+	language: string; // 'en', 'he', or 'auto' for mixed
 	processingTime: number;
 	engine: OCREngineName;
 }
@@ -57,5 +57,5 @@ export interface PreprocessingOptions {
 	binarize?: boolean;
 	noiseReduction?: boolean;
 	brightnessAdjustment?: number;
-	targetLanguage?: "english"; // English only
+	targetLanguage?: "english" | "hebrew" | "auto"; // Supported languages
 }

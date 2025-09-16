@@ -38,12 +38,35 @@ export class VisualDocumentDetector {
 				structureScore: this.detectDocumentStructure(features),
 			};
 
-			// Combine scores with weights
+			// Add document ratio bonus/penalty
+			let aspectRatioScore = 0;
+			if (isDocumentRatio) {
+				aspectRatioScore = 0.8; // Strong indicator of document
+			} else if (aspectRatio < 0.3 || aspectRatio > 3.0) {
+				aspectRatioScore = 0.1; // Very unlikely to be a document
+			} else {
+				aspectRatioScore = 0.4; // Neutral
+			}
+
+			// Combine scores with weights (more selective)
 			const overallScore =
-				scores.rectangleScore * 0.3 +
-				scores.textLayoutScore * 0.3 +
-				scores.contrastScore * 0.2 +
-				scores.structureScore * 0.2;
+				scores.rectangleScore * 0.25 +
+				scores.textLayoutScore * 0.25 +
+				scores.contrastScore * 0.15 +
+				scores.structureScore * 0.15 +
+				aspectRatioScore * 0.2;
+
+			console.log(`[VisualDocumentDetector] Analysis for ${imageUri.substring(imageUri.lastIndexOf('/') + 1)}:`, {
+				aspectRatio: aspectRatio.toFixed(2),
+				isDocumentRatio,
+				rectangleScore: scores.rectangleScore.toFixed(2),
+				textLayoutScore: scores.textLayoutScore.toFixed(2),
+				contrastScore: scores.contrastScore.toFixed(2),
+				structureScore: scores.structureScore.toFixed(2),
+				aspectRatioScore: aspectRatioScore.toFixed(2),
+				overallScore: overallScore.toFixed(3),
+				decision: overallScore >= 0.5 ? 'ACCEPT' : 'REJECT'
+			});
 
 			return {
 				hasRectangularShape: scores.rectangleScore > 0.7,
@@ -105,14 +128,24 @@ export class VisualDocumentDetector {
 			lines += 5;
 		}
 
-		// Screenshots often have high contrast and rectangular shape
-		if (imageUri.toLowerCase().includes("screenshot")) {
-			edgeDensity = 0.9;
-			contrast = 0.9;
-			whiteSpace = 0.2;
-			// But fewer text regions than real documents
-			textRegions = 2;
-			lines = 3;
+		// Screenshots penalty - they're not physical documents
+		if (imageUri.toLowerCase().includes("screenshot") ||
+			imageUri.toLowerCase().includes("screen")) {
+			// Reduce all scores significantly for screenshots
+			edgeDensity *= 0.5;
+			contrast *= 0.6;
+			textRegions = Math.max(1, textRegions - 3);
+			lines = Math.max(1, lines - 4);
+			whiteSpace = 0.1; // Screenshots usually have less white space
+		}
+
+		// Photo/camera indicators (more likely to be actual documents)
+		if (imageUri.toLowerCase().includes("img_") ||
+			imageUri.toLowerCase().includes("photo") ||
+			imageUri.toLowerCase().includes("camera")) {
+			edgeDensity += 0.1;
+			textRegions += 1;
+			contrast += 0.1;
 		}
 
 		return {

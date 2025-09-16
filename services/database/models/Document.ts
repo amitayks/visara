@@ -1,6 +1,5 @@
 import { Model } from "@nozbe/watermelondb";
 import { date, field, json } from "@nozbe/watermelondb/decorators";
-import type { ExtractedMetadata } from "../../ai/documentProcessor";
 
 export default class Document extends Model {
 	static table = "documents";
@@ -16,11 +15,10 @@ export default class Document extends Model {
 	@field("date") date?: number; // Document date from OCR
 	@field("image_taken_date") imageTakenDate?: number;
 	@json("keywords", (obj) => obj || []) keywords!: string[];
-	@json("search_vector", (obj) => obj || []) searchVector!: number[];
 	@field("image_width") imageWidth?: number;
 	@field("image_height") imageHeight?: number;
 	@field("image_size") imageSize?: number;
-	@json("metadata", (obj) => obj) metadata!: ExtractedMetadata;
+	@json("metadata", (obj) => obj) metadata!: any;
 	@date("processed_at") processedAt!: Date;
 	@date("created_at") createdAt!: Date;
 	@date("updated_at") updatedAt!: Date;

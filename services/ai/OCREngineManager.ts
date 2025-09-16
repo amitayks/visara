@@ -1,6 +1,4 @@
 import { MLKitEngine } from "./engines/MLKitEngine";
-import { VisionCameraEngine } from "./engines/VisionCameraEngine";
-import { TesseractEngine } from "./engines/TesseractEngine";
 import type {
 	LocalOCREngine,
 	OCRComparison,
@@ -11,16 +9,12 @@ import type {
 export class OCREngineManager {
 	private engines: Map<OCREngineName, LocalOCREngine> = new Map();
 	private initialized = false;
-	private processedCount = 0;
-	private readonly REINIT_THRESHOLD = 10; // Reinitialize Tesseract every 10 images
-	private tesseractEngine: TesseractEngine | null = null;
+	private mlkitEngine: MLKitEngine;
 
 	constructor() {
-		// Register all engines
-		this.registerEngine(new MLKitEngine());
-		this.registerEngine(new VisionCameraEngine());
-		this.tesseractEngine = new TesseractEngine();
-		this.registerEngine(this.tesseractEngine);
+		// Only register MLKit engine
+		this.mlkitEngine = new MLKitEngine();
+		this.registerEngine(this.mlkitEngine);
 	}
 
 	private registerEngine(engine: LocalOCREngine): void {
@@ -30,16 +24,14 @@ export class OCREngineManager {
 	async initialize(): Promise<void> {
 		if (this.initialized) return;
 
-		// Initialize all engines in parallel
-		const initPromises = Array.from(this.engines.values()).map((engine) =>
-			engine.initialize().catch((error) => {
-				console.error(`Failed to initialize ${engine.name}:`, error);
-				// Don't throw, allow other engines to initialize
-			}),
-		);
-
-		await Promise.all(initPromises);
-		this.initialized = true;
+		try {
+			await this.mlkitEngine.initialize();
+			this.initialized = true;
+			console.log("[OCREngineManager] MLKit engine initialized successfully");
+		} catch (error) {
+			console.error("Failed to initialize MLKit engine:", error);
+			throw error;
+		}
 	}
 
 	getEngine(name: OCREngineName): LocalOCREngine | undefined {
@@ -56,35 +48,8 @@ export class OCREngineManager {
 
 	async processImage(
 		imageUri: string,
-		engineName: OCREngineName,
+		engineName: OCREngineName = "mlkit", // Default to MLKit
 	): Promise<OCRResult> {
-		this.processedCount++;
-
-		// Reinitialize Tesseract every N images to clear memory
-		if (
-			engineName === "tesseract" &&
-			this.processedCount >= this.REINIT_THRESHOLD
-		) {
-			console.log(
-				"[OCREngineManager] Reinitializing Tesseract to clear memory",
-			);
-
-			// Cleanup old instance
-			if (this.tesseractEngine) {
-				try {
-					await this.tesseractEngine.cleanup?.();
-				} catch (e) {
-					console.warn("[OCREngineManager] Error cleaning up Tesseract:", e);
-				}
-			}
-
-			// Create new instance
-			this.tesseractEngine = new TesseractEngine();
-			this.engines.set("tesseract", this.tesseractEngine);
-			await this.tesseractEngine.initialize();
-			this.processedCount = 0;
-		}
-
 		const engine = this.getEngine(engineName);
 		if (!engine) {
 			throw new Error(`Engine ${engineName} not found`);
@@ -97,87 +62,55 @@ export class OCREngineManager {
 		return engine.processImage(imageUri);
 	}
 
+	// Simplified - only uses MLKit now
 	async compareAllEngines(imageUri: string): Promise<OCRComparison> {
 		const startTime = Date.now();
-		const results: OCRResult[] = [];
+		
+		try {
+			const result = await this.processImage(imageUri, "mlkit");
+			
+			const processingStats = {
+				totalTime: Date.now() - startTime,
+				preprocessTime: 0,
+			};
 
-		// Process with all available engines in parallel
-		const engines = this.getAvailableEngines();
-		const promises = engines.map(async (engine) => {
-			try {
-				const result = await engine.processImage(imageUri);
-				results.push(result);
-				return result;
-			} catch (error) {
-				console.error(`Error with ${engine.name}:`, error);
-				// Return error result
-				const errorResult: OCRResult = {
-					text: "",
-					confidence: 0,
-					blocks: [],
-					language: "en",
-					processingTime: 0,
-					engine: engine.name,
-				};
-				return errorResult;
-			}
-		});
-
-		await Promise.all(promises);
-
-		// Determine best engine based on confidence
-		const bestResult = results.reduce((best, current) =>
-			current.confidence > best.confidence ? current : best,
-		);
-
-		const processingStats = {
-			totalTime: Date.now() - startTime,
-			preprocessTime: 0, // Will be set by individual engines
-		};
-
-		return {
-			imageUri,
-			timestamp: new Date(),
-			results,
-			bestEngine: bestResult.engine,
-			processingStats,
-		};
+			return {
+				imageUri,
+				timestamp: new Date(),
+				results: [result],
+				bestEngine: result.engine,
+				processingStats,
+			};
+		} catch (error) {
+			console.error("Error with MLKit engine:", error);
+			throw error;
+		}
 	}
 
+	// Simplified - processes with MLKit only
 	async processInSequence(
 		imageUri: string,
-		engineNames: OCREngineName[],
+		engineNames: OCREngineName[] = ["mlkit"],
 	): Promise<OCRResult[]> {
 		const results: OCRResult[] = [];
 
-		for (const engineName of engineNames) {
-			try {
-				const result = await this.processImage(imageUri, engineName);
-				results.push(result);
-			} catch (error) {
-				console.error(`Error processing with ${engineName}:`, error);
-			}
+		try {
+			const result = await this.processImage(imageUri, "mlkit");
+			results.push(result);
+		} catch (error) {
+			console.error("Error processing with MLKit:", error);
 		}
 
 		return results;
 	}
 
-	getMemoryUsage(): { total: number; byEngine: { [key: string]: number } } {
-		const byEngine: { [key: string]: number } = {};
-		let total = 0;
-
-		this.engines.forEach((engine, name) => {
-			const usage = engine.getMemoryUsage?.() || 0;
-			byEngine[name] = usage;
-			total += usage;
-		});
-
-		return { total, byEngine };
+	getMemoryUsage(): number {
+		return 0; // Simplified - no memory management needed for MLKit only
 	}
 
 	async cleanup(): Promise<void> {
-		// Cleanup resources if needed
-		// Currently no engines require cleanup
+		// MLKit doesn't require cleanup, but keep for interface compatibility
+		console.log("[OCREngineManager] Cleanup called - no action needed for MLKit");
 	}
 }
 

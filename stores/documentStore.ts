@@ -54,7 +54,6 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				// Preserve all OCR and processing data
 				imageHash: doc.imageHash,
 				ocrText: doc.ocrText,
-				searchVector: doc.searchVector,
 				keywords: doc.keywords,
 				confidence: doc.confidence,
 				processedAt: doc.processedAt ? new Date(doc.processedAt) : undefined,
@@ -132,7 +131,6 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				// Preserve all OCR and processing data
 				imageHash: doc.imageHash,
 				ocrText: doc.ocrText,
-				searchVector: doc.searchVector,
 				keywords: doc.keywords,
 				confidence: doc.confidence,
 				processedAt: doc.processedAt ? new Date(doc.processedAt) : undefined,

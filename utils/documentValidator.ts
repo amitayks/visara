@@ -1,6 +1,6 @@
 // utils/documentValidator.ts
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: <explanation> */
-import type { DocumentResult } from "../services/ai/documentProcessor";
+import type { SimpleProcessedDocument } from "../services/ai/SimpleDocumentProcessor";
 
 /**
  * Validates and sanitizes document data before saving to database
@@ -8,13 +8,13 @@ import type { DocumentResult } from "../services/ai/documentProcessor";
  */
 export class DocumentValidator {
 	/**
-	 * Validates a DocumentResult and ensures all fields are properly formatted
+	 * Validates a SimpleProcessedDocument and ensures all fields are properly formatted
 	 */
-	static validateAndSanitize(result: DocumentResult): DocumentResult {
+	static validateAndSanitize(result: SimpleProcessedDocument): SimpleProcessedDocument {
 		console.log("[DocumentValidator] Validating document data");
 
 		// Create a clean copy of the result
-		const sanitized: DocumentResult = {
+		const sanitized: SimpleProcessedDocument = {
 			...result,
 			// Ensure required fields are never null/undefined
 			imageUri: result.imageUri || "",
@@ -25,9 +25,6 @@ export class DocumentValidator {
 			processedAt: result.processedAt || new Date(),
 			metadata: result.metadata || {},
 			keywords: Array.isArray(result.keywords) ? result.keywords : [],
-			searchVector: Array.isArray(result.searchVector)
-				? result.searchVector
-				: [],
 
 			// Optional numeric fields - keep as null if not present
 			imageWidth:
@@ -66,48 +63,25 @@ export class DocumentValidator {
 			cleaned.vendor = String(metadata.vendor);
 		}
 
-		// Safely copy amounts array
-		if (Array.isArray(metadata.amounts)) {
-			cleaned.amounts = metadata.amounts.map((amount: any) => ({
-				value: typeof amount.value === "number" ? amount.value : 0,
-				currency: String(amount.currency || "USD"),
-				isTotal: Boolean(amount.isTotal),
-			}));
-		} else {
-			cleaned.amounts = [];
+		// Safely copy totalAmount
+		if (typeof metadata.totalAmount === "number") {
+			cleaned.totalAmount = metadata.totalAmount;
 		}
 
-		// Safely copy dates array
-		if (Array.isArray(metadata.dates)) {
-			cleaned.dates = metadata.dates.map((dateItem: any) => ({
-				date: dateItem.date instanceof Date ? dateItem.date : new Date(),
-				type: String(dateItem.type || "unknown"),
-			}));
-		} else {
-			cleaned.dates = [];
+		// Safely copy currency
+		if (metadata.currency) {
+			cleaned.currency = String(metadata.currency);
 		}
 
-		// Safely copy items array
-		if (Array.isArray(metadata.items)) {
-			cleaned.items = metadata.items.map((item: any) => ({
-				name: String(item.name || ""),
-				quantity: typeof item.quantity === "number" ? item.quantity : 1,
-				price: typeof item.price === "number" ? item.price : 0,
-			}));
-		} else {
-			cleaned.items = [];
+		// Safely copy date
+		if (metadata.date instanceof Date) {
+			cleaned.date = metadata.date;
 		}
 
-		// Safely copy location
-		if (metadata.location) {
-			cleaned.location = {
-				address: String(metadata.location.address || ""),
-			};
+		// Safely copy language
+		if (metadata.language) {
+			cleaned.language = String(metadata.language);
 		}
-
-		// Safely copy confidence
-		cleaned.confidence =
-			typeof metadata.confidence === "number" ? metadata.confidence : 0;
 
 		return cleaned;
 	}
@@ -116,8 +90,8 @@ export class DocumentValidator {
 	 * Logs validation results for debugging
 	 */
 	private static logValidationResults(
-		original: DocumentResult,
-		sanitized: DocumentResult,
+		original: SimpleProcessedDocument,
+		sanitized: SimpleProcessedDocument,
 	): void {
 		const changes: string[] = [];
 
@@ -136,12 +110,6 @@ export class DocumentValidator {
 			Array.isArray(sanitized.keywords)
 		) {
 			changes.push("keywords: initialized as empty array");
-		}
-		if (
-			!Array.isArray(original.searchVector) &&
-			Array.isArray(sanitized.searchVector)
-		) {
-			changes.push("searchVector: initialized as empty array");
 		}
 
 		if (changes.length > 0) {

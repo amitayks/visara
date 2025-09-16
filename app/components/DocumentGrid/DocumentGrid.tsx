@@ -26,7 +26,6 @@ export interface Document {
 	createdAt: Date;
 	imageHash?: string;
 	ocrText?: string;
-	searchVector?: number[];
 	keywords?: string[];
 	confidence?: number;
 	processedAt?: Date;

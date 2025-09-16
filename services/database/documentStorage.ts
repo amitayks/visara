@@ -1,8 +1,5 @@
 import { Q } from "@nozbe/watermelondb";
-import {
-	type DocumentResult,
-	ExtractedMetadata,
-} from "../ai/documentProcessor";
+import type { SimpleProcessedDocument } from "../ai/SimpleDocumentProcessor";
 import { database } from "./index";
 import type Document from "./models/Document";
 import { BehaviorSubject, Subscription } from "rxjs";
@@ -10,7 +7,7 @@ import { BehaviorSubject, Subscription } from "rxjs";
 export class DocumentStorage {
 	private documentsSubject = new BehaviorSubject<Document[]>([]);
 	private documentObservable: Subscription | null = null;
-	async saveDocument(result: DocumentResult): Promise<Document> {
+	async saveDocument(result: SimpleProcessedDocument): Promise<Document> {
 		console.log(
 			`[DocumentStorage] Saving document with hash: ${result.imageHash}`,
 		);
@@ -43,7 +40,6 @@ export class DocumentStorage {
 				doc.processedAt = result.processedAt;
 				doc.metadata = result.metadata;
 				doc.keywords = result.keywords;
-				doc.searchVector = result.searchVector;
 				doc.imageWidth = result.imageWidth;
 				doc.imageHeight = result.imageHeight;
 				doc.imageSize = result.imageSize;
@@ -57,24 +53,13 @@ export class DocumentStorage {
 					doc.vendor = result.metadata.vendor;
 				}
 
-				if (result.metadata.amounts && result.metadata.amounts.length > 0) {
-					const totalAmount = result.metadata.amounts.find((a) => a.isTotal);
-					if (totalAmount) {
-						doc.totalAmount = totalAmount.value;
-						doc.currency = totalAmount.currency;
-					} else {
-						// Use the largest amount if no total found
-						const maxAmount = result.metadata.amounts.reduce((max, curr) =>
-							curr.value > max.value ? curr : max,
-						);
-						doc.totalAmount = maxAmount.value;
-						doc.currency = maxAmount.currency;
-					}
+				if (result.metadata.totalAmount) {
+					doc.totalAmount = result.metadata.totalAmount;
+					doc.currency = result.metadata.currency || "USD";
 				}
 
-				if (result.metadata.dates && result.metadata.dates.length > 0) {
-					// Use the first date found
-					doc.date = result.metadata.dates[0].date.getTime();
+				if (result.metadata.date) {
+					doc.date = result.metadata.date.getTime();
 				}
 
 				// Log what we're saving

@@ -13,9 +13,9 @@ import { nativeMemoryManager } from "../memory/nativeMemoryManager";
 import { galleryPermissions } from "../permissions/galleryPermissions";
 import { documentValidator } from "../../utils/documentValidator";
 import {
-	type DocumentResult,
-	documentProcessor,
-} from "../ai/documentProcessor";
+	type SimpleProcessedDocument,
+	simpleDocumentProcessor,
+} from "../ai/SimpleDocumentProcessor";
 import { documentStorage } from "../database/documentStorage";
 import { visualDocumentDetector } from "../ai/visualDocumentDetector";
 import { useScannerStore } from "../../stores/scannerStore";
@@ -525,7 +525,12 @@ export class GalleryScanner {
 	): Promise<boolean> {
 		try {
 			// Process with document processor
-			const result = await documentProcessor.processImage(fingerprint.uri);
+			const result = await simpleDocumentProcessor.process(fingerprint.uri);
+			
+			if (!result) {
+				console.log(`[GalleryScanner] Document processing failed or rejected for ${fingerprint.uri}`);
+				return false;
+			}
 
 			// Validate and sanitize
 			const sanitizedResult = documentValidator.validateAndSanitize(result);
@@ -610,7 +615,21 @@ export class GalleryScanner {
 			);
 
 			// Process with document processor
-			const result = await documentProcessor.processImage(fingerprint.uri);
+			const result = await simpleDocumentProcessor.process(fingerprint.uri);
+			
+			if (!result) {
+				console.log(`[GalleryScanner] Document processing failed or rejected for ${fingerprint.uri}`);
+				await improvedFileTracker.markAsProcessed(
+					improvedFileTracker.getFingerprintId(fingerprint),
+					{
+						success: false,
+						error: "Document processing failed",
+						processingTimeMs: 0,
+					},
+					this.currentBatch!.id,
+				);
+				return false;
+			}
 
 			// Additional confidence check from OCR result
 			if (result.confidence < 0.5) {
@@ -734,7 +753,7 @@ export class GalleryScanner {
 	async processImage(
 		imageUri: string,
 		options?: { force?: boolean },
-	): Promise<DocumentResult | null> {
+	): Promise<SimpleProcessedDocument | null> {
 		try {
 			console.log(`[GalleryScanner] Processing single image: ${imageUri}`);
 
@@ -760,7 +779,12 @@ export class GalleryScanner {
 			}
 
 			// Process with document processor
-			const result = await documentProcessor.processImage(imageUri);
+			const result = await simpleDocumentProcessor.process(imageUri);
+			
+			if (!result) {
+				console.log(`[GalleryScanner] Document processing failed or rejected for ${imageUri}`);
+				return null;
+			}
 
 			// Validate and sanitize
 			const sanitizedResult = documentValidator.validateAndSanitize(result);

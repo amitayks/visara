@@ -8,7 +8,7 @@ import {
 } from "@react-native-camera-roll/camera-roll";
 import { ScannerStorage } from "../../storage/MMKVStorage";
 import { documentStorage } from "../database/documentStorage";
-import { documentProcessor } from "../ai/documentProcessor";
+import { simpleDocumentProcessor } from "../ai/SimpleDocumentProcessor";
 import { documentValidator } from "../../utils/documentValidator";
 
 // ===============================
