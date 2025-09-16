@@ -1,3 +1,7 @@
+// services/ai/QuickFixVisualDetector.ts
+// QUICK FIX - Drop-in replacement for your current visualDocumentDetector.ts
+// This is a simpler fix that improves detection without full rewrite
+
 import { Image } from "react-native";
 import RNFS from "react-native-fs";
 
@@ -9,76 +13,102 @@ export interface DocumentFeatures {
 	whiteSpaceRatio: number;
 	aspectRatio: number;
 	overallScore: number;
+	textDensity?: number;
+	colorVariance?: number;
+	hasTableStructure?: boolean;
+	hasStraightLines?: boolean;
 }
 
 export class VisualDocumentDetector {
-	/**
-	 * Detect if an image is likely a document based on visual features
-	 * Returns a score from 0-1
-	 */
 	async detectDocument(imageUri: string): Promise<DocumentFeatures> {
 		try {
-			// Get image dimensions
 			const dimensions = await this.getImageDimensions(imageUri);
-
-			// Calculate aspect ratio (documents are usually 1:1.4 or similar)
 			const aspectRatio = dimensions.width / dimensions.height;
-			const isDocumentRatio =
-				(aspectRatio > 0.6 && aspectRatio < 0.9) || // Portrait document
-				(aspectRatio > 1.2 && aspectRatio < 1.8); // Landscape document
 
-			// Analyze image characteristics
-			const features = await this.analyzeImageFeatures(imageUri, dimensions);
+			// Get file stats for better detection
+			const stats = await RNFS.stat(imageUri).catch(() => null);
+			const fileSize = stats?.size || 0;
+			const fileName = imageUri.toLowerCase();
 
-			// Calculate scores for each feature
-			const scores = {
-				rectangleScore: this.detectRectangularEdges(features),
-				textLayoutScore: this.detectTextLayout(features),
-				contrastScore: this.detectHighContrast(features),
-				structureScore: this.detectDocumentStructure(features),
-			};
+			// IMPROVED: Better detection logic
+			let score = 0;
+			let textRegions = 0;
+			let confidence = 0;
 
-			// Add document ratio bonus/penalty
-			let aspectRatioScore = 0;
-			if (isDocumentRatio) {
-				aspectRatioScore = 0.8; // Strong indicator of document
-			} else if (aspectRatio < 0.3 || aspectRatio > 3.0) {
-				aspectRatioScore = 0.1; // Very unlikely to be a document
-			} else {
-				aspectRatioScore = 0.4; // Neutral
-			}
+			// 1. Aspect Ratio Analysis (Documents have standard ratios)
+			const aspectScore = this.getAspectRatioScore(aspectRatio);
+			score += aspectScore * 0.25;
 
-			// Combine scores with weights (more selective)
-			const overallScore =
-				scores.rectangleScore * 0.25 +
-				scores.textLayoutScore * 0.25 +
-				scores.contrastScore * 0.15 +
-				scores.structureScore * 0.15 +
-				aspectRatioScore * 0.2;
+			// 2. File Size Analysis (Documents compress well)
+			const sizeScore = this.getFileSizeScore(fileSize, dimensions);
+			score += sizeScore * 0.15;
 
-			console.log(`[VisualDocumentDetector] Analysis for ${imageUri.substring(imageUri.lastIndexOf('/') + 1)}:`, {
-				aspectRatio: aspectRatio.toFixed(2),
-				isDocumentRatio,
-				rectangleScore: scores.rectangleScore.toFixed(2),
-				textLayoutScore: scores.textLayoutScore.toFixed(2),
-				contrastScore: scores.contrastScore.toFixed(2),
-				structureScore: scores.structureScore.toFixed(2),
-				aspectRatioScore: aspectRatioScore.toFixed(2),
-				overallScore: overallScore.toFixed(3),
-				decision: overallScore >= 0.5 ? 'ACCEPT' : 'REJECT'
-			});
+			// 3. Filename Analysis (More nuanced)
+			const nameScore = this.getFilenameScore(fileName);
+			score += nameScore * 0.1;
+
+			// 4. Screenshot Detection (PENALTY)
+			const screenshotPenalty = this.getScreenshotPenalty(
+				fileName,
+				aspectRatio,
+			);
+			score -= screenshotPenalty;
+
+			// 5. Photo Detection (PENALTY)
+			const photoPenalty = this.getPhotoPenalty(
+				fileName,
+				fileSize,
+				aspectRatio,
+			);
+			score -= photoPenalty;
+
+			// 6. Document Boost (if it really looks like a document)
+			const documentBoost = this.getDocumentBoost(
+				aspectRatio,
+				fileSize,
+				fileName,
+			);
+			score += documentBoost;
+
+			// Ensure score is between 0 and 1
+			score = Math.max(0, Math.min(1, score));
+
+			// Estimate other features based on score
+			const isLikelyDocument = score > 0.5;
+			textRegions = isLikelyDocument ? Math.floor(score * 10) : 2;
+			const contrast = isLikelyDocument ? 0.7 + score * 0.2 : 0.4;
+			const whiteSpace = isLikelyDocument ? 0.3 + score * 0.2 : 0.1;
+
+			console.log(
+				`[QuickFix] ${fileName.substring(fileName.lastIndexOf("/") + 1)}:`,
+				{
+					aspectRatio: aspectRatio.toFixed(2),
+					aspectScore: aspectScore.toFixed(2),
+					sizeScore: sizeScore.toFixed(2),
+					nameScore: nameScore.toFixed(2),
+					screenshotPenalty: screenshotPenalty.toFixed(2),
+					photoPenalty: photoPenalty.toFixed(2),
+					documentBoost: documentBoost.toFixed(2),
+					finalScore: score.toFixed(3),
+					decision: score >= 0.5 ? "✅ DOCUMENT" : "❌ NOT DOCUMENT",
+				},
+			);
 
 			return {
-				hasRectangularShape: scores.rectangleScore > 0.7,
-				edgeDensity: features.edgeDensity,
-				textRegionCount: features.textRegions,
-				contrastRatio: features.contrast,
-				whiteSpaceRatio: features.whiteSpace,
+				hasRectangularShape: score > 0.6,
+				edgeDensity: score * 0.8,
+				textRegionCount: textRegions,
+				contrastRatio: contrast,
+				whiteSpaceRatio: whiteSpace,
 				aspectRatio,
-				overallScore,
+				overallScore: score,
+				textDensity: score * 0.7,
+				colorVariance: 1 - score,
+				hasTableStructure: score > 0.7 && aspectRatio < 0.6,
+				hasStraightLines: score > 0.6,
 			};
 		} catch (error) {
-			console.error("[VisualDocumentDetector] Error:", error);
+			console.error("[QuickFix] Error:", error);
 			return {
 				hasRectangularShape: false,
 				edgeDensity: 0,
@@ -91,122 +121,168 @@ export class VisualDocumentDetector {
 		}
 	}
 
-	private async analyzeImageFeatures(
-		imageUri: string,
+	private getAspectRatioScore(ratio: number): number {
+		// A4 Portrait (0.707)
+		if (ratio >= 0.65 && ratio <= 0.75) return 0.95;
+
+		// US Letter Portrait (0.773)
+		if (ratio >= 0.75 && ratio <= 0.82) return 0.93;
+
+		// A4 Landscape (1.414)
+		if (ratio >= 1.35 && ratio <= 1.48) return 0.93;
+
+		// US Letter Landscape (1.294)
+		if (ratio >= 1.22 && ratio <= 1.35) return 0.91;
+
+		// Receipt (narrow, 0.3-0.5)
+		if (ratio >= 0.25 && ratio <= 0.5) return 0.88;
+
+		// Wide receipt/invoice
+		if (ratio >= 0.5 && ratio <= 0.65) return 0.85;
+
+		// Square (Instagram/Social - BAD)
+		if (ratio >= 0.95 && ratio <= 1.05) return 0.1;
+
+		// Ultra wide (Screenshot - BAD)
+		if (ratio > 1.8) return 0.05;
+
+		// Ultra tall (Screenshot - BAD)
+		if (ratio < 0.25) return 0.05;
+
+		// Other
+		return 0.3;
+	}
+
+	private getFileSizeScore(
+		fileSize: number,
 		dimensions: { width: number; height: number },
-	): Promise<any> {
-		// Simplified feature extraction based on common document characteristics
-		// In production, you'd use image processing libraries
+	): number {
+		if (fileSize === 0) return 0.3; // Unknown
 
-		// Estimate features based on common patterns
-		let edgeDensity = 0.5;
-		let textRegions = 3;
-		let contrast = 0.6;
-		let whiteSpace = 0.3;
-		let lines = 5;
+		const pixels = dimensions.width * dimensions.height;
+		const bytesPerPixel = fileSize / pixels;
 
-		// Documents typically have certain aspect ratios
-		const aspectRatio = dimensions.width / dimensions.height;
-		if (
-			(aspectRatio > 0.65 && aspectRatio < 0.75) || // A4 portrait
-			(aspectRatio > 1.3 && aspectRatio < 1.45)
-		) {
-			// A4 landscape
-			edgeDensity += 0.2;
-			textRegions += 2;
-		}
-
-		// Check filename for document indicators
-		if (
-			imageUri.toLowerCase().includes("scan") ||
-			imageUri.toLowerCase().includes("doc") ||
-			imageUri.toLowerCase().includes("receipt") ||
-			imageUri.toLowerCase().includes("invoice")
-		) {
-			textRegions += 3;
-			contrast += 0.2;
-			lines += 5;
-		}
-
-		// Screenshots penalty - they're not physical documents
-		if (imageUri.toLowerCase().includes("screenshot") ||
-			imageUri.toLowerCase().includes("screen")) {
-			// Reduce all scores significantly for screenshots
-			edgeDensity *= 0.5;
-			contrast *= 0.6;
-			textRegions = Math.max(1, textRegions - 3);
-			lines = Math.max(1, lines - 4);
-			whiteSpace = 0.1; // Screenshots usually have less white space
-		}
-
-		// Photo/camera indicators (more likely to be actual documents)
-		if (imageUri.toLowerCase().includes("img_") ||
-			imageUri.toLowerCase().includes("photo") ||
-			imageUri.toLowerCase().includes("camera")) {
-			edgeDensity += 0.1;
-			textRegions += 1;
-			contrast += 0.1;
-		}
-
-		return {
-			edgeDensity: Math.min(edgeDensity, 1),
-			textRegions: textRegions,
-			contrast: Math.min(contrast, 1),
-			whiteSpace: whiteSpace,
-			lines: lines,
-		};
+		// Documents compress well (lots of white space, text)
+		// Typical document: 0.1-0.5 bytes per pixel
+		if (bytesPerPixel < 0.1) return 0.7; // Very compressed (good)
+		if (bytesPerPixel < 0.3) return 0.85; // Well compressed (very good)
+		if (bytesPerPixel < 0.5) return 0.7; // Moderately compressed (good)
+		if (bytesPerPixel < 1.0) return 0.4; // Some compression
+		if (bytesPerPixel < 2.0) return 0.2; // Photo-like
+		return 0.1; // Heavy photo
 	}
 
-	private detectRectangularEdges(features: any): number {
-		// Documents have strong rectangular boundaries
-		// Look for straight edges and corners
-		if (features.edgeDensity > 0.7) return 0.9;
-		if (features.edgeDensity > 0.5) return 0.6;
-		return 0.3;
+	private getFilenameScore(fileName: string): number {
+		// Positive indicators
+		if (fileName.includes("scan")) return 0.9;
+		if (fileName.includes("doc")) return 0.85;
+		if (fileName.includes("receipt")) return 0.95;
+		if (fileName.includes("קבלה")) return 0.95; // Hebrew receipt
+		if (fileName.includes("invoice")) return 0.95;
+		if (fileName.includes("חשבונית")) return 0.95; // Hebrew invoice
+		if (fileName.includes("bill")) return 0.9;
+		if (fileName.includes("contract")) return 0.9;
+		if (fileName.includes("form")) return 0.85;
+		if (fileName.includes("letter")) return 0.85;
+		if (fileName.includes("pdf")) return 0.8; // Converted from PDF
+
+		// Negative indicators
+		if (fileName.includes("screenshot")) return 0;
+		if (fileName.includes("img_")) return 0.2; // Camera photo
+		if (fileName.includes("photo")) return 0.1;
+		if (fileName.includes("selfie")) return 0;
+		if (fileName.includes("meme")) return 0;
+		if (fileName.includes("whatsapp")) return 0.1;
+		if (fileName.includes("instagram")) return 0;
+		if (fileName.includes("facebook")) return 0;
+
+		return 0.3; // Neutral
 	}
 
-	private detectTextLayout(features: any): number {
-		// Documents have structured text regions
-		// Multiple aligned text blocks indicate a document
-		if (features.textRegions >= 5) return 0.9;
-		if (features.textRegions >= 3) return 0.7;
-		if (features.textRegions >= 2) return 0.5;
-		return 0.2;
+	private getScreenshotPenalty(fileName: string, aspectRatio: number): number {
+		let penalty = 0;
+
+		// Strong screenshot indicators
+		if (fileName.includes("screenshot")) penalty += 0.5;
+		if (fileName.includes("screen")) penalty += 0.3;
+
+		// Aspect ratio indicators
+		if (aspectRatio > 1.9) penalty += 0.3; // Very wide (mobile screenshot)
+		if (aspectRatio > 2.1) penalty += 0.4; // Ultra wide
+
+		// Platform indicators
+		if (fileName.includes("ios_") || fileName.includes("android_"))
+			penalty += 0.2;
+
+		return Math.min(penalty, 0.7); // Cap penalty
 	}
 
-	private detectHighContrast(features: any): number {
-		// Documents typically have high contrast (white bg, black text)
-		if (features.contrast > 0.8) return 0.95;
-		if (features.contrast > 0.6) return 0.7;
-		if (features.contrast > 0.4) return 0.5;
-		return 0.3;
+	private getPhotoPenalty(
+		fileName: string,
+		fileSize: number,
+		aspectRatio: number,
+	): number {
+		let penalty = 0;
+
+		// Photo indicators
+		if (fileName.includes("img_")) penalty += 0.2;
+		if (fileName.includes("photo")) penalty += 0.3;
+		if (fileName.includes("camera")) penalty += 0.2;
+		if (fileName.includes("dcim")) penalty += 0.15; // Camera folder
+		if (fileName.includes("jpg") && fileSize > 2000000) penalty += 0.2; // Large JPEG
+
+		// Social media indicators
+		if (fileName.includes("whatsapp")) penalty += 0.3;
+		if (fileName.includes("telegram")) penalty += 0.3;
+		if (fileName.includes("instagram")) penalty += 0.4;
+		if (fileName.includes("facebook")) penalty += 0.4;
+		if (fileName.includes("snapchat")) penalty += 0.4;
+		if (fileName.includes("tiktok")) penalty += 0.4;
+
+		// Square photos (social media)
+		if (aspectRatio > 0.95 && aspectRatio < 1.05) penalty += 0.3;
+
+		return Math.min(penalty, 0.6); // Cap penalty
 	}
 
-	private detectDocumentStructure(features: any): number {
-		// Documents have lines, boxes, structured layout
-		if (features.lines > 8) return 0.9;
-		if (features.lines > 5) return 0.7;
-		if (features.lines > 3) return 0.5;
-		return 0.3;
+	private getDocumentBoost(
+		aspectRatio: number,
+		fileSize: number,
+		fileName: string,
+	): number {
+		let boost = 0;
+
+		// Strong document indicators combo
+		const hasDocumentName =
+			fileName.includes("doc") ||
+			fileName.includes("scan") ||
+			fileName.includes("receipt") ||
+			fileName.includes("invoice");
+		const hasDocumentAspect =
+			(aspectRatio > 0.65 && aspectRatio < 0.82) ||
+			(aspectRatio > 1.22 && aspectRatio < 1.48);
+		const hasGoodCompression = fileSize > 0 && fileSize < 1000000;
+
+		if (hasDocumentName && hasDocumentAspect) boost += 0.3;
+		if (hasDocumentAspect && hasGoodCompression) boost += 0.2;
+		if (hasDocumentName && hasGoodCompression) boost += 0.15;
+
+		// Receipt-specific boost
+		if (aspectRatio > 0.25 && aspectRatio < 0.5 && hasGoodCompression) {
+			boost += 0.25;
+		}
+
+		return Math.min(boost, 0.4); // Cap boost
 	}
 
 	private async getImageDimensions(
 		uri: string,
 	): Promise<{ width: number; height: number }> {
-		return new Promise((resolve, reject) => {
+		return new Promise((resolve) => {
 			Image.getSize(
 				uri,
-				(width, height) => {
-					resolve({ width, height });
-				},
-				(error) => {
-					console.error(
-						"[VisualDocumentDetector] Failed to get image dimensions:",
-						error,
-					);
-					// Return default dimensions on error
-					resolve({ width: 1000, height: 1000 });
-				},
+				(width, height) => resolve({ width, height }),
+				() => resolve({ width: 1000, height: 1000 }), // Default on error
 			);
 		});
 	}
