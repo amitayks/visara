@@ -26,8 +26,9 @@ import { AppHeader } from "./components/AppHeader";
 import { type Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
 import { FloatingActionButton } from "./components/FloatingActionButton";
-import { ScanProgressBar } from "./components/ScanProgressBar";
+import { ProductionProgressBar } from "./components/ProductionProgressBar/ProductionProgressBar";
 import { SearchBar } from "./components/SearchBar";
+import { progressTracker } from "../services/progress/ProductionProgressTracker";
 import { showToast, ToastContainer } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
 import { useSearchStore } from "../stores/searchStore";
@@ -62,6 +63,13 @@ export default function HomeScreen() {
 		const unsubscribe = initializeRealTimeUpdates();
 		return unsubscribe;
 	}, [initializeRealTimeUpdates]);
+
+	// Clean up progress tracker on unmount
+	useEffect(() => {
+		return () => {
+			progressTracker.reset();
+		};
+	}, []);
 
 	// Optimized scan progress subscription
 	useEffect(() => {
@@ -262,12 +270,8 @@ export default function HomeScreen() {
 				<>
 					<AppHeader setShowUploadModal={setShowUploadModal} />
 
-					{isScanning && scanProgress && (
-						<ScanProgressBar
-							progress={scanProgress}
-							animated
-						/>
-					)}
+					{/* Add the progress bar near the top of the screen */}
+					<ProductionProgressBar />
 
 					<DocumentGrid
 						onDocumentPress={handleDocumentPress}

@@ -79,26 +79,12 @@ export const useScannerStore = create<
 			isScanningPaused: false,
 			nextScheduledScan: null,
 
-			// FIXED: Remove debounce for immediate updates
+			// Immediate updates without debouncing
 			setScanProgress: (progress: ScanProgress) => {
-				set((state) => {
-					// Only update if there's a meaningful change
-					const currentProgress = state.scanProgress;
-					
-					const hasChanged = 
-						currentProgress.isScanning !== progress.isScanning ||
-						currentProgress.processedImages !== progress.processedImages ||
-						currentProgress.totalImages !== progress.totalImages ||
-						currentProgress.phase !== progress.phase;
-					
-					if (hasChanged) {
-						return { scanProgress: progress };
-					}
-					return state;
-				});
+				set({ scanProgress: progress });
 			},
 
-			// Add a new method for immediate updates (for start/stop events)
+			// Keep for compatibility but both do the same now
 			setImmediateScanProgress: (progress: ScanProgress) => {
 				set({ scanProgress: progress });
 			},

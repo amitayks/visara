@@ -2,6 +2,7 @@
 // Enhanced Gallery Scanner - Core Implementation
 
 import { ScannerStorage } from "../../storage/MMKVStorage";
+import { progressTracker } from '../progress/ProductionProgressTracker';
 import {
 	CameraRoll,
 	PhotoIdentifier,
@@ -102,8 +103,6 @@ export class GalleryScanner {
 
 	private onProgressCallback?: (progress: ScanProgress) => void;
 	private progressSubject = new BehaviorSubject<ScanProgress>(this.progress);
-	private lastProgressUpdateTime = 0;
-	private readonly PROGRESS_UPDATE_THROTTLE = 150;
 
 	// Enhanced tracking
 	private currentBatch: ScanBatch | null = null;
@@ -233,14 +232,21 @@ export class GalleryScanner {
 				`[GalleryScanner] Starting ${mergedOptions.type} scan with enhanced system`,
 			);
 
+			// Initialize production progress tracker
+			const galleryImages = await this.fetchAllGalleryImages();
+			const totalImages = galleryImages.length;
+			if (totalImages > 0) {
+				progressTracker.start(totalImages);
+			}
+
 			// Create batch
 			this.currentBatch = improvedFileTracker.createBatch(
 				mergedOptions.type === "retry" ? "manual" : "periodic",
 				mergedOptions.type,
 			);
 
-			// Discover changes
-			const result = await this.discoverAndProcessChanges(mergedOptions);
+				// Discover changes (don't fetch galleryImages again, pass the ones we already have)
+			const result = await this.discoverAndProcessChanges(mergedOptions, galleryImages);
 
 			// Update final stats
 			const stats = improvedFileTracker.getStats();
@@ -284,11 +290,15 @@ export class GalleryScanner {
 			this.isScanning = false;
 			this.progress.isScanning = false;
 			this.currentScanOptions = null; // Clear current scan options
+			
+			// Complete the progress tracking
+			progressTracker.complete();
+			
 			this.updateProgressSubject();
 		}
 	}
 
-	private async discoverAndProcessChanges(options: ScanOptions): Promise<{
+	private async discoverAndProcessChanges(options: ScanOptions, galleryImages?: PhotoIdentifier[]): Promise<{
 		newFiles: number;
 		changedFiles: number;
 		skippedFiles: number;
@@ -319,9 +329,9 @@ export class GalleryScanner {
 				failedFiles = savedProgress.failedFiles || 0;
 			}
 
-			// Fetch all gallery images
-			const galleryImages = await this.fetchAllGalleryImages();
-			const totalImages = galleryImages.length;
+			// Use provided galleryImages or fetch if not provided
+			const images = galleryImages || await this.fetchAllGalleryImages();
+			const totalImages = images.length;
 
 			console.log(`[GalleryScanner] Found ${totalImages} images in gallery`);
 
@@ -332,7 +342,7 @@ export class GalleryScanner {
 
 			for (let i = startIndex; i < totalImages && !this.shouldStop; i += STREAM_BATCH_SIZE) {
 				const batchEnd = Math.min(i + STREAM_BATCH_SIZE, totalImages);
-				const batch = galleryImages.slice(i, batchEnd);
+				const batch = images.slice(i, batchEnd);
 
 				console.log(`[GalleryScanner] Processing batch ${i}-${batchEnd} of ${totalImages}`);
 
@@ -379,7 +389,7 @@ export class GalleryScanner {
 					lastProcessedUri = uri;
 					processedInBatch++;
 
-					// Update progress more frequently for better UI feedback
+					// Update progress immediately for each image
 					this.progress = {
 						...this.progress,
 						totalImages,
@@ -392,13 +402,8 @@ export class GalleryScanner {
 						failedFiles,
 					};
 					
-					// Use immediate update for every 5th image
-					if (processedInBatch % 5 === 0) {
-						this.updateProgressSubject();
-						
-						// Also force update the store
-						useScannerStore.getState().setImmediateScanProgress(this.progress);
-					}
+					// Immediate update - no throttling
+					this.updateProgressSubject();
 
 					try {
 						const existingFingerprint = await improvedFileTracker.findExistingFingerprint(uri);
@@ -823,9 +828,12 @@ export class GalleryScanner {
 	stopScan(): void {
 		console.log("[GalleryScanner] Stopping scan...");
 		this.shouldStop = true;
-
 		this.isScanning = false;
 		this.progress.isScanning = false;
+		
+		// Complete the progress tracking
+		progressTracker.complete();
+		
 		this.updateProgressSubject();
 	}
 
@@ -918,40 +926,27 @@ export class GalleryScanner {
 	 * Update progress subject with throttling
 	 */
 	private updateProgressSubject(): void {
-		const now = Date.now();
-
-		// Throttle updates to prevent UI flooding
-		if (now - this.lastProgressUpdateTime < this.PROGRESS_UPDATE_THROTTLE) {
-			return;
+		// Update production tracker immediately
+		if (this.progress.isScanning) {
+			progressTracker.update(
+				this.progress.processedImages,
+				this.progress.currentFile
+			);
 		}
-
-		this.lastProgressUpdateTime = now;
-
-		// Determine scan type based on context
-		let scanType: "initial" | "monitoring" | "completed" = "initial";
-
-		if (!this.progress.isScanning && this.progress.processedImages > 0) {
-			scanType = "completed";
-		} else if (
-			this.progress.lastScanDate &&
-			Date.now() - this.progress.lastScanDate.getTime() < 3600000
-		) {
-			// If we've scanned within the last hour, we're monitoring
-			scanType = "monitoring";
-		}
-
-		const enhancedProgress = {
-			...this.progress,
-			scanType,
-			discoveredNewImages:
-				scanType === "monitoring" ? this.progress.newFiles : undefined,
-		};
-
-		this.progressSubject.next(enhancedProgress);
-
-		// Also update the store directly with throttling
+		
+		// Keep compatibility with existing subscribers
+		this.progressSubject.next(this.progress);
+		
 		if (this.onProgressCallback) {
-			this.onProgressCallback(enhancedProgress);
+			this.onProgressCallback(this.progress);
+		}
+		
+		// Update store for other UI components
+		const store = useScannerStore.getState();
+		if (store.setImmediateScanProgress) {
+			store.setImmediateScanProgress(this.progress);
+		} else {
+			store.setScanProgress(this.progress);
 		}
 	}
 

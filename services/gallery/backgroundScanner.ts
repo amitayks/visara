@@ -13,7 +13,34 @@ import {
 	Platform,
 } from "react-native";
 import { ScannerStorage } from "../../storage/MMKVStorage";
-import { ProgressUpdateManager } from "./ProgressUpdateManager";
+import { progressTracker } from '../progress/ProductionProgressTracker';
+
+class ProductionBackgroundProgress {
+	async updateProgress(progress: any): Promise<void> {
+		if (!progress.totalImages || progress.totalImages === 0) return;
+		
+		if (progress.processedImages === 0) {
+			progressTracker.start(progress.totalImages);
+		} else {
+			progressTracker.update(
+				progress.processedImages,
+				progress.currentFile
+			);
+		}
+	}
+	
+	async forceUpdate(progress: any, message?: string): Promise<void> {
+		if (message && !progress.isScanning) {
+			// Don't show progress for status messages when not scanning
+			return;
+		}
+		await this.updateProgress(progress);
+	}
+	
+	setPaused(paused: boolean): void {
+		// Production tracker handles this internally
+	}
+}
 
 interface BackgroundTaskOptions {
 	taskName: string;
@@ -532,9 +559,8 @@ export class BackgroundScanner {
 			await this.handleNotificationAction(taskData.action);
 		}
 
-		// Create our smart progress manager
-		const progressManager = new ProgressUpdateManager();
-		progressManager.setPaused(this.isPaused);
+		// Create our simple progress manager
+		const progressManager = new ProductionBackgroundProgress();
 
 		try {
 			// Load any saved state from previous interrupted scans
@@ -699,7 +725,7 @@ export class BackgroundScanner {
 
 	// Enhanced version of performBackgroundScan with better progress tracking
 	private async performEnhancedBackgroundScan(
-		progressManager: ProgressUpdateManager,
+		progressManager: ProductionBackgroundProgress,
 	): Promise<void> {
 		const settings = settingsStore.getState().settings;
 
@@ -730,40 +756,18 @@ export class BackgroundScanner {
 			let scanStarted = false;
 			let lastProgressUpdate = Date.now();
 
-			// Ensure scan continues in background with enhanced progress tracking
 			await galleryScanner.startScan(scanOptions, async (progress) => {
-				// Check if we should pause
 				if (this.isPaused) {
-					console.log("[BackgroundScanner] Scan paused by app state");
+					console.log("[BackgroundScanner] Scan paused");
 					return;
 				}
-
-				// Detect scan type
-				const isMonitoring =
-					progress.lastScanDate &&
-					Date.now() - progress.lastScanDate.getTime() < 3600000;
-
-				const enhancedProgress = {
-					...progress,
-					scanType: isMonitoring
-						? ("monitoring" as const)
-						: ("initial" as const),
-					discoveredNewImages: isMonitoring ? progress.totalImages : undefined,
-				};
-
-				// Update progress with appropriate message
-				if (progress.processedImages === 0 && progress.totalImages > 0) {
-					await progressManager.forceUpdate(
-						enhancedProgress,
-						isMonitoring
-							? `Found ${progress.totalImages} new images to check...`
-							: `Scanning ${progress.totalImages} images...`,
-					);
-				} else if (progress.processedImages % 20 === 0) {
-					// Update less frequently
-					await progressManager.updateProgress(enhancedProgress);
-				}
+				
+				// Simple update
+				await progressManager.updateProgress(progress);
 			});
+
+			// After scan completes
+			progressTracker.complete();
 
 			console.log(
 				"[BackgroundScanner] Enhanced background gallery scan completed",
@@ -819,7 +823,7 @@ export class BackgroundScanner {
 
 	// Intelligent sleep method that keeps service alive and provides updates
 	private async intelligentSleep(
-		progressManager: ProgressUpdateManager,
+		progressManager: ProductionBackgroundProgress,
 	): Promise<void> {
 		const settings = settingsStore.getState().settings;
 		const intervalMs = this.getIntervalMs(settings.scanFrequency);
