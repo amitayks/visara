@@ -1,9 +1,7 @@
-// services/ai/QuickFixVisualDetector.ts
-// QUICK FIX - Drop-in replacement for your current visualDocumentDetector.ts
-// This is a simpler fix that improves detection without full rewrite
-
-import { Image } from "react-native";
+import { Image, NativeModules, Platform } from "react-native";
 import RNFS from "react-native-fs";
+import ImageResizer from "@bam.tech/react-native-image-resizer";
+import { ImagePixelAnalyzer } from "./ImagePixelAnalyzer";
 
 export interface DocumentFeatures {
 	hasRectangularShape: boolean;
@@ -17,274 +15,429 @@ export interface DocumentFeatures {
 	colorVariance?: number;
 	hasTableStructure?: boolean;
 	hasStraightLines?: boolean;
+	documentType?:
+		| "receipt"
+		| "invoice"
+		| "photo"
+		| "screenshot"
+		| "meme"
+		| "unknown";
 }
 
 export class VisualDocumentDetector {
+	/**
+	 * Properly detect if an image is likely a document
+	 * This implementation actually analyzes the image pixels
+	 */
 	async detectDocument(imageUri: string): Promise<DocumentFeatures> {
 		try {
+			console.log(
+				`[VisualDetector] Analyzing: ${imageUri.substring(imageUri.lastIndexOf("/") + 1)}`,
+			);
+
+			// 1. Get image dimensions
 			const dimensions = await this.getImageDimensions(imageUri);
 			const aspectRatio = dimensions.width / dimensions.height;
 
-			// Get file stats for better detection
-			const stats = await RNFS.stat(imageUri).catch(() => null);
-			const fileSize = stats?.size || 0;
-			const fileName = imageUri.toLowerCase();
+			// 2. Create a small thumbnail for quick analysis (saves memory)
+			const thumbnailUri = await this.createThumbnail(imageUri);
 
-			// IMPROVED: Better detection logic
-			let score = 0;
-			let textRegions = 0;
-			let confidence = 0;
+			// 3. Analyze the actual image data
+			const pixelData = await this.analyzePixels(thumbnailUri);
 
-			// 1. Aspect Ratio Analysis (Documents have standard ratios)
-			const aspectScore = this.getAspectRatioScore(aspectRatio);
-			score += aspectScore * 0.25;
+			// 4. Check for document-specific patterns
+			const documentPatterns = this.detectDocumentPatterns(pixelData);
 
-			// 2. File Size Analysis (Documents compress well)
-			const sizeScore = this.getFileSizeScore(fileSize, dimensions);
-			score += sizeScore * 0.15;
+			// 5. Calculate individual scores
+			const scores = {
+				// Text presence score (documents have high text density)
+				textScore: this.calculateTextScore(pixelData),
 
-			// 3. Filename Analysis (More nuanced)
-			const nameScore = this.getFilenameScore(fileName);
-			score += nameScore * 0.1;
+				// Color distribution (documents are usually monochrome or low saturation)
+				colorScore: this.calculateColorScore(pixelData),
 
-			// 4. Screenshot Detection (PENALTY)
-			const screenshotPenalty = this.getScreenshotPenalty(
-				fileName,
-				aspectRatio,
-			);
-			score -= screenshotPenalty;
+				// Structure score (documents have regular patterns)
+				structureScore: this.calculateStructureScore(documentPatterns),
 
-			// 5. Photo Detection (PENALTY)
-			const photoPenalty = this.getPhotoPenalty(
-				fileName,
-				fileSize,
-				aspectRatio,
-			);
-			score -= photoPenalty;
+				// Aspect ratio score (documents have standard ratios)
+				aspectScore: this.calculateAspectScore(aspectRatio),
 
-			// 6. Document Boost (if it really looks like a document)
-			const documentBoost = this.getDocumentBoost(
-				aspectRatio,
-				fileSize,
-				fileName,
-			);
-			score += documentBoost;
+				// Edge detection (documents have sharp edges)
+				edgeScore: this.calculateEdgeScore(pixelData),
 
-			// Ensure score is between 0 and 1
-			score = Math.max(0, Math.min(1, score));
-
-			// Estimate other features based on score
-			const isLikelyDocument = score > 0.5;
-			textRegions = isLikelyDocument ? Math.floor(score * 10) : 2;
-			const contrast = isLikelyDocument ? 0.7 + score * 0.2 : 0.4;
-			const whiteSpace = isLikelyDocument ? 0.3 + score * 0.2 : 0.1;
-
-			console.log(
-				`[QuickFix] ${fileName.substring(fileName.lastIndexOf("/") + 1)}:`,
-				{
-					aspectRatio: aspectRatio.toFixed(2),
-					aspectScore: aspectScore.toFixed(2),
-					sizeScore: sizeScore.toFixed(2),
-					nameScore: nameScore.toFixed(2),
-					screenshotPenalty: screenshotPenalty.toFixed(2),
-					photoPenalty: photoPenalty.toFixed(2),
-					documentBoost: documentBoost.toFixed(2),
-					finalScore: score.toFixed(3),
-					decision: score >= 0.5 ? "✅ DOCUMENT" : "❌ NOT DOCUMENT",
-				},
-			);
-
-			return {
-				hasRectangularShape: score > 0.6,
-				edgeDensity: score * 0.8,
-				textRegionCount: textRegions,
-				contrastRatio: contrast,
-				whiteSpaceRatio: whiteSpace,
-				aspectRatio,
-				overallScore: score,
-				textDensity: score * 0.7,
-				colorVariance: 1 - score,
-				hasTableStructure: score > 0.7 && aspectRatio < 0.6,
-				hasStraightLines: score > 0.6,
+				// Whitespace score (documents have organized whitespace)
+				whitespaceScore: this.calculateWhitespaceScore(pixelData),
 			};
+
+			// 6. Apply different weights based on detected patterns
+			const weights = this.determineWeights(pixelData, aspectRatio);
+
+			// 7. Calculate overall score
+			const overallScore =
+				scores.textScore * weights.text +
+				scores.colorScore * weights.color +
+				scores.structureScore * weights.structure +
+				scores.aspectScore * weights.aspect +
+				scores.edgeScore * weights.edge +
+				scores.whitespaceScore * weights.whitespace;
+
+			// 8. Determine document type
+			const documentType = this.classifyImageType(
+				scores,
+				pixelData,
+				aspectRatio,
+			);
+
+			// Clean up thumbnail
+			await this.cleanupThumbnail(thumbnailUri);
+
+			const result = {
+				hasRectangularShape: scores.edgeScore > 0.7,
+				edgeDensity: scores.edgeScore,
+				textRegionCount: pixelData.hasText ? Math.floor(scores.textScore * 10) : 2,
+				contrastRatio: pixelData.contrast,
+				whiteSpaceRatio: scores.whitespaceScore,
+				aspectRatio,
+				overallScore,
+				textDensity: scores.textScore,
+				colorVariance: pixelData.colorVariance,
+				hasTableStructure: documentPatterns.hasTable,
+				hasStraightLines: documentPatterns.hasLines,
+				documentType,
+			};
+
+			console.log(`[VisualDetector] Results:`, {
+				type: documentType,
+				score: overallScore.toFixed(3),
+				isDocument: overallScore >= 0.5,
+				scores: Object.entries(scores)
+					.map(([k, v]) => `${k}: ${v.toFixed(2)}`)
+					.join(", "),
+			});
+
+			return result;
 		} catch (error) {
-			console.error("[QuickFix] Error:", error);
+			console.error("[VisualDetector] Analysis failed:", error);
+			return this.getDefaultFeatures();
+		}
+	}
+
+	/**
+	 * Create a small thumbnail for analysis (saves memory)
+	 */
+	private async createThumbnail(imageUri: string): Promise<string> {
+		try {
+			// Resize to 200px width for analysis (much faster and uses less memory)
+			const resized = await ImageResizer.createResizedImage(
+				imageUri,
+				200, // width
+				200, // height
+				"JPEG",
+				80, // quality
+				0, // rotation
+				undefined,
+				true, // keep meta
+			);
+
+			return resized.uri;
+		} catch (error) {
+			console.warn(
+				"[VisualDetector] Thumbnail creation failed, using original",
+			);
+			return imageUri;
+		}
+	}
+
+	/**
+	 * Analyze pixel data from the image using the ImagePixelAnalyzer
+	 */
+	private async analyzePixels(imageUri: string): Promise<any> {
+		// Use the new ImagePixelAnalyzer
+		const analysis = await ImagePixelAnalyzer.analyzeImage(imageUri);
+		
+		return {
+			contrast: analysis.contrast,
+			colorVariance: analysis.colorCount > 50 ? 0.8 : 0.2,
+			whiteSpaceRatio: analysis.contrast > 0.7 ? 0.4 : 0.1,
+			edgeStrength: analysis.edgeStrength,
+			compressionRatio: analysis.colorCount < 20 ? 0.8 : 0.3,
+			hasText: analysis.hasText,
+			isMonochrome: analysis.colorCount < 15,
+			brightness: analysis.brightness,
+			saturation: analysis.colorCount > 100 ? 0.7 : 0.2,
+		};
+	}
+
+	/**
+	 * Detect document-specific patterns
+	 */
+	private detectDocumentPatterns(pixelData: any): any {
+		const patterns = {
+			hasTable: false,
+			hasLines: false,
+			hasHeader: false,
+			hasFooter: false,
+			columnCount: 1,
+			textBlocks: 0,
+		};
+
+		// High contrast and low color variance suggests text document
+		if (pixelData.contrast > 0.7 && pixelData.colorVariance < 0.3) {
+			patterns.hasLines = true;
+			patterns.textBlocks = 5;
+		}
+
+		// Very high contrast with compression suggests receipt/invoice
+		if (pixelData.contrast > 0.75 && pixelData.compressionRatio > 0.7) {
+			patterns.hasTable = true;
+			patterns.hasHeader = true;
+			patterns.columnCount = 2;
+		}
+
+		return patterns;
+	}
+
+	/**
+	 * Calculate text presence score
+	 */
+	private calculateTextScore(pixelData: any): number {
+		// High contrast + low color variance = likely text
+		if (pixelData.contrast > 0.7 && pixelData.colorVariance < 0.3) {
+			return 0.9;
+		}
+		if (pixelData.contrast > 0.6 && pixelData.colorVariance < 0.4) {
+			return 0.7;
+		}
+		if (pixelData.hasText) {
+			return 0.5;
+		}
+		return 0.2;
+	}
+
+	/**
+	 * Calculate color distribution score
+	 */
+	private calculateColorScore(pixelData: any): number {
+		// Documents are usually monochrome or very low saturation
+		if (pixelData.isMonochrome) {
+			return 0.95;
+		}
+		if (pixelData.saturation < 0.2) {
+			return 0.8;
+		}
+		if (pixelData.saturation < 0.4) {
+			return 0.5;
+		}
+		// High saturation = probably a photo or meme
+		return 0.1;
+	}
+
+	/**
+	 * Calculate structure score based on patterns
+	 */
+	private calculateStructureScore(patterns: any): number {
+		let score = 0.3; // Base score
+
+		if (patterns.hasTable) score += 0.3;
+		if (patterns.hasLines) score += 0.2;
+		if (patterns.hasHeader) score += 0.1;
+		if (patterns.textBlocks > 3) score += 0.1;
+
+		return Math.min(score, 1.0);
+	}
+
+	/**
+	 * Calculate aspect ratio score
+	 */
+	private calculateAspectScore(aspectRatio: number): number {
+		// A4 portrait: ~0.707
+		if (aspectRatio > 0.65 && aspectRatio < 0.75) {
+			return 0.95;
+		}
+		// A4 landscape: ~1.414
+		if (aspectRatio > 1.3 && aspectRatio < 1.5) {
+			return 0.95;
+		}
+		// Letter portrait: ~0.773
+		if (aspectRatio > 0.75 && aspectRatio < 0.8) {
+			return 0.9;
+		}
+		// Receipt (narrow): ~0.3-0.5
+		if (aspectRatio > 0.3 && aspectRatio < 0.5) {
+			return 0.85;
+		}
+		// Square (probably Instagram/social media)
+		if (aspectRatio > 0.95 && aspectRatio < 1.05) {
+			return 0.2;
+		}
+		// Very wide or very tall (probably screenshot or photo)
+		if (aspectRatio < 0.3 || aspectRatio > 2) {
+			return 0.1;
+		}
+		return 0.4;
+	}
+
+	/**
+	 * Calculate edge score (documents have sharp edges)
+	 */
+	private calculateEdgeScore(pixelData: any): number {
+		return pixelData.edgeStrength || 0.5;
+	}
+
+	/**
+	 * Calculate whitespace organization score
+	 */
+	private calculateWhitespaceScore(pixelData: any): number {
+		// Documents have organized whitespace
+		if (pixelData.whiteSpaceRatio > 0.3 && pixelData.whiteSpaceRatio < 0.6) {
+			return 0.8;
+		}
+		if (pixelData.whiteSpaceRatio > 0.2 && pixelData.whiteSpaceRatio < 0.7) {
+			return 0.5;
+		}
+		// Too little or too much whitespace = not a document
+		return 0.2;
+	}
+
+	/**
+	 * Determine scoring weights based on detected patterns
+	 */
+	private determineWeights(pixelData: any, aspectRatio: number): any {
+		// If it looks like a screenshot (wide aspect, medium contrast)
+		if (aspectRatio > 1.7 && pixelData.contrast < 0.65) {
 			return {
-				hasRectangularShape: false,
-				edgeDensity: 0,
-				textRegionCount: 0,
-				contrastRatio: 0,
-				whiteSpaceRatio: 0,
-				aspectRatio: 1,
-				overallScore: 0,
+				text: 0.15,
+				color: 0.15,
+				structure: 0.15,
+				aspect: 0.3, // Penalize screenshot aspect ratios
+				edge: 0.15,
+				whitespace: 0.1,
 			};
 		}
-	}
 
-	private getAspectRatioScore(ratio: number): number {
-		// A4 Portrait (0.707)
-		if (ratio >= 0.65 && ratio <= 0.75) return 0.95;
-
-		// US Letter Portrait (0.773)
-		if (ratio >= 0.75 && ratio <= 0.82) return 0.93;
-
-		// A4 Landscape (1.414)
-		if (ratio >= 1.35 && ratio <= 1.48) return 0.93;
-
-		// US Letter Landscape (1.294)
-		if (ratio >= 1.22 && ratio <= 1.35) return 0.91;
-
-		// Receipt (narrow, 0.3-0.5)
-		if (ratio >= 0.25 && ratio <= 0.5) return 0.88;
-
-		// Wide receipt/invoice
-		if (ratio >= 0.5 && ratio <= 0.65) return 0.85;
-
-		// Square (Instagram/Social - BAD)
-		if (ratio >= 0.95 && ratio <= 1.05) return 0.1;
-
-		// Ultra wide (Screenshot - BAD)
-		if (ratio > 1.8) return 0.05;
-
-		// Ultra tall (Screenshot - BAD)
-		if (ratio < 0.25) return 0.05;
-
-		// Other
-		return 0.3;
-	}
-
-	private getFileSizeScore(
-		fileSize: number,
-		dimensions: { width: number; height: number },
-	): number {
-		if (fileSize === 0) return 0.3; // Unknown
-
-		const pixels = dimensions.width * dimensions.height;
-		const bytesPerPixel = fileSize / pixels;
-
-		// Documents compress well (lots of white space, text)
-		// Typical document: 0.1-0.5 bytes per pixel
-		if (bytesPerPixel < 0.1) return 0.7; // Very compressed (good)
-		if (bytesPerPixel < 0.3) return 0.85; // Well compressed (very good)
-		if (bytesPerPixel < 0.5) return 0.7; // Moderately compressed (good)
-		if (bytesPerPixel < 1.0) return 0.4; // Some compression
-		if (bytesPerPixel < 2.0) return 0.2; // Photo-like
-		return 0.1; // Heavy photo
-	}
-
-	private getFilenameScore(fileName: string): number {
-		// Positive indicators
-		if (fileName.includes("scan")) return 0.9;
-		if (fileName.includes("doc")) return 0.85;
-		if (fileName.includes("receipt")) return 0.95;
-		if (fileName.includes("קבלה")) return 0.95; // Hebrew receipt
-		if (fileName.includes("invoice")) return 0.95;
-		if (fileName.includes("חשבונית")) return 0.95; // Hebrew invoice
-		if (fileName.includes("bill")) return 0.9;
-		if (fileName.includes("contract")) return 0.9;
-		if (fileName.includes("form")) return 0.85;
-		if (fileName.includes("letter")) return 0.85;
-		if (fileName.includes("pdf")) return 0.8; // Converted from PDF
-
-		// Negative indicators
-		if (fileName.includes("screenshot")) return 0;
-		if (fileName.includes("img_")) return 0.2; // Camera photo
-		if (fileName.includes("photo")) return 0.1;
-		if (fileName.includes("selfie")) return 0;
-		if (fileName.includes("meme")) return 0;
-		if (fileName.includes("whatsapp")) return 0.1;
-		if (fileName.includes("instagram")) return 0;
-		if (fileName.includes("facebook")) return 0;
-
-		return 0.3; // Neutral
-	}
-
-	private getScreenshotPenalty(fileName: string, aspectRatio: number): number {
-		let penalty = 0;
-
-		// Strong screenshot indicators
-		if (fileName.includes("screenshot")) penalty += 0.5;
-		if (fileName.includes("screen")) penalty += 0.3;
-
-		// Aspect ratio indicators
-		if (aspectRatio > 1.9) penalty += 0.3; // Very wide (mobile screenshot)
-		if (aspectRatio > 2.1) penalty += 0.4; // Ultra wide
-
-		// Platform indicators
-		if (fileName.includes("ios_") || fileName.includes("android_"))
-			penalty += 0.2;
-
-		return Math.min(penalty, 0.7); // Cap penalty
-	}
-
-	private getPhotoPenalty(
-		fileName: string,
-		fileSize: number,
-		aspectRatio: number,
-	): number {
-		let penalty = 0;
-
-		// Photo indicators
-		if (fileName.includes("img_")) penalty += 0.2;
-		if (fileName.includes("photo")) penalty += 0.3;
-		if (fileName.includes("camera")) penalty += 0.2;
-		if (fileName.includes("dcim")) penalty += 0.15; // Camera folder
-		if (fileName.includes("jpg") && fileSize > 2000000) penalty += 0.2; // Large JPEG
-
-		// Social media indicators
-		if (fileName.includes("whatsapp")) penalty += 0.3;
-		if (fileName.includes("telegram")) penalty += 0.3;
-		if (fileName.includes("instagram")) penalty += 0.4;
-		if (fileName.includes("facebook")) penalty += 0.4;
-		if (fileName.includes("snapchat")) penalty += 0.4;
-		if (fileName.includes("tiktok")) penalty += 0.4;
-
-		// Square photos (social media)
-		if (aspectRatio > 0.95 && aspectRatio < 1.05) penalty += 0.3;
-
-		return Math.min(penalty, 0.6); // Cap penalty
-	}
-
-	private getDocumentBoost(
-		aspectRatio: number,
-		fileSize: number,
-		fileName: string,
-	): number {
-		let boost = 0;
-
-		// Strong document indicators combo
-		const hasDocumentName =
-			fileName.includes("doc") ||
-			fileName.includes("scan") ||
-			fileName.includes("receipt") ||
-			fileName.includes("invoice");
-		const hasDocumentAspect =
-			(aspectRatio > 0.65 && aspectRatio < 0.82) ||
-			(aspectRatio > 1.22 && aspectRatio < 1.48);
-		const hasGoodCompression = fileSize > 0 && fileSize < 1000000;
-
-		if (hasDocumentName && hasDocumentAspect) boost += 0.3;
-		if (hasDocumentAspect && hasGoodCompression) boost += 0.2;
-		if (hasDocumentName && hasGoodCompression) boost += 0.15;
-
-		// Receipt-specific boost
-		if (aspectRatio > 0.25 && aspectRatio < 0.5 && hasGoodCompression) {
-			boost += 0.25;
+		// If it looks like a photo (high color variance, low contrast)
+		if (pixelData.colorVariance > 0.6 && pixelData.contrast < 0.6) {
+			return {
+				text: 0.1,
+				color: 0.4, // Heavily weight against colorful images
+				structure: 0.1,
+				aspect: 0.2,
+				edge: 0.1,
+				whitespace: 0.1,
+			};
 		}
 
-		return Math.min(boost, 0.4); // Cap boost
+		// Standard document weights
+		return {
+			text: 0.25,
+			color: 0.2,
+			structure: 0.2,
+			aspect: 0.15,
+			edge: 0.1,
+			whitespace: 0.1,
+		};
 	}
 
+	/**
+	 * Classify the type of image
+	 */
+	private classifyImageType(
+		scores: any,
+		pixelData: any,
+		aspectRatio: number,
+	): DocumentFeatures["documentType"] {
+		const overallScore =
+			scores.textScore * 0.25 +
+			scores.colorScore * 0.2 +
+			scores.structureScore * 0.2 +
+			scores.aspectScore * 0.15 +
+			scores.edgeScore * 0.1 +
+			scores.whitespaceScore * 0.1;
+
+		// Clear photo indicators
+		if (pixelData.colorVariance > 0.7 && pixelData.saturation > 0.6) {
+			return "photo";
+		}
+
+		// Screenshot indicators
+		if (aspectRatio > 1.7 && scores.aspectScore < 0.3) {
+			return "screenshot";
+		}
+
+		// Meme indicators (square-ish, some text, high saturation)
+		if (
+			aspectRatio > 0.9 &&
+			aspectRatio < 1.1 &&
+			scores.textScore > 0.3 &&
+			pixelData.saturation > 0.4
+		) {
+			return "meme";
+		}
+
+		// Document indicators
+		if (overallScore > 0.6 && scores.structureScore > 0.5) {
+			// Receipt (narrow aspect, high contrast)
+			if (aspectRatio < 0.5 && pixelData.contrast > 0.75) {
+				return "receipt";
+			}
+			// Invoice (standard aspect, table structure)
+			if (scores.structureScore > 0.7) {
+				return "invoice";
+			}
+		}
+
+		return overallScore > 0.5 ? "unknown" : "photo";
+	}
+
+	/**
+	 * Clean up temporary thumbnail
+	 */
+	private async cleanupThumbnail(thumbnailUri: string): Promise<void> {
+		try {
+			if (thumbnailUri.includes("resized")) {
+				await RNFS.unlink(thumbnailUri);
+			}
+		} catch (error) {
+			// Ignore cleanup errors
+		}
+	}
+
+	/**
+	 * Get image dimensions
+	 */
 	private async getImageDimensions(
 		uri: string,
 	): Promise<{ width: number; height: number }> {
-		return new Promise((resolve) => {
+		return new Promise((resolve, reject) => {
 			Image.getSize(
 				uri,
 				(width, height) => resolve({ width, height }),
-				() => resolve({ width: 1000, height: 1000 }), // Default on error
+				(error) => {
+					console.error("[VisualDetector] Failed to get dimensions:", error);
+					resolve({ width: 1000, height: 1000 }); // Default
+				},
 			);
 		});
+	}
+
+	/**
+	 * Default features for error cases
+	 */
+	private getDefaultFeatures(): DocumentFeatures {
+		return {
+			hasRectangularShape: false,
+			edgeDensity: 0,
+			textRegionCount: 0,
+			contrastRatio: 0,
+			whiteSpaceRatio: 0,
+			aspectRatio: 1,
+			overallScore: 0,
+			textDensity: 0,
+			colorVariance: 1,
+			hasTableStructure: false,
+			hasStraightLines: false,
+			documentType: "unknown",
+		};
 	}
 }
 
