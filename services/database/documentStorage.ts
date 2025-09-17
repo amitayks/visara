@@ -9,10 +9,13 @@ export class DocumentStorage {
 	private documentObservable: Subscription | null = null;
 	async saveDocument(result: SimpleProcessedDocument): Promise<Document> {
 		console.log(
-			`[DocumentStorage] Saving document with hash: ${result.imageHash}`,
-		);
-		console.log(
-			`[DocumentStorage] Document type: ${result.documentType}, Confidence: ${(result.confidence * 100).toFixed(1)}%`,
+			`[DocumentStorage] Attempting to save document:`,
+			{
+				imageUri: result.imageUri.substring(result.imageUri.lastIndexOf('/') + 1),
+				imageHash: result.imageHash.substring(0, 16) + '...',
+				documentType: result.documentType,
+				confidence: (result.confidence * 100).toFixed(1) + '%'
+			}
 		);
 
 		const documentsCollection = database.get<Document>("documents");
@@ -24,13 +27,37 @@ export class DocumentStorage {
 
 		if (existingDocs.length > 0) {
 			console.log(
-				`[DocumentStorage] Document already exists with hash: ${result.imageHash}`,
+				`[DocumentStorage] 🔄 DUPLICATE DETECTED - Document already exists:`,
+				{
+					existingId: existingDocs[0].id,
+					existingCreatedAt: existingDocs[0].createdAt,
+					hash: result.imageHash.substring(0, 16) + '...',
+					action: 'SKIPPING_SAVE'
+				}
 			);
 			return existingDocs[0];
 		}
 
+		// Additional check by imageUri to catch any edge cases
+		const existingByUri = await documentsCollection
+			.query(Q.where("image_uri", result.imageUri))
+			.fetch();
+
+		if (existingByUri.length > 0) {
+			console.log(
+				`[DocumentStorage] 🔄 URI DUPLICATE DETECTED - Document with same URI exists:`,
+				{
+					existingId: existingByUri[0].id,
+					existingHash: existingByUri[0].imageHash?.substring(0, 16) + '...',
+					newHash: result.imageHash.substring(0, 16) + '...',
+					action: 'SKIPPING_SAVE'
+				}
+			);
+			return existingByUri[0];
+		}
+
 		return await database.write(async () => {
-			console.log(`[DocumentStorage] Creating new document in database`);
+			console.log(`[DocumentStorage] ✅ Creating NEW document in database`);
 			const document = await documentsCollection.create((doc) => {
 				doc.imageUri = result.imageUri;
 				doc.imageHash = result.imageHash;
@@ -74,7 +101,13 @@ export class DocumentStorage {
 			});
 
 			console.log(
-				`[DocumentStorage] Document saved successfully with ID: ${document.id}`,
+				`[DocumentStorage] ✅ Document saved successfully:`,
+				{
+					id: document.id,
+					documentType: document.documentType,
+					vendor: document.vendor,
+					createdAt: document.createdAt
+				}
 			);
 
 			// Notify observers immediately

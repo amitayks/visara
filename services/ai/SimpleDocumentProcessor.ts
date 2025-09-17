@@ -2,6 +2,8 @@ import { ocrEngineManager } from "./OCREngineManager";
 import { visualDocumentDetector } from "./visualDocumentDetector";
 import { keywordExtractor } from "./keywordExtractor";
 import type { OCRResult } from "./ocrTypes";
+import CryptoJS from "crypto-js";
+import RNFS from "react-native-fs";
 
 export interface SimpleProcessedDocument {
 	id: string;
@@ -28,6 +30,7 @@ export interface SimpleProcessedDocument {
 
 export class SimpleDocumentProcessor {
 	private initialized = false;
+	private processingLock = new Set<string>(); // Track images being processed
 
 	async initialize(): Promise<void> {
 		if (this.initialized) return;
@@ -44,12 +47,21 @@ export class SimpleDocumentProcessor {
 	}
 
 	async process(imageUri: string): Promise<SimpleProcessedDocument | null> {
-		if (!this.initialized) {
-			await this.initialize();
+		// Check if this image is already being processed
+		if (this.processingLock.has(imageUri)) {
+			console.log(`[SimpleDocumentProcessor] ⏳ Image already being processed, skipping: ${imageUri.substring(imageUri.lastIndexOf('/') + 1)}`);
+			return null;
 		}
 
+		// Add to processing lock
+		this.processingLock.add(imageUri);
+
 		try {
-			console.log("[SimpleDocumentProcessor] Starting processing:", imageUri);
+			if (!this.initialized) {
+				await this.initialize();
+			}
+
+			console.log("[SimpleDocumentProcessor] Starting processing:", imageUri.substring(imageUri.lastIndexOf('/') + 1));
 
 			// 1. Visual document check (existing)
 			const visualResult = await visualDocumentDetector.detectDocument(imageUri);
@@ -57,6 +69,7 @@ export class SimpleDocumentProcessor {
 			// Reject if not likely a document (more selective threshold)
 			if (visualResult.overallScore < 0.5) {
 				console.log(`[SimpleDocumentProcessor] Document rejected: low visual score ${visualResult.overallScore.toFixed(2)}`);
+				this.processingLock.delete(imageUri);
 				return null;
 			}
 
@@ -66,6 +79,7 @@ export class SimpleDocumentProcessor {
 			// Reject if no meaningful text found
 			if (!ocrResult.text || ocrResult.text.trim().length < 10) {
 				console.log("[SimpleDocumentProcessor] Document rejected: insufficient text");
+				this.processingLock.delete(imageUri);
 				return null;
 			}
 
@@ -76,9 +90,9 @@ export class SimpleDocumentProcessor {
 			const date = this.extractDate(ocrResult.text);
 			const keywords = keywordExtractor.extractKeywords(ocrResult.text);
 
-			// Generate document ID and hash (simplified)
+			// Generate document ID and proper image hash
 			const documentId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-			const imageHash = `hash_${Date.now()}`; // Simplified hash
+			const imageHash = await this.calculateImageHash(imageUri);
 
 			const result: SimpleProcessedDocument = {
 				id: documentId,
@@ -114,6 +128,9 @@ export class SimpleDocumentProcessor {
 		} catch (error) {
 			console.error("[SimpleDocumentProcessor] Processing failed:", error);
 			return null;
+		} finally {
+			// Always remove from processing lock
+			this.processingLock.delete(imageUri);
 		}
 	}
 
@@ -302,6 +319,37 @@ export class SimpleDocumentProcessor {
 			memoryUsage: ocrEngineManager.getMemoryUsage(),
 			initialized: this.initialized,
 		};
+	}
+
+	// Calculate image hash for deduplication using URI and file properties
+	private async calculateImageHash(imageUri: string): Promise<string> {
+		try {
+			// For content:// URIs, create hash from URI itself (stable identifier)
+			if (imageUri.startsWith("content://")) {
+				const hash = CryptoJS.SHA256(imageUri).toString();
+				console.log(`[SimpleDocumentProcessor] Generated content URI hash: ${hash.substring(0, 16)}...`);
+				return hash;
+			}
+
+			// For file:// URIs, try to get file stats for more unique hash
+			try {
+				const stats = await RNFS.stat(imageUri);
+				const hashInput = `${imageUri}-${stats.size}-${stats.mtime}`;
+				const hash = CryptoJS.SHA256(hashInput).toString();
+				console.log(`[SimpleDocumentProcessor] Generated file hash: ${hash.substring(0, 16)}... (size: ${stats.size}, modified: ${stats.mtime})`);
+				return hash;
+			} catch (error) {
+				// Fallback to URI-based hash
+				console.log(`[SimpleDocumentProcessor] File stats failed, using URI hash fallback`);
+				const hash = CryptoJS.SHA256(imageUri).toString();
+				return hash;
+			}
+		} catch (error) {
+			console.error("[SimpleDocumentProcessor] Error calculating image hash:", error);
+			// Ultimate fallback
+			const hash = CryptoJS.SHA256(imageUri).toString();
+			return hash;
+		}
 	}
 
 	async cleanup(): Promise<void> {

@@ -21,6 +21,7 @@ import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { galleryScanner } from "../../../services/gallery/GalleryScanner";
 import { useIconColors } from "../../../utils/iconColors";
+import { requestCameraPermission } from "../../../utils/permissions";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./UploadModal.style";
 
@@ -49,26 +50,64 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 		maxHeight: 2000,
 		maxWidth: 2000,
 		quality: 0.8 as PhotoQuality,
+		storageOptions: {
+			skipBackup: true,
+		},
 	};
 
 	const handleLaunchGallery = () => {
 		launchImageLibrary(imagePickerOptions, handleImageResponse);
 	};
 
-	const handleLaunchCamera = () => {
-		launchCamera(imagePickerOptions, handleImageResponse);
+	const handleLaunchCamera = async () => {
+		try {
+			const hasPermission = await requestCameraPermission();
+			
+			if (!hasPermission) {
+				showToast({
+					type: "error",
+					message: "Camera permission is required to take photos",
+					icon: "alert-circle",
+				});
+				return;
+			}
+
+			launchCamera(imagePickerOptions, handleImageResponse);
+		} catch (error) {
+			console.error('[UploadModal] Camera launch error:', error);
+			showToast({
+				type: "error",
+				message: "Failed to access camera",
+				icon: "alert-circle",
+			});
+		}
 	};
 
 	const handleImageResponse = (response: ImagePickerResponse) => {
-		if (response.didCancel || response.errorMessage) {
-			handleClose(); // Close the modal if the user cancels image selection
+		if (response.didCancel) {
+			handleClose();
+			return;
+		}
+
+		if (response.errorMessage) {
+			console.error("ImagePicker Error: ", response.errorMessage);
+			handleClose();
+			
 			setTimeout(() => {
-				if (response.errorMessage) {
-					showToast({
-						type: "error",
-						message: response.errorMessage,
-					});
+				let userMessage = "Failed to access camera";
+				
+				// Provide specific error messages
+				if (response.errorMessage?.includes("permission")) {
+					userMessage = "Camera permission is required. Please check app settings.";
+				} else if (response.errorMessage?.includes("camera")) {
+					userMessage = "Cannot access camera. Please try again.";
 				}
+				
+				showToast({
+					type: "error",
+					message: userMessage,
+					icon: "alert-circle",
+				});
 			}, 300);
 			return;
 		}
@@ -86,14 +125,11 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 		setProcessing(true);
 
 		try {
+			// Simulate upload delay (UI feedback)
 			await new Promise((resolve) => setTimeout(resolve, 1500));
 
-			onUploadComplete(imageUri);
-			showToast({
-				type: "success",
-				message: "Document uploaded successfully",
-				icon: "checkmark-circle",
-			});
+			// Actually process the image (this will handle the success toast)
+			await onUploadComplete(imageUri);
 
 			handleClose();
 		} catch (error) {
