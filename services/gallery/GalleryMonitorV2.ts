@@ -233,7 +233,7 @@ export class GalleryMonitorV2 {
 			// Quick scan for new images only
 			await galleryScanner.startScan({
 				scanNewOnly: true,
-				processImmediately: false, // Just discovery
+				processImmediately: true, // Process new images immediately
 				batchSize: 100,
 			});
 
