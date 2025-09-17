@@ -3,34 +3,20 @@
 
 import { ScannerStorage } from "../../storage/MMKVStorage";
 import { progressTracker } from '../progress/ProductionProgressTracker';
+import { fixedImageTracker } from './FixedImageTracker';
+import { FixedGalleryScanner } from './FixedGalleryScanner';
 import {
 	CameraRoll,
 	PhotoIdentifier,
 } from "@react-native-camera-roll/camera-roll";
 import { Platform } from "react-native";
 import { BehaviorSubject } from "rxjs";
-import { nativeDeviceInfo } from "../../utils/nativeDeviceInfo";
-import { nativeMemoryManager } from "../memory/nativeMemoryManager";
 import { galleryPermissions } from "../permissions/galleryPermissions";
-import { documentValidator } from "../../utils/documentValidator";
 import {
 	type SimpleProcessedDocument,
 	simpleDocumentProcessor,
 } from "../ai/SimpleDocumentProcessor";
-import { documentStorage } from "../database/documentStorage";
-import { visualDocumentDetector } from "../ai/visualDocumentDetector";
 import { useScannerStore } from "../../stores/scannerStore";
-import {
-	improvedFileTracker,
-	type FileFingerprint,
-	type ScanBatch,
-} from "./ImprovedFileTracker";
-// Enhanced scanner components are integrated directly
-import {
-	type AssetInfo,
-	type SmartFilterOptions,
-	smartFilter,
-} from "./smartFilter";
 
 // ===============================
 // CORE GALLERY SCANNER
@@ -90,6 +76,7 @@ const DEFAULT_OPTIONS: ScanOptions = {
 };
 
 export class GalleryScanner {
+	private fixedScanner = new FixedGalleryScanner();
 	private isScanning = false;
 	private shouldStop = false;
 	private scanStartTime = 0;
@@ -103,11 +90,6 @@ export class GalleryScanner {
 
 	private onProgressCallback?: (progress: ScanProgress) => void;
 	private progressSubject = new BehaviorSubject<ScanProgress>(this.progress);
-
-	// Enhanced tracking
-	private currentBatch: ScanBatch | null = null;
-	private migrationCompleted = false;
-	private currentScanOptions: ScanOptions | null = null;
 
 	constructor() {
 		this.initializeEnhancedSystem();
@@ -183,117 +165,64 @@ export class GalleryScanner {
 	}
 
 	/**
-	 * Main scanning method with enhanced implementation
+	 * Main scanning method using fixed implementation
 	 */
 	async startScan(
 		options: ScanOptions = {},
-		progressCallback?: (progress: ScanProgress) => void,
+		progressCallback?: (progress: ScanProgress) => void
 	): Promise<void> {
 		if (this.isScanning) {
-			const scanDuration = Date.now() - this.scanStartTime;
-			if (scanDuration > 300000) {
-				// 5 minutes timeout
-				console.log(
-					`[GalleryScanner] Scan stuck for ${scanDuration}ms - forcing reset`,
-				);
-				this.resetState();
-			} else {
-				// If processImmediately is explicitly set to true and current scan isn't processing
-				// update the current scan to enable processing
-				if (options.processImmediately === true && this.currentScanOptions) {
-					console.log(
-						"[GalleryScanner] Upgrading current scan to enable immediate processing",
-					);
-					this.currentScanOptions.processImmediately = true;
-					// Update the progress callback if provided
-					if (progressCallback) {
-						this.onProgressCallback = progressCallback;
-					}
-					return;
-				}
-				console.log(
-					"[GalleryScanner] Scan already in progress - ignoring duplicate call",
-				);
-				return;
-			}
+			console.log("[GalleryScanner] Scan already in progress");
+			return;
 		}
 
-		await this.initializeEnhancedSystem();
-
-		const mergedOptions = { ...DEFAULT_OPTIONS, ...options };
-		this.currentScanOptions = mergedOptions; // Store current scan options
 		this.onProgressCallback = progressCallback;
 		this.isScanning = true;
 		this.shouldStop = false;
 		this.scanStartTime = Date.now();
 
 		try {
-			console.log(
-				`[GalleryScanner] Starting ${mergedOptions.type} scan with enhanced system`,
-			);
-
-			// Initialize production progress tracker
-			const galleryImages = await this.fetchAllGalleryImages();
-			const totalImages = galleryImages.length;
-			if (totalImages > 0) {
-				progressTracker.start(totalImages);
-			}
-
-			// Create batch
-			this.currentBatch = improvedFileTracker.createBatch(
-				mergedOptions.type === "retry" ? "manual" : "periodic",
-				mergedOptions.type,
-			);
-
-				// Discover changes (don't fetch galleryImages again, pass the ones we already have)
-			const result = await this.discoverAndProcessChanges(mergedOptions, galleryImages);
-
-			// Update final stats
-			const stats = improvedFileTracker.getStats();
-			console.log(
-				`[GalleryScanner] Final stats - processed: ${result.newFiles + result.skippedFiles + result.failedFiles}, total discovered: ${stats.totalFiles || "unknown"}`,
-			);
-
-			this.progress = {
-				totalImages:
-					result.newFiles +
-					result.changedFiles +
-					result.skippedFiles +
-					result.failedFiles,
-				processedImages:
-					result.newFiles +
-					result.changedFiles +
-					result.skippedFiles +
-					result.failedFiles,
-				lastScanDate: new Date(),
-				lastProcessedAssetId: result.lastProcessedUri,
-				isScanning: false,
-				newFiles: result.newFiles,
-				changedFiles: result.changedFiles,
-				skippedFiles: result.skippedFiles,
-				failedFiles: result.failedFiles,
-				batchId: this.currentBatch.id,
-			};
-
-			console.log(`[GalleryScanner] Final progress set:`, this.progress);
+			// Use the fixed scanner
+			await this.fixedScanner.performScan({
+				scanNewOnly: options.scanNewOnly || false,
+				processImmediately: options.processImmediately !== false,
+				batchSize: options.batchSize || 20,
+				onProgress: (stats) => {
+					// Update progress
+					this.progress = {
+						totalImages: stats.totalImages,
+						processedImages: stats.processedImages,
+						isScanning: stats.isScanning,
+						lastScanDate: stats.isScanning ? null : new Date(),
+						lastProcessedAssetId: stats.currentFile,
+						newFiles: stats.newImages,
+						changedFiles: stats.changedImages,
+						skippedFiles: stats.skippedImages,
+						failedFiles: stats.failedImages,
+						currentFile: stats.currentFile,
+					};
+					
+					// Notify callbacks
+					if (progressCallback) {
+						progressCallback(this.progress);
+					}
+					
+					// Update store
+					this.updateProgressSubject();
+				}
+			});
+			
+			// Update final state
+			this.progress.isScanning = false;
+			this.progress.lastScanDate = new Date();
 			this.updateProgressSubject();
 
-			console.log(
-				`[GalleryScanner] Enhanced scan complete: ` +
-					`${result.newFiles} new, ${result.changedFiles} changed, ` +
-					`${result.skippedFiles} skipped files`,
-			);
 		} catch (error) {
-			console.error("[GalleryScanner] Enhanced scan failed:", error);
+			console.error("[GalleryScanner] Scan failed:", error);
 			throw error;
 		} finally {
 			this.isScanning = false;
 			this.progress.isScanning = false;
-			this.currentScanOptions = null; // Clear current scan options
-			
-			// Complete the progress tracking
-			progressTracker.complete();
-			
 			this.updateProgressSubject();
 		}
 	}
@@ -826,14 +755,10 @@ export class GalleryScanner {
 	 * Stop scanning
 	 */
 	stopScan(): void {
-		console.log("[GalleryScanner] Stopping scan...");
-		this.shouldStop = true;
+		this.fixedScanner.stopScan();
 		this.isScanning = false;
 		this.progress.isScanning = false;
-		
-		// Complete the progress tracking
 		progressTracker.complete();
-		
 		this.updateProgressSubject();
 	}
 
@@ -868,16 +793,7 @@ export class GalleryScanner {
 	 * Get enhanced statistics
 	 */
 	getStats() {
-		const enhancedStats = improvedFileTracker.getStats();
-		return {
-			// Legacy format
-			totalImages: enhancedStats.totalFiles,
-			processedImages: enhancedStats.processedFiles,
-			lastScanDate: this.progress.lastScanDate,
-			// Enhanced fields
-			...enhancedStats,
-			currentBatch: this.currentBatch,
-		};
+		return this.fixedScanner.getStats();
 	}
 
 	/**
@@ -951,12 +867,11 @@ export class GalleryScanner {
 	}
 
 	/**
-	 * Legacy method - check if image was processed
+	 * Check if image was already processed
 	 */
 	async isImageProcessed(imageUri: string): Promise<boolean> {
-		const fingerprint =
-			await improvedFileTracker.findExistingFingerprint(imageUri);
-		return fingerprint?.isProcessed === true;
+		const record = await fixedImageTracker.findExistingRecord(imageUri);
+		return record?.isProcessed === true;
 	}
 
 	/**
@@ -987,11 +902,5 @@ export class GalleryScanner {
 	}
 }
 
-// Export singleton instance (maintains API compatibility)
+// Export singleton instance
 export const galleryScanner = new GalleryScanner();
-
-// Export enhanced components for direct use
-export { improvedFileTracker } from "./ImprovedFileTracker";
-
-// Export types for enhanced features
-export type { FileFingerprint, ScanBatch } from "./ImprovedFileTracker";

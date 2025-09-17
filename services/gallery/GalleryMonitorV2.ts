@@ -2,7 +2,7 @@
 // Drop-in replacement for existing GalleryMonitor with enhanced tracking
 
 // Enhanced scanner integrated into main GalleryScanner
-import { improvedFileTracker } from "./ImprovedFileTracker";
+import { fixedImageTracker } from "./FixedImageTracker";
 import { galleryScanner } from "./GalleryScanner";
 import { AppState, AppStateStatus } from "react-native";
 import { ScannerStorage } from "../../storage/MMKVStorage";
@@ -45,8 +45,8 @@ export class GalleryMonitorV2 {
 
 	// Cached stats for quick checks
 	private lastStats = {
-		totalFiles: 0,
-		processedFiles: 0,
+		totalImages: 0,
+		processedImages: 0,
 		lastCheckTime: null as Date | null,
 	};
 
@@ -125,18 +125,18 @@ export class GalleryMonitorV2 {
 			);
 
 			// Get stats BEFORE scan
-			const statsBefore = improvedFileTracker.getStats();
+			const statsBefore = fixedImageTracker.getStats();
 
 			// Quick discovery scan (no processing)
 			await galleryScanner.startScan({
 				type: "incremental",
 				processImmediately: false, // Just discovery, no processing
-				smartFilterEnabled: true,
+				scanNewOnly: true, // Only look for new images
 				batchSize: 100,
 			});
 
 			// Get stats AFTER scan
-			const statsAfter = improvedFileTracker.getStats();
+			const statsAfter = fixedImageTracker.getStats();
 			const scanProgress = galleryScanner.getProgress();
 
 			// Calculate ACTUAL changes
@@ -145,8 +145,8 @@ export class GalleryMonitorV2 {
 
 			// Only calculate deletions if total files decreased
 			let deletedFiles = 0;
-			if (statsAfter.totalFiles < statsBefore.totalFiles) {
-				deletedFiles = statsBefore.totalFiles - statsAfter.totalFiles;
+			if (statsAfter.totalImages < statsBefore.totalImages) {
+				deletedFiles = statsBefore.totalImages - statsAfter.totalImages;
 			}
 
 			const now = new Date();
@@ -158,7 +158,7 @@ export class GalleryMonitorV2 {
 				newImagesCount: newFiles,
 				changedImagesCount: changedFiles,
 				deletedImagesCount: deletedFiles,
-				totalImagesCount: statsAfter.totalFiles,
+				totalImagesCount: statsAfter.totalImages,
 				hasNewImages: newFiles > 0,
 				hasChanges,
 				lastCheckTime: now,
@@ -170,8 +170,8 @@ export class GalleryMonitorV2 {
 
 			// Update cached stats
 			this.lastStats = {
-				totalFiles: statsAfter.totalFiles,
-				processedFiles: statsAfter.processedFiles,
+				totalImages: statsAfter.totalImages,
+				processedImages: statsAfter.processedImages,
 				lastCheckTime: now,
 			};
 
@@ -181,20 +181,22 @@ export class GalleryMonitorV2 {
 			if (hasChanges) {
 				console.log(
 					`[GalleryMonitorV2] ✅ Real changes detected: ` +
-					`+${newFiles} new, ~${changedFiles} changed, -${deletedFiles} deleted`
+						`+${newFiles} new, ~${changedFiles} changed, -${deletedFiles} deleted`,
 				);
-				
+
 				// CRITICAL: Trigger scan if new files detected
 				if (newFiles > 0 && !galleryScanner.getProgress().isScanning) {
-					console.log(`[GalleryMonitorV2] Triggering scan for ${newFiles} new files`);
-					
+					console.log(
+						`[GalleryMonitorV2] Triggering scan for ${newFiles} new files`,
+					);
+
 					// Use a small delay to prevent race conditions
 					setTimeout(async () => {
 						try {
 							await galleryScanner.startScan({
 								type: "incremental",
 								processImmediately: true,
-								scanNewOnly: true
+								scanNewOnly: true,
 							});
 						} catch (error) {
 							console.error("[GalleryMonitorV2] Failed to start scan:", error);
@@ -203,7 +205,7 @@ export class GalleryMonitorV2 {
 				}
 			} else if (!isInitialRun) {
 				console.log(
-					`[GalleryMonitorV2] No changes. Tracking ${statsAfter.totalFiles} files`,
+					`[GalleryMonitorV2] No changes. Tracking ${statsAfter.totalImages} files`,
 				);
 			}
 
@@ -229,12 +231,12 @@ export class GalleryMonitorV2 {
 		try {
 			await this.checkForChanges();
 
-			const stats = improvedFileTracker.getStats();
+			const stats = fixedImageTracker.getStats();
 			return {
 				newImagesCount: 0,
 				changedImagesCount: 0,
 				deletedImagesCount: 0,
-				totalImagesCount: stats.totalFiles,
+				totalImagesCount: stats.totalImages,
 				hasNewImages: false,
 				hasChanges: false,
 				lastCheckTime: this.lastStats.lastCheckTime || new Date(),
@@ -259,17 +261,17 @@ export class GalleryMonitorV2 {
 	 * Get current status (backward compatible)
 	 */
 	getStatus() {
-		const stats = improvedFileTracker.getStats();
+		const stats = fixedImageTracker.getStats();
 		return {
 			isMonitoring: this.isMonitoring,
-			lastImageCount: stats.totalFiles, // For backward compatibility
+			lastImageCount: stats.totalImages, // For backward compatibility
 			lastCheckTime: this.lastStats.lastCheckTime,
 			callbackCount: this.callbacks.size,
 			// New enhanced fields
-			totalTrackedFiles: stats.totalFiles,
-			processedFiles: stats.processedFiles,
-			pendingFiles: stats.pendingFiles,
-			failedFiles: stats.failedFiles,
+			totalTrackedFiles: stats.totalImages,
+			processedImages: stats.processedImages,
+			pendingImages: stats.pendingImages,
+			failedImages: stats.failedImages,
 		};
 	}
 
@@ -277,7 +279,7 @@ export class GalleryMonitorV2 {
 	 * Get detailed statistics (new method)
 	 */
 	getDetailedStats() {
-		return improvedFileTracker.getStats();
+		return fixedImageTracker.getStats();
 	}
 
 	/**
@@ -294,8 +296,8 @@ export class GalleryMonitorV2 {
 
 		// Reset stats
 		this.lastStats = {
-			totalFiles: 0,
-			processedFiles: 0,
+			totalImages: 0,
+			processedImages: 0,
 			lastCheckTime: null,
 		};
 
@@ -314,7 +316,7 @@ export class GalleryMonitorV2 {
 		keepFailed?: boolean;
 		removeOrphans?: boolean;
 	}): Promise<void> {
-		await improvedFileTracker.cleanup(options);
+		await fixedImageTracker.clearAll();
 	}
 
 	/**
@@ -325,8 +327,8 @@ export class GalleryMonitorV2 {
 			const state = (await ScannerStorage.getObject(this.STORAGE_KEY)) as any;
 			if (state && typeof state === "object") {
 				this.lastStats = {
-					totalFiles: state.totalFiles || 0,
-					processedFiles: state.processedFiles || 0,
+					totalImages: state.totalImages || 0,
+					processedImages: state.processedImages || 0,
 					lastCheckTime: state.lastCheckTime
 						? new Date(state.lastCheckTime)
 						: null,
@@ -342,8 +344,8 @@ export class GalleryMonitorV2 {
 	private async saveState() {
 		try {
 			const state = {
-				totalFiles: this.lastStats.totalFiles,
-				processedFiles: this.lastStats.processedFiles,
+				totalImages: this.lastStats.totalImages,
+				processedImages: this.lastStats.processedImages,
 				lastCheckTime: this.lastStats.lastCheckTime?.getTime(),
 				timestamp: Date.now(),
 			};
@@ -395,8 +397,8 @@ export async function migrateToV2(): Promise<void> {
 
 			// 3. File tracker will auto-migrate hashes in its constructor
 			// Just need to ensure it's initialized
-			const stats = improvedFileTracker.getStats();
-			console.log(`[Migration] Migrated ${stats.totalFiles} files`);
+			const stats = fixedImageTracker.getStats();
+			console.log(`[Migration] Migrated ${stats.totalImages} files`);
 
 			// 4. Clean up old data (optional, can keep for rollback)
 			// await ScannerStorage.removeItem("gallery_monitor_state");
