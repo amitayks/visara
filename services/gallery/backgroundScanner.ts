@@ -13,22 +13,19 @@ import {
 	Platform,
 } from "react-native";
 import { ScannerStorage } from "../../storage/MMKVStorage";
-import { progressTracker } from '../progress/ProductionProgressTracker';
+import { progressTracker } from "../progress/ProductionProgressTracker";
 
 class ProductionBackgroundProgress {
 	async updateProgress(progress: any): Promise<void> {
 		if (!progress.totalImages || progress.totalImages === 0) return;
-		
+
 		if (progress.processedImages === 0) {
 			progressTracker.start(progress.totalImages);
 		} else {
-			progressTracker.update(
-				progress.processedImages,
-				progress.currentFile
-			);
+			progressTracker.update(progress.processedImages, progress.currentFile);
 		}
 	}
-	
+
 	async forceUpdate(progress: any, message?: string): Promise<void> {
 		if (message && !progress.isScanning) {
 			// Don't show progress for status messages when not scanning
@@ -36,7 +33,7 @@ class ProductionBackgroundProgress {
 		}
 		await this.updateProgress(progress);
 	}
-	
+
 	setPaused(paused: boolean): void {
 		// Production tracker handles this internally
 	}
@@ -724,100 +721,127 @@ export class BackgroundScanner {
 	}
 
 	// Enhanced version of performBackgroundScan with better progress tracking
+	// private async performEnhancedBackgroundScan(
+	// 	progressManager: ProductionBackgroundProgress,
+	// ): Promise<void> {
+	// 	const settings = settingsStore.getState().settings;
+
+	// 	try {
+	// 		console.log(
+	// 			"[BackgroundScanner] Starting enhanced background gallery scan",
+	// 		);
+
+	// 		// For Android, ensure we're running with wake lock
+	// 		if (Platform.OS === "android") {
+	// 			// The BackgroundService handles wake lock automatically
+	// 			console.log("[BackgroundScanner] Running with wake lock");
+	// 		}
+
+	// 		// Use streaming processing for background scanning
+	// 		const scanOptions = {
+	// 			batchSize: Platform.OS === "android" ? 5 : 10, // Smaller batches for streaming
+	// 			wifiOnly: settings.scanWifiOnly,
+	// 			smartFilterEnabled: settings.smartFilterEnabled,
+	// 			batterySaver: settings.batterySaver,
+	// 			type: "incremental" as const,
+	// 			processImmediately: true, // Enable immediate processing
+	// 			maxConcurrentProcessing: 1,
+	// 			scanNewOnly: true,
+	// 		};
+
+	// 		// Track when scanning actually begins with real work
+	// 		let scanStarted = false;
+	// 		let lastProgressUpdate = Date.now();
+
+	// 		await galleryScanner.startScan(scanOptions, async (progress) => {
+	// 			if (this.isPaused) {
+	// 				console.log("[BackgroundScanner] Scan paused");
+	// 				return;
+	// 			}
+
+	// 			// Simple update
+	// 			await progressManager.updateProgress(progress);
+	// 		});
+
+	// 		// After scan completes
+	// 		progressTracker.complete();
+
+	// 		console.log(
+	// 			"[BackgroundScanner] Enhanced background gallery scan completed",
+	// 		);
+
+	// 		// Get the final scan results and update progress
+	// 		const finalProgress = galleryScanner.getProgress();
+	// 		console.log("[BackgroundScanner] Final scan progress:", finalProgress);
+
+	// 		// Ensure the final progress is updated with completion state
+	// 		const completedProgress = {
+	// 			...finalProgress,
+	// 			isScanning: false,
+	// 		};
+
+	// 		// Update both the store and the progress manager with final state
+	// 		useScannerStore.getState().setScanProgress(completedProgress);
+
+	// 		// Provide meaningful completion message based on results
+	// 		let completionMessage = "Scan complete.";
+	// 		if (finalProgress.totalImages === 0) {
+	// 			completionMessage = "No new documents found. Gallery is up to date.";
+	// 		} else if (finalProgress.processedImages > 0) {
+	// 			completionMessage = `Scan complete! Processed ${finalProgress.processedImages} images.`;
+	// 		} else {
+	// 			completionMessage = "Scan complete. No new documents found.";
+	// 		}
+
+	// 		// Check if there are new images queued while we were scanning
+	// 		if (this.hasNewImagesQueue) {
+	// 			console.log(
+	// 				"[BackgroundScanner] New images were detected during scan, scheduling immediate rescan",
+	// 			);
+	// 			this.hasNewImagesQueue = false;
+	// 			this.forceImmediateScan = true;
+	// 			completionMessage += " New images detected, rescanning...";
+	// 		}
+
+	// 		await progressManager.forceUpdate(completedProgress, completionMessage);
+	// 	} catch (error) {
+	// 		console.error(
+	// 			"[BackgroundScanner] Enhanced background scan failed:",
+	// 			error,
+	// 		);
+
+	// 		// Use progress manager for error notification
+	// 		await progressManager.forceUpdate(
+	// 			{ processedImages: 0, totalImages: 0 },
+	// 			"Scan failed. Will retry later...",
+	// 		);
+	// 	}
+	// }
+
 	private async performEnhancedBackgroundScan(
 		progressManager: ProductionBackgroundProgress,
 	): Promise<void> {
 		const settings = settingsStore.getState().settings;
 
 		try {
-			console.log(
-				"[BackgroundScanner] Starting enhanced background gallery scan",
+			console.log("[BackgroundScanner] Starting background scan");
+
+			// Simple options for background scanning
+			await galleryScanner.startScan(
+				{
+					scanNewOnly: true, // ONLY process new images
+					processImmediately: true,
+					batchSize: Platform.OS === "android" ? 5 : 10,
+				},
+				(progress) => {
+					if (this.isPaused) return;
+					progressManager.updateProgress(progress);
+				},
 			);
 
-			// For Android, ensure we're running with wake lock
-			if (Platform.OS === "android") {
-				// The BackgroundService handles wake lock automatically
-				console.log("[BackgroundScanner] Running with wake lock");
-			}
-
-			// Use streaming processing for background scanning
-			const scanOptions = {
-				batchSize: Platform.OS === "android" ? 5 : 10, // Smaller batches for streaming
-				wifiOnly: settings.scanWifiOnly,
-				smartFilterEnabled: settings.smartFilterEnabled,
-				batterySaver: settings.batterySaver,
-				type: "incremental" as const,
-				processImmediately: true, // Enable immediate processing
-				maxConcurrentProcessing: 1,
-				scanNewOnly: true,
-			};
-
-			// Track when scanning actually begins with real work
-			let scanStarted = false;
-			let lastProgressUpdate = Date.now();
-
-			await galleryScanner.startScan(scanOptions, async (progress) => {
-				if (this.isPaused) {
-					console.log("[BackgroundScanner] Scan paused");
-					return;
-				}
-				
-				// Simple update
-				await progressManager.updateProgress(progress);
-			});
-
-			// After scan completes
-			progressTracker.complete();
-
-			console.log(
-				"[BackgroundScanner] Enhanced background gallery scan completed",
-			);
-
-			// Get the final scan results and update progress
-			const finalProgress = galleryScanner.getProgress();
-			console.log("[BackgroundScanner] Final scan progress:", finalProgress);
-
-			// Ensure the final progress is updated with completion state
-			const completedProgress = {
-				...finalProgress,
-				isScanning: false,
-			};
-
-			// Update both the store and the progress manager with final state
-			useScannerStore.getState().setScanProgress(completedProgress);
-
-			// Provide meaningful completion message based on results
-			let completionMessage = "Scan complete.";
-			if (finalProgress.totalImages === 0) {
-				completionMessage = "No new documents found. Gallery is up to date.";
-			} else if (finalProgress.processedImages > 0) {
-				completionMessage = `Scan complete! Processed ${finalProgress.processedImages} images.`;
-			} else {
-				completionMessage = "Scan complete. No new documents found.";
-			}
-
-			// Check if there are new images queued while we were scanning
-			if (this.hasNewImagesQueue) {
-				console.log(
-					"[BackgroundScanner] New images were detected during scan, scheduling immediate rescan",
-				);
-				this.hasNewImagesQueue = false;
-				this.forceImmediateScan = true;
-				completionMessage += " New images detected, rescanning...";
-			}
-
-			await progressManager.forceUpdate(completedProgress, completionMessage);
+			console.log("[BackgroundScanner] Background scan completed");
 		} catch (error) {
-			console.error(
-				"[BackgroundScanner] Enhanced background scan failed:",
-				error,
-			);
-
-			// Use progress manager for error notification
-			await progressManager.forceUpdate(
-				{ processedImages: 0, totalImages: 0 },
-				"Scan failed. Will retry later...",
-			);
+			console.error("[BackgroundScanner] Scan failed:", error);
 		}
 	}
 

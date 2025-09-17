@@ -118,109 +118,143 @@ export class GalleryMonitorV2 {
 	/**
 	 * Main change detection using enhanced file tracking
 	 */
-	async checkForChanges(options: MonitorOptions = {}): Promise<void> {
+	// async checkForChanges(options: MonitorOptions = {}): Promise<void> {
+	// 	try {
+	// 		console.log(
+	// 			"[GalleryMonitorV2] Checking for changes with fingerprint tracking",
+	// 		);
+
+	// 		// Get stats BEFORE scan
+	// 		const statsBefore = fixedImageTracker.getStats();
+
+	// 		// Quick discovery scan (no processing)
+	// 		await galleryScanner.startScan({
+	// 			type: "incremental",
+	// 			processImmediately: false, // Just discovery, no processing
+	// 			scanNewOnly: true, // Only look for new images
+	// 			batchSize: 100,
+	// 		});
+
+	// 		// Get stats AFTER scan
+	// 		const statsAfter = fixedImageTracker.getStats();
+	// 		const scanProgress = galleryScanner.getProgress();
+
+	// 		// Calculate ACTUAL changes
+	// 		const newFiles = scanProgress.newFiles || 0;
+	// 		const changedFiles = scanProgress.changedFiles || 0;
+
+	// 		// Only calculate deletions if total files decreased
+	// 		let deletedFiles = 0;
+	// 		if (statsAfter.totalImages < statsBefore.totalImages) {
+	// 			deletedFiles = statsBefore.totalImages - statsAfter.totalImages;
+	// 		}
+
+	// 		const now = new Date();
+	// 		const isInitialRun = this.lastStats.lastCheckTime === null;
+	// 		const hasChanges = newFiles > 0 || changedFiles > 0 || deletedFiles > 0;
+
+	// 		// Create event with accurate data
+	// 		const event: GalleryChangeEvent = {
+	// 			newImagesCount: newFiles,
+	// 			changedImagesCount: changedFiles,
+	// 			deletedImagesCount: deletedFiles,
+	// 			totalImagesCount: statsAfter.totalImages,
+	// 			hasNewImages: newFiles > 0,
+	// 			hasChanges,
+	// 			lastCheckTime: now,
+	// 			newImageUris: scanProgress.currentFile
+	// 				? [scanProgress.currentFile]
+	// 				: [],
+	// 			batchId: scanProgress.batchId,
+	// 		};
+
+	// 		// Update cached stats
+	// 		this.lastStats = {
+	// 			totalImages: statsAfter.totalImages,
+	// 			processedImages: statsAfter.processedImages,
+	// 			lastCheckTime: now,
+	// 		};
+
+	// 		await this.saveState();
+
+	// 		// Log meaningful changes only
+	// 		if (hasChanges) {
+	// 			console.log(
+	// 				`[GalleryMonitorV2] ✅ Real changes detected: ` +
+	// 					`+${newFiles} new, ~${changedFiles} changed, -${deletedFiles} deleted`,
+	// 			);
+
+	// 			// CRITICAL: Trigger scan if new files detected
+	// 			if (newFiles > 0 && !galleryScanner.getProgress().isScanning) {
+	// 				console.log(
+	// 					`[GalleryMonitorV2] Triggering scan for ${newFiles} new files`,
+	// 				);
+
+	// 				// Use a small delay to prevent race conditions
+	// 				setTimeout(async () => {
+	// 					try {
+	// 						await galleryScanner.startScan({
+	// 							type: "incremental",
+	// 							processImmediately: true,
+	// 							scanNewOnly: true,
+	// 						});
+	// 					} catch (error) {
+	// 						console.error("[GalleryMonitorV2] Failed to start scan:", error);
+	// 					}
+	// 				}, 1000);
+	// 			}
+	// 		} else if (!isInitialRun) {
+	// 			console.log(
+	// 				`[GalleryMonitorV2] No changes. Tracking ${statsAfter.totalImages} files`,
+	// 			);
+	// 		}
+
+	// 		// Notify callbacks only for real changes or initial run
+	// 		if (hasChanges || isInitialRun) {
+	// 			this.callbacks.forEach((callback) => {
+	// 				try {
+	// 					callback(event);
+	// 				} catch (error) {
+	// 					console.error("[GalleryMonitorV2] Error in callback:", error);
+	// 				}
+	// 			});
+	// 		}
+	// 	} catch (error) {
+	// 		console.error("[GalleryMonitorV2] Error checking for changes:", error);
+	// 	}
+	// }
+
+	// services/gallery/GalleryMonitorV2.ts
+	async checkForChanges(): Promise<void> {
 		try {
-			console.log(
-				"[GalleryMonitorV2] Checking for changes with fingerprint tracking",
-			);
+			// Get stats before
+			const statsBefore = galleryScanner.getStats();
 
-			// Get stats BEFORE scan
-			const statsBefore = fixedImageTracker.getStats();
-
-			// Quick discovery scan (no processing)
+			// Quick scan for new images only
 			await galleryScanner.startScan({
-				type: "incremental",
-				processImmediately: false, // Just discovery, no processing
-				scanNewOnly: true, // Only look for new images
+				scanNewOnly: true,
+				processImmediately: false, // Just discovery
 				batchSize: 100,
 			});
 
-			// Get stats AFTER scan
-			const statsAfter = fixedImageTracker.getStats();
-			const scanProgress = galleryScanner.getProgress();
+			// Get stats after
+			const statsAfter = galleryScanner.getStats();
 
-			// Calculate ACTUAL changes
-			const newFiles = scanProgress.newFiles || 0;
-			const changedFiles = scanProgress.changedFiles || 0;
+			// Check for new images
+			const newImages = statsAfter.totalImages - statsBefore.totalImages;
 
-			// Only calculate deletions if total files decreased
-			let deletedFiles = 0;
-			if (statsAfter.totalImages < statsBefore.totalImages) {
-				deletedFiles = statsBefore.totalImages - statsAfter.totalImages;
-			}
+			if (newImages > 0) {
+				console.log(`[GalleryMonitorV2] Found ${newImages} new images`);
 
-			const now = new Date();
-			const isInitialRun = this.lastStats.lastCheckTime === null;
-			const hasChanges = newFiles > 0 || changedFiles > 0 || deletedFiles > 0;
-
-			// Create event with accurate data
-			const event: GalleryChangeEvent = {
-				newImagesCount: newFiles,
-				changedImagesCount: changedFiles,
-				deletedImagesCount: deletedFiles,
-				totalImagesCount: statsAfter.totalImages,
-				hasNewImages: newFiles > 0,
-				hasChanges,
-				lastCheckTime: now,
-				newImageUris: scanProgress.currentFile
-					? [scanProgress.currentFile]
-					: [],
-				batchId: scanProgress.batchId,
-			};
-
-			// Update cached stats
-			this.lastStats = {
-				totalImages: statsAfter.totalImages,
-				processedImages: statsAfter.processedImages,
-				lastCheckTime: now,
-			};
-
-			await this.saveState();
-
-			// Log meaningful changes only
-			if (hasChanges) {
-				console.log(
-					`[GalleryMonitorV2] ✅ Real changes detected: ` +
-						`+${newFiles} new, ~${changedFiles} changed, -${deletedFiles} deleted`,
-				);
-
-				// CRITICAL: Trigger scan if new files detected
-				if (newFiles > 0 && !galleryScanner.getProgress().isScanning) {
-					console.log(
-						`[GalleryMonitorV2] Triggering scan for ${newFiles} new files`,
-					);
-
-					// Use a small delay to prevent race conditions
-					setTimeout(async () => {
-						try {
-							await galleryScanner.startScan({
-								type: "incremental",
-								processImmediately: true,
-								scanNewOnly: true,
-							});
-						} catch (error) {
-							console.error("[GalleryMonitorV2] Failed to start scan:", error);
-						}
-					}, 1000);
-				}
-			} else if (!isInitialRun) {
-				console.log(
-					`[GalleryMonitorV2] No changes. Tracking ${statsAfter.totalImages} files`,
-				);
-			}
-
-			// Notify callbacks only for real changes or initial run
-			if (hasChanges || isInitialRun) {
-				this.callbacks.forEach((callback) => {
-					try {
-						callback(event);
-					} catch (error) {
-						console.error("[GalleryMonitorV2] Error in callback:", error);
-					}
+				// Emit event for listeners
+				this.emitChangeEvent({
+					newImagesCount: newImages,
+					hasNewImages: true,
+					totalImagesCount: statsAfter.totalImages,
 				});
 			}
 		} catch (error) {
-			console.error("[GalleryMonitorV2] Error checking for changes:", error);
+			console.error("[GalleryMonitorV2] Check failed:", error);
 		}
 	}
 
@@ -356,6 +390,30 @@ export class GalleryMonitorV2 {
 	}
 
 	/**
+	 * Emit change event to all callbacks
+	 */
+	private emitChangeEvent(event: Partial<GalleryChangeEvent>): void {
+		const fullEvent: GalleryChangeEvent = {
+			newImagesCount: 0,
+			changedImagesCount: 0,
+			deletedImagesCount: 0,
+			totalImagesCount: 0,
+			hasNewImages: false,
+			hasChanges: false,
+			lastCheckTime: new Date(),
+			...event,
+		};
+
+		this.callbacks.forEach((callback) => {
+			try {
+				callback(fullEvent);
+			} catch (error) {
+				console.error("[GalleryMonitorV2] Error in callback:", error);
+			}
+		});
+	}
+
+	/**
 	 * Cleanup on destroy
 	 */
 	cleanup(): void {
@@ -413,61 +471,3 @@ export async function migrateToV2(): Promise<void> {
 		throw error;
 	}
 }
-
-/*
-// ================================
-// USAGE EXAMPLES
-// ================================
-
-// Export singleton instance (drop-in replacement)
-export const galleryMonitor = GalleryMonitorV2.getInstance();
-
-// Export new enhanced scanner for direct use
-export { enhancedGalleryScanner } from "./EnhancedGalleryScanner";
-
-
- * Example: Update background scanner to use new system
- 
-export const exampleBackgroundScannerUpdate = `
-// In backgroundScanner.ts, replace:
-
-// OLD:
-galleryMonitor.subscribe((event) => {
-    if (event.hasNewImages) {
-        console.log(\`New images detected: \${event.newImagesCount}\`);
-        this.forceImmediateScan = true;
-    }
-});
-
-// NEW (Option 1 - Keep same API):
-galleryMonitor.subscribe((event) => {
-    if (event.hasNewImages) {
-        console.log(\`New images detected: \${event.newImagesCount}\`);
-        // Now we also know WHICH images are new
-        console.log(\`New image URIs: \${event.newImageUris}\`);
-        this.forceImmediateScan = true;
-    }
-});
-
-// NEW (Option 2 - Use enhanced scanner directly):
-async performEnhancedBackgroundScan() {
-    const result = await enhancedGalleryScanner.scan({
-        type: "new_only",
-        processImmediately: true,
-        smartFilterEnabled: true,
-        progressCallback: (progress) => {
-            BackgroundService.updateNotification({
-                taskDesc: \`Processing \${progress.current}/\${progress.total} images...\`,
-                progressBar: {
-                    max: progress.total,
-                    value: progress.current,
-                    indeterminate: false,
-                },
-            });
-        }
-    });
-    
-    console.log(\`Scan complete: \${result.newFiles.length} new documents found\`);
-}
-`;
-*/

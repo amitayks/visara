@@ -74,21 +74,23 @@ export default function HomeScreen() {
 	// Optimized scan progress subscription
 	useEffect(() => {
 		let unsubscribe: (() => void) | undefined;
-		
+
 		// Only subscribe if we don't have background scanning
 		if (!isBackgroundScanEnabled) {
 			unsubscribe = galleryScanner.subscribeToProgress((progress) => {
 				// Only update if there's a significant change
 				setScanProgress((prev) => {
-					if (!prev || 
-					    prev.isScanning !== progress.isScanning ||
-					    Math.abs(prev.processedImages - progress.processedImages) >= 10 ||
-					    prev.scanType !== progress.scanType) {
+					if (
+						!prev ||
+						prev.isScanning !== progress.isScanning ||
+						Math.abs(prev.processedImages - progress.processedImages) >= 10 ||
+						prev.scanType !== progress.scanType
+					) {
 						return progress;
 					}
 					return prev;
 				});
-				
+
 				// Update isScanning separately for immediate UI response
 				setIsScanning(progress.isScanning);
 			});
@@ -240,17 +242,20 @@ export default function HomeScreen() {
 
 	// Handle Android back button for search
 	useEffect(() => {
-		const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
-			// If there's an active search query, clear it instead of closing the app
-			if (searchQuery && searchQuery.trim().length > 0) {
-				clearSearch();
-				Keyboard.dismiss(); // Also dismiss keyboard if open
-				return true; // Prevent default back behavior
-			}
-			
-			// Otherwise, allow default back behavior (close app or dismiss keyboard)
-			return false;
-		});
+		const backHandler = BackHandler.addEventListener(
+			"hardwareBackPress",
+			() => {
+				// If there's an active search query, clear it instead of closing the app
+				if (searchQuery && searchQuery.trim().length > 0) {
+					clearSearch();
+					Keyboard.dismiss(); // Also dismiss keyboard if open
+					return true; // Prevent default back behavior
+				}
+
+				// Otherwise, allow default back behavior (close app or dismiss keyboard)
+				return false;
+			},
+		);
 
 		return () => backHandler.remove();
 	}, [searchQuery, clearSearch]);

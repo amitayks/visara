@@ -62,7 +62,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 	const handleLaunchCamera = async () => {
 		try {
 			const hasPermission = await requestCameraPermission();
-			
+
 			if (!hasPermission) {
 				showToast({
 					type: "error",
@@ -74,7 +74,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 
 			launchCamera(imagePickerOptions, handleImageResponse);
 		} catch (error) {
-			console.error('[UploadModal] Camera launch error:', error);
+			console.error("[UploadModal] Camera launch error:", error);
 			showToast({
 				type: "error",
 				message: "Failed to access camera",
@@ -92,17 +92,18 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 		if (response.errorMessage) {
 			console.error("ImagePicker Error: ", response.errorMessage);
 			handleClose();
-			
+
 			setTimeout(() => {
 				let userMessage = "Failed to access camera";
-				
+
 				// Provide specific error messages
 				if (response.errorMessage?.includes("permission")) {
-					userMessage = "Camera permission is required. Please check app settings.";
+					userMessage =
+						"Camera permission is required. Please check app settings.";
 				} else if (response.errorMessage?.includes("camera")) {
 					userMessage = "Cannot access camera. Please try again.";
 				}
-				
+
 				showToast({
 					type: "error",
 					message: userMessage,

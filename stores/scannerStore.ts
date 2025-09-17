@@ -51,6 +51,10 @@ type ScannerState = ScannerData & ScannerActions;
 const initialProgress: ScanProgress = {
 	totalImages: 0,
 	processedImages: 0,
+	newFiles: 0,
+	changedFiles: 0,
+	skippedFiles: 0,
+	failedFiles: 0,
 	lastScanDate: null,
 	lastProcessedAssetId: null,
 	isScanning: false,
