@@ -238,6 +238,11 @@ export class DocumentStorage {
 		}
 	}
 
+	async getDocumentCount(): Promise<number> {
+		const documentsCollection = database.get<Document>("documents");
+		return await documentsCollection.query().fetchCount();
+	}
+
 	private async notifyObservers() {
 		const docs = await this.getAllDocuments();
 		this.documentsSubject.next(docs);

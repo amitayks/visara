@@ -8,6 +8,7 @@ interface DocumentStore {
 	documents: Document[];
 	filteredDocuments: Document[];
 	isLoading: boolean;
+	hasExistingDocuments: boolean;
 
 	// Modal state
 	selectedDocument: Document | null;
@@ -15,6 +16,7 @@ interface DocumentStore {
 
 	// Actions
 	loadDocuments: () => Promise<void>;
+	checkExistingDocuments: () => Promise<void>;
 	setFilteredDocuments: (docs: Document[]) => void;
 	deleteDocument: (docId: string) => Promise<void>;
 	initializeRealTimeUpdates: () => () => void;
@@ -28,10 +30,21 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 	documents: [],
 	filteredDocuments: [],
 	isLoading: false,
+	hasExistingDocuments: false,
 
 	// Modal state
 	selectedDocument: null,
 	isModalVisible: false,
+
+	checkExistingDocuments: async () => {
+		try {
+			const count = await documentStorage.getDocumentCount();
+			set({ hasExistingDocuments: count > 0 });
+		} catch (error) {
+			console.error("Failed to check existing documents:", error);
+			set({ hasExistingDocuments: false });
+		}
+	},
 
 	loadDocuments: async () => {
 		set({ isLoading: true });
@@ -65,7 +78,8 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 
 			set({ 
 				documents: transformedDocs, 
-				filteredDocuments: transformedDocs 
+				filteredDocuments: transformedDocs,
+				hasExistingDocuments: transformedDocs.length > 0
 			});
 
 			// Initialize search index with all documents

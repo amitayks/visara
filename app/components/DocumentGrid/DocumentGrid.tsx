@@ -11,6 +11,7 @@ import { useDocumentStore } from "../../../stores/documentStore";
 import { useSearchStore } from "../../../stores/searchStore";
 import { DocumentCard } from "../DocumentCard";
 import { EmptyState } from "../EmptyState";
+import { SkeletonGrid } from "../SkeletonGrid";
 import { showToast } from "../Toast";
 import { createStyles } from "./DocumentGrid.style";
 import { COLUMNS, ITEM_HEIGHT, ITEM_WIDTH } from "./documentGridConst";
@@ -47,15 +48,20 @@ export const DocumentGrid = memo(
 		const [refreshing, setRefreshing] = useState(false);
 		const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-		const { filteredDocuments, loadDocuments } = useDocumentStore();
+		const {
+			filteredDocuments,
+			loadDocuments,
+			isLoading,
+			hasExistingDocuments,
+		} = useDocumentStore();
 		const { searchQuery, searchResults } = useSearchStore();
 
 		// Filter documents based on search results
 		const documents = useMemo(() => {
 			if (searchQuery && searchResults.length > 0) {
 				// Map search results back to documents
-				const resultIds = new Set(searchResults.map(r => r.id));
-				return filteredDocuments.filter(doc => resultIds.has(doc.id));
+				const resultIds = new Set(searchResults.map((r) => r.id));
+				return filteredDocuments.filter((doc) => resultIds.has(doc.id));
 			}
 			return filteredDocuments;
 		}, [filteredDocuments, searchQuery, searchResults]);
@@ -140,11 +146,7 @@ export const DocumentGrid = memo(
 					/>
 				</View>
 			);
-		}, [
-			searchQuery,
-			handleStartBackgroundScan,
-			styles.emptyListContainer,
-		]);
+		}, [searchQuery, handleStartBackgroundScan, styles.emptyListContainer]);
 
 		const ListFooterComponent = useCallback(() => {
 			if (!isLoadingMore) return null;
@@ -155,6 +157,12 @@ export const DocumentGrid = memo(
 				</View>
 			);
 		}, [isLoadingMore, styles.loadingFooter, theme.accent]);
+
+		// Show skeleton grid when loading and there are existing documents
+		// This prevents showing the "start scanning" button when documents exist but are loading
+		if (isLoading && hasExistingDocuments) {
+			return <SkeletonGrid count={12} />;
+		}
 
 		return (
 			<FlashList

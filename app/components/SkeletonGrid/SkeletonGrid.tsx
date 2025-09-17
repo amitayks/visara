@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Dimensions, View } from "react-native";
+import { FlatList, View } from "react-native";
 import Animated, {
 	interpolate,
 	useAnimatedStyle,
@@ -9,20 +9,24 @@ import Animated, {
 } from "react-native-reanimated";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { createStyles } from "./SkeletonGrid.style";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+import {
+	COLUMNS,
+	ITEM_HEIGHT,
+	ITEM_WIDTH,
+	CONTAINER_PADDING,
+	SPACING,
+} from "../DocumentGrid/documentGridConst";
 
 interface SkeletonGridProps {
-	columns: number;
-	count: number;
+	count?: number;
 }
 
 const SkeletonCard: React.FC<{
-	width: number;
-	height: number;
 	styles: any;
 	theme: any;
-}> = ({ width, height, styles, theme }) => {
+	width: number;
+	height: number;
+}> = ({ styles, theme, width, height }) => {
 	const shimmer = useSharedValue(0);
 
 	useEffect(() => {
@@ -35,87 +39,53 @@ const SkeletonCard: React.FC<{
 	});
 
 	return (
-		<View style={[styles.card, { width }]}>
-			<Animated.View style={[styles.image, shimmerStyle, { width, height }]} />
-			{/* Document type badge skeleton */}
-			<View style={styles.typeBadge}>
-				<Animated.View style={[styles.badgeIcon, shimmerStyle]} />
-				<Animated.View style={[styles.badgeText, shimmerStyle]} />
+		<View style={styles.cardContainer}>
+			<View style={[styles.skeletonCard, { width }]}>
+				<View style={styles.imageContainer}>
+					<Animated.View
+						style={[
+							styles.image,
+							shimmerStyle,
+							{ width: width, height: height },
+						]}
+					/>
+				</View>
 			</View>
 		</View>
 	);
 };
 
-export const SkeletonGrid: React.FC<SkeletonGridProps> = ({
-	columns,
-	count,
-}) => {
+export const SkeletonGrid: React.FC<SkeletonGridProps> = ({ count = 12 }) => {
 	const { theme } = useTheme();
 	const styles = useThemedStyles(createStyles);
-	const spacing = 15; // Match DocumentGrid spacing
-	const containerPadding = 16;
-	const itemWidth = (SCREEN_WIDTH - containerPadding * 2 - spacing) / columns;
 
-	// Generate random heights for Pinterest-style layout
-	const generateHeight = (index: number) => {
-		// Use index for consistent heights across renders
-		const seed = index * 123456789;
-		const random = Math.abs(Math.sin(seed)) * 1000;
-		const minHeight = itemWidth * 0.8;
-		const maxHeight = itemWidth * 2.5;
-		return minHeight + (random % (maxHeight - minHeight));
-	};
+	// Generate skeleton items
+	const skeletonData = Array.from({ length: count }, (_, index) => ({
+		id: `skeleton-${index}`,
+		index,
+	}));
 
-	// Create masonry layout
-	const createMasonryLayout = () => {
-		const leftColumn: Array<{ index: number; height: number }> = [];
-		const rightColumn: Array<{ index: number; height: number }> = [];
-		let leftColumnHeight = 0;
-		let rightColumnHeight = 0;
+	const renderSkeletonItem = ({
+		item,
+	}: {
+		item: { id: string; index: number };
+	}) => <SkeletonCard styles={styles} theme={theme} width={ITEM_WIDTH} height={ITEM_HEIGHT} />;
 
-		for (let i = 0; i < count; i++) {
-			const height = generateHeight(i);
-
-			if (leftColumnHeight <= rightColumnHeight) {
-				leftColumn.push({ index: i, height });
-				leftColumnHeight += height + spacing;
-			} else {
-				rightColumn.push({ index: i, height });
-				rightColumnHeight += height + spacing;
-			}
-		}
-
-		return { leftColumn, rightColumn };
-	};
-
-	const { leftColumn, rightColumn } = createMasonryLayout();
-
-	const renderColumn = (
-		columnItems: Array<{ index: number; height: number }>,
-		isLeft: boolean,
-	) => (
-		<View
-			style={[styles.column, isLeft ? styles.leftColumn : styles.rightColumn]}
-		>
-			{columnItems.map((item) => (
-				<View key={item.index} style={styles.cardContainer}>
-					<SkeletonCard
-						width={itemWidth}
-						height={item.height}
-						styles={styles}
-						theme={theme}
-					/>
-				</View>
-			))}
-		</View>
-	);
+	const keyExtractor = (item: { id: string; index: number }) => item.id;
 
 	return (
-		<View style={styles.container}>
-			<View style={styles.masonryContainer}>
-				{renderColumn(leftColumn, true)}
-				{renderColumn(rightColumn, false)}
-			</View>
-		</View>
+		<FlatList
+			data={skeletonData}
+			renderItem={renderSkeletonItem}
+			keyExtractor={keyExtractor}
+			numColumns={COLUMNS}
+			// Match DocumentGrid FlashList styling exactly
+			contentContainerStyle={{
+				paddingBottom: 100,
+				// paddingRight: 12,
+			}}
+			showsVerticalScrollIndicator={false}
+			scrollEnabled={false} // Disable scrolling for skeleton
+		/>
 	);
 };

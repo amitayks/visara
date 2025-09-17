@@ -37,6 +37,7 @@ export default function HomeScreen() {
 
 	const {
 		loadDocuments,
+		checkExistingDocuments,
 		initializeRealTimeUpdates,
 		selectedDocument,
 		isModalVisible,
@@ -216,6 +217,11 @@ export default function HomeScreen() {
 
 		return () => clearInterval(interval);
 	}, [isBackgroundScanEnabled]);
+
+	// Check for existing documents first (faster than loading all)
+	useEffect(() => {
+		checkExistingDocuments();
+	}, [checkExistingDocuments]);
 
 	// Initial load
 	useEffect(() => {
