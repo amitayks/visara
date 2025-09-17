@@ -10,6 +10,7 @@ Fixing the lack of skeleton every time the app opened, and the main grid is load
 # upgrading 
 the doument detection "as document" before scan
 Interegate Ai summers of "what they think this document is" for better search result.
+implementing - ai that resoning the ocr text for better search
 
 <!-- # updating pagination
 adding pagination to flashlist. -->
@@ -41,4 +42,3 @@ Adding the option to scan multiple number of photo shots at the same time.
 --
 Creating a search bubble that expand to search bar.
 --
-implementing - ai that resoning the ocr text for better search

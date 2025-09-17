@@ -25,7 +25,7 @@ export function SettingsFooter() {
 						color={theme.textSecondary}
 					/>
 					<Text style={[styles.infoText, { color: theme.secondary }]}>
-						Privacy First
+						Zero-Knowledge Privacy
 					</Text>
 				</View>
 				<View style={styles.infoItem}>
