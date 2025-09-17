@@ -247,7 +247,21 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 		}
 	}, [document?.id]);
 
-	if (!document) return null;
+	// Don't early return null - let the Modal handle visibility
+	// The visible prop controls when the modal shows
+	if (!document) {
+		return (
+			<Modal
+				visible={visible}
+				transparent
+				animationType="fade"
+				onRequestClose={onClose}
+				statusBarTranslucent
+			>
+				{/* Empty modal - this handles the case where document is null but modal should be ready */}
+			</Modal>
+		);
+	}
 
 	const getSafeDocumentType = (): string => {
 		return safeString(document.documentType) || "Unknown";

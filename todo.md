@@ -4,13 +4,11 @@
 # fixing 
 not ending scaning, notification not dissapearing
 
-# fixing ui mount 
-Fixing the lack of skeleton every time the app opened, and the main grid is loading the image.
+<!-- # fixing ui mount 
+Fixing the lack of skeleton every time the app opened, and the main grid is loading the image. -->
 
 # upgrading 
 the doument detection "as document" before scan
-services\ai\visualDocumentDetector.ts
-
 Interegate Ai summers of "what they think this document is" for better search result.
 
 <!-- # updating pagination
@@ -29,8 +27,9 @@ Implement pinch zoom for the document grid, so the user could see the over all i
 # adding ui status info
 Adding next scan time to the status bar, and adding info tap for the statistic app info.
 
-# updating ux deletion
-UseOptimistic for action like delete.
+<!-- # updating ux deletion
+UseOptimistic for action like delete. 
+-- cant be implement, react version too old -->
 
 # for later
 --
