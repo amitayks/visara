@@ -62,7 +62,7 @@ export const createStyles = (theme: ColorScheme) =>
 		textPreview: {
 			marginTop: 16,
 			backgroundColor: theme.background,
-			borderRadius: 8,
+			borderRadius: theme.borderRadius,
 			borderWidth: 1,
 			borderColor: theme.border,
 			minHeight: SCREEN_HEIGHT * 0.45, // 25% of screen height minimum
