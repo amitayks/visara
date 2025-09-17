@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import {
+	BackHandler,
 	Keyboard,
 	StatusBar,
 	StyleSheet,
@@ -46,6 +47,7 @@ export default function HomeScreen() {
 	} = useDocumentStore();
 	const { scanProgress: backgroundScanProgress, isBackgroundScanEnabled } =
 		useScannerStore();
+	const { searchQuery, clearSearch } = useSearchStore();
 
 	// Local UI state
 	const [isScanning, setIsScanning] = useState(false);
@@ -227,6 +229,23 @@ export default function HomeScreen() {
 	useEffect(() => {
 		loadDocuments();
 	}, [loadDocuments]);
+
+	// Handle Android back button for search
+	useEffect(() => {
+		const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+			// If there's an active search query, clear it instead of closing the app
+			if (searchQuery && searchQuery.trim().length > 0) {
+				clearSearch();
+				Keyboard.dismiss(); // Also dismiss keyboard if open
+				return true; // Prevent default back behavior
+			}
+			
+			// Otherwise, allow default back behavior (close app or dismiss keyboard)
+			return false;
+		});
+
+		return () => backHandler.remove();
+	}, [searchQuery, clearSearch]);
 
 	return (
 		<SafeAreaView

@@ -198,6 +198,21 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 		setTimeout(() => setShowSuggestions(false), 200);
 	}, [focusAnimation]);
 
+	// Sync local query with store query (for external updates like back button)
+	useEffect(() => {
+		if (searchQuery !== localQuery) {
+			setLocalQuery(searchQuery);
+			// Update animations to match the new state
+			clearButtonOpacity.value = withSpring(searchQuery.length > 0 ? 1 : 0);
+			searchIconOpacity.value = withSpring(searchQuery.length > 0 ? 0 : 1);
+			// Update result count if clearing
+			if (searchQuery.length === 0) {
+				setResultCount(0);
+				resultCountOpacity.value = withSpring(0);
+			}
+		}
+	}, [searchQuery, localQuery, clearButtonOpacity, searchIconOpacity, resultCountOpacity]);
+
 	// Loading animation
 	useEffect(() => {
 		loadingOpacity.value = withTiming(isSearching ? 1 : 0);

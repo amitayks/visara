@@ -135,6 +135,7 @@ coverage/
 
 #local lists
 *.txt
+todo.md
 
 # calude code 
 .calude/

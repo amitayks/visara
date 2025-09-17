@@ -243,6 +243,41 @@ export class DocumentStorage {
 		return await documentsCollection.query().fetchCount();
 	}
 
+	async getDocumentsPaginated(page: number = 0, limit: number = 102): Promise<Document[]> {
+		const documentsCollection = database.get<Document>("documents");
+		const offset = page * limit;
+		
+		return await documentsCollection
+			.query(
+				Q.sortBy("created_at", Q.desc), // Sort by newest first
+				Q.skip(offset),
+				Q.take(limit)
+			)
+			.fetch();
+	}
+
+	async searchDocumentsPaginated(
+		query: string, 
+		page: number = 0, 
+		limit: number = 102
+	): Promise<Document[]> {
+		const documentsCollection = database.get<Document>("documents");
+		const lowerQuery = query.toLowerCase();
+		const offset = page * limit;
+
+		return await documentsCollection
+			.query(
+				Q.or(
+					Q.where("ocr_text", Q.like(`%${lowerQuery}%`)),
+					Q.where("vendor", Q.like(`%${lowerQuery}%`)),
+				),
+				Q.sortBy("created_at", Q.desc),
+				Q.skip(offset),
+				Q.take(limit)
+			)
+			.fetch();
+	}
+
 	private async notifyObservers() {
 		const docs = await this.getAllDocuments();
 		this.documentsSubject.next(docs);

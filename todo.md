@@ -13,11 +13,11 @@ services\ai\visualDocumentDetector.ts
 
 Interegate Ai summers of "what they think this document is" for better search result.
 
-# updating pagination
-adding pagination to flashlist.
+<!-- # updating pagination
+adding pagination to flashlist. -->
 
-# upgrade search ux
-While in search query active, the button back Wil trigger a clean the query handle instead of exiting the app.
+<!-- # upgrade search ux
+While in search query active, the button back Wil trigger a clean the query handle instead of exiting the app. -->
 
 # upgrade scan time 
 All image are being scan to only to fingerprint and UI visual of the image to show it in the document grid, so the scan will be quickly as possible.
