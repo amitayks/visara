@@ -46,13 +46,16 @@ export const DocumentGrid = memo(
 		const { theme } = useTheme();
 		const styles = useThemedStyles(createStyles);
 		const [refreshing, setRefreshing] = useState(false);
-		const [isLoadingMore, setIsLoadingMore] = useState(false);
 
 		const {
 			filteredDocuments,
 			loadDocuments,
+			loadMoreDocuments,
+			refreshDocuments,
 			isLoading,
 			hasExistingDocuments,
+			isLoadingMore,
+			hasMorePages,
 		} = useDocumentStore();
 		const { searchQuery, searchResults } = useSearchStore();
 
@@ -69,7 +72,7 @@ export const DocumentGrid = memo(
 		const handleRefresh = useCallback(async () => {
 			setRefreshing(true);
 			try {
-				await loadDocuments();
+				await refreshDocuments();
 				showToast({
 					type: "success",
 					message: "Gallery refreshed successfully",
@@ -85,22 +88,21 @@ export const DocumentGrid = memo(
 			} finally {
 				setRefreshing(false);
 			}
-		}, [loadDocuments]);
+		}, [refreshDocuments]);
 
 		const handleEndReached = useCallback(async () => {
-			if (isLoadingMore) return;
+			if (isLoadingMore || !hasMorePages) return;
 
-			setIsLoadingMore(true);
 			try {
-				// For now, we'll keep this simple
-				// Future enhancement: implement actual pagination
-				console.log("Load more documents - feature for future enhancement");
+				await loadMoreDocuments();
 			} catch (error) {
 				console.error("Load more error:", error);
-			} finally {
-				setIsLoadingMore(false);
+				showToast({
+					type: "error",
+					message: "Failed to load more documents",
+				});
 			}
-		}, [isLoadingMore]);
+		}, [isLoadingMore, hasMorePages, loadMoreDocuments]);
 
 		const renderDocument = useCallback(
 			({ item: doc }: { item: Document }) => {
@@ -149,14 +151,14 @@ export const DocumentGrid = memo(
 		}, [searchQuery, handleStartBackgroundScan, styles.emptyListContainer]);
 
 		const ListFooterComponent = useCallback(() => {
-			if (!isLoadingMore) return null;
+			if (!isLoadingMore || !hasMorePages) return null;
 
 			return (
 				<View style={styles.loadingFooter}>
 					<ActivityIndicator size="small" color={theme.accent} />
 				</View>
 			);
-		}, [isLoadingMore, styles.loadingFooter, theme.accent]);
+		}, [isLoadingMore, hasMorePages, styles.loadingFooter, theme.accent]);
 
 		// Show skeleton grid when loading and there are existing documents
 		// This prevents showing the "start scanning" button when documents exist but are loading
