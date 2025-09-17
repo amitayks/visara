@@ -29,17 +29,11 @@ import Icon from "react-native-vector-icons/Ionicons";
 import { useTheme, useThemedStyles } from "../../../contexts/ThemeContext";
 import { useDocumentStore } from "../../../stores/documentStore";
 import { copyToClipboard } from "../../../utils/clipboard";
-// import { formatCurrency, formatDate } from "../../../utils/format";
-// import {
-// 	formatDocumentForDisplay,
-// 	formatDocumentAsJSONString,
-// } from "../../../utils/documentFormatter";
 import { ActionButton } from "../ActionButton";
 import { Document } from "../DocumentGrid";
 import { InfoRow } from "../InfoRow";
 import { showToast } from "../Toast/Toast";
 import { createStyles } from "./DocumentModal.style";
-import { simpleDocumentProcessor } from "@/services/ai/SimpleDocumentProcessor";
 import { formatCurrency, formatDate, safeString } from "../../../utils/format";
 import {
 	formatDocumentForDisplay,
@@ -51,7 +45,6 @@ interface DocumentModalProps {
 	document: Document | null;
 	onClose: () => void;
 	onShare?: (document: Document) => void;
-	onDelete?: (documentId: string) => void;
 }
 
 export const DocumentModal: React.FC<DocumentModalProps> = ({
@@ -59,7 +52,6 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	document,
 	onClose,
 	onShare,
-	onDelete,
 }) => {
 	const { theme } = useTheme();
 	const styles = useThemedStyles(createStyles);
@@ -116,11 +108,6 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 			});
 		}
 	}, [document, onClose]);
-
-	// if (!document || !document.imageUri) {
-	// 	console.log("[DocumentModal] Invalid document or missing imageUri");
-	// 	return null;
-	// }
 
 	const handleDelete = async () => {
 		if (!document) return;
@@ -215,14 +202,14 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 			// Dismiss if dragged far enough or with enough velocity
 			if (distance > DISMISS_THRESHOLD || velocity > 1000) {
 				// Animate out and close
-				translateX.value = withSpring(translationX * 2, { damping: 15 });
-				translateY.value = withSpring(translationY * 2, { damping: 15 });
-				scale.value = withSpring(0.8, { damping: 15 });
+				translateX.value = withSpring(translationX, { damping: 1 });
+				translateY.value = withSpring(translationY, { damping: 1 });
+				scale.value = withSpring(1, { damping: 1 });
 				runOnJS(onClose)();
 			} else {
 				// Snap back to center
-				translateX.value = withSpring(0);
-				translateY.value = withSpring(0);
+				translateX.value = withSpring(1);
+				translateY.value = withSpring(1);
 				scale.value = withSpring(1);
 			}
 		},
@@ -399,52 +386,55 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 						</View>
 						{/* Document Info */}
 						<View>
-							<Text style={[styles.documentTitle, { color: theme.text }]}>
+							{/* <Text style={[styles.documentTitle, { color: theme.text }]}>
 								Document Details
-							</Text>
+							</Text> */}
 
-							<InfoRow
-								label="Type"
-								value={getSafeDocumentType()}
-								onPress={() => handleCopyText(getSafeDocumentType())}
-							/>
+							{/* Info blocks arranged in a grid */}
+							<View style={styles.infoGrid}>
+								<InfoRow
+									label="Type"
+									value={getSafeDocumentType()}
+									onPress={() => handleCopyText(getSafeDocumentType())}
+								/>
 
-							<InfoRow
-								label="Created"
-								value={getSafeDate()}
-								onPress={() => handleCopyText(getSafeDate())}
-							/>
+								<InfoRow
+									label="Created"
+									value={getSafeDate()}
+									onPress={() => handleCopyText(getSafeDate())}
+								/>
 
-							{/* Optional fields - InfoRow handles null values */}
-							<InfoRow
-								label="Vendor"
-								value={getSafeVendor()}
-								onPress={
-									getSafeVendor()
-										? () => handleCopyText(getSafeVendor()!)
-										: undefined
-								}
-							/>
+								{/* Optional fields - InfoRow handles null values */}
+								<InfoRow
+									label="Vendor"
+									value={getSafeVendor()}
+									onPress={
+										getSafeVendor()
+											? () => handleCopyText(getSafeVendor()!)
+											: undefined
+									}
+								/>
 
-							<InfoRow
-								label="Amount"
-								value={getSafeTotalAmount()}
-								onPress={
-									getSafeTotalAmount()
-										? () => handleCopyText(getSafeTotalAmount()!)
-										: undefined
-								}
-							/>
+								<InfoRow
+									label="Amount"
+									value={getSafeTotalAmount()}
+									onPress={
+										getSafeTotalAmount()
+											? () => handleCopyText(getSafeTotalAmount()!)
+											: undefined
+									}
+								/>
 
-							<InfoRow
-								label="Document Date"
-								value={getSafeDocumentDate()}
-								onPress={
-									getSafeDocumentDate()
-										? () => handleCopyText(getSafeDocumentDate()!)
-										: undefined
-								}
-							/>
+								<InfoRow
+									label="Document Date"
+									value={getSafeDocumentDate()}
+									onPress={
+										getSafeDocumentDate()
+											? () => handleCopyText(getSafeDocumentDate()!)
+											: undefined
+									}
+								/>
+							</View>
 
 							{/* Complete document data */}
 							<View style={styles.textPreview}>

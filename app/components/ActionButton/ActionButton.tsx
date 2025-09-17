@@ -6,7 +6,6 @@ import { createStyles } from "./ActionButton.style";
 
 interface ActionButtonProps {
 	icon: string;
-	label?: string;
 	onPress: () => void;
 	color?: string;
 	style?: ViewStyle;
@@ -17,7 +16,6 @@ interface ActionButtonProps {
 
 export const ActionButton: React.FC<ActionButtonProps> = ({
 	icon,
-	label,
 	onPress,
 	color,
 	style,
@@ -38,7 +36,6 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
 	const buttonColor = getButtonColor();
 	const backgroundColor = disabled ? `${buttonColor}30` : `${buttonColor}15`;
 	const iconColor = disabled ? `${buttonColor}60` : buttonColor;
-	const textColor = disabled ? `${buttonColor}60` : buttonColor;
 
 	return (
 		<TouchableOpacity
@@ -53,7 +50,6 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
 			disabled={disabled}
 		>
 			<Icon name={icon} size={24} color={iconColor} />
-			{/* <Text style={[styles.actionLabel, { color: textColor }]}>{label}</Text> */}
 			{children}
 		</TouchableOpacity>
 	);

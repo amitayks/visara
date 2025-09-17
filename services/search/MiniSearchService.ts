@@ -256,8 +256,9 @@ export class MiniSearchService {
 			this.miniSearch.remove({ id } as any);
 			console.log(`[MiniSearchService] Removed document: ${id}`);
 		} catch (error) {
-			// Document might not exist, which is okay
-			console.warn(`[MiniSearchService] Document ${id} not found for removal`);
+			// Document might not exist in search index, which is okay - 
+			// it may have been deleted before being indexed or the index wasn't initialized yet
+			console.log(`[MiniSearchService] Document ${id} not in search index (already removed or never indexed)`);
 		}
 	}
 

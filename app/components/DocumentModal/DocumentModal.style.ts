@@ -95,6 +95,12 @@ export const createStyles = (theme: ColorScheme) =>
 		actionButton: {
 			minWidth: "20%",
 			maxWidth: "25%",
-			marginBottom: 20,
+			marginBottom: 30,
+		},
+		infoGrid: {
+			flexDirection: "row",
+			flexWrap: "wrap",
+			justifyContent: "space-between",
+			marginBottom: 16,
 		},
 	});

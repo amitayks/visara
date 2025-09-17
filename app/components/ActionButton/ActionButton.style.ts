@@ -8,7 +8,7 @@ export const createStyles = (theme: any) =>
 			alignItems: "center",
 			justifyContent: "center",
 			paddingVertical: 14,
-			borderRadius: 12,
+			borderRadius: theme.borderRadius,
 			gap: 8,
 		},
 		actionLabel: {
