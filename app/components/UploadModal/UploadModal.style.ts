@@ -94,8 +94,8 @@ export const createStyles = (theme: any) =>
 		},
 		processingContainer: {
 			flex: 1,
-			justifyContent: "center",
-			alignItems: "center",
+			// justifyContent: "space-between",
+			alignItems: "stretch",
 		},
 		previewImage: {
 			width: 250,

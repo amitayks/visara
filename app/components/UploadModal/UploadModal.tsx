@@ -41,7 +41,7 @@ export const UploadModal: React.FC<UploadModalProps> = ({
 	const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
 	const bottomSheetRef = useRef<BottomSheet>(null);
-	const snapPoints = React.useMemo(() => ["50%"], []);
+	const snapPoints = React.useMemo(() => ["70%"], []);
 
 	const imagePickerOptions = {
 		mediaType: "photo" as MediaType,
