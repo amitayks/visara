@@ -248,9 +248,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 		<View style={styles.wrapper}>
 			<Animated.View style={[styles.container, containerAnimatedStyle]}>
 				{/* Search Icon */}
-				<Animated.View style={searchIconAnimatedStyle}>
-					<Icon name="search" size={20} color={theme.secondary} />
-				</Animated.View>
+				{/* <Animated.View style={searchIconAnimatedStyle}> */}
+				<Icon name="search" size={20} color={theme.secondary} />
+				{/* </Animated.View> */}
 
 				{/* Text Input */}
 				<TextInput
@@ -284,7 +284,9 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 
 					{/* Result count */}
 					{!isSearching && resultCount > 0 && localQuery.length > 0 && (
-						<Animated.View style={[styles.resultCount, resultCountAnimatedStyle]}>
+						<Animated.View
+							style={[styles.resultCount, resultCountAnimatedStyle]}
+						>
 							<Text style={styles.resultCountText}>{resultCount}</Text>
 						</Animated.View>
 					)}
