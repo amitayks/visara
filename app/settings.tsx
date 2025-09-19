@@ -9,19 +9,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
+import { privacyPolicy } from "../constants/PRIVACY_POLICY";
+import { userAgreement } from "../constants/USER_AGREEMENT";
 import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
 import { backgroundScanner } from "../services/gallery/backgroundScanner";
 import { useSettingsStore } from "../stores/settingsStore";
+import { LegalButtons, type LegalButtonData } from "./components/LegalButtons";
+import { LegalModal } from "./components/LegalModal";
 import { ScanFrequencyPicker } from "./components/ScanFrequencyPicker";
 import { ScanStatus } from "./components/ScanStatus";
 import { SettingsFooter } from "./components/SettingsFooter";
 import { SettingsSectionHeader } from "./components/SettingsSectionHeader";
 import { ToggleBar } from "./components/ToggleBar";
-import { LegalModal } from "./components/LegalModal";
-import { LegalButtons, type LegalButtonData } from "./components/LegalButtons";
 import { createStyles } from "./settings.style";
-import { userAgreement } from "../constants/USER_AGREEMENT";
-import { privacyPolicy } from "../constants/PRIVACY_POLICY";
 
 export default function SettingsScreen() {
 	const navigation = useNavigation();
@@ -103,10 +103,8 @@ export default function SettingsScreen() {
 					subtitle={["Switch to light theme", "Switch to dark theme"]}
 					iconsName={["moon", "sunny"]}
 				/>
-
 				{/* Scanning Section */}
 				<SettingsSectionHeader title="Document Scanning" />
-
 				<ToggleBar
 					onPress={() =>
 						updateSetting("smartFilterEnabled", !settings.smartFilterEnabled)
@@ -116,7 +114,6 @@ export default function SettingsScreen() {
 					subtitle={["Filter out non-documents", "Scan all images"]}
 					iconsName={["funnel", "funnel-outline"]}
 				/>
-
 				<ToggleBar
 					onPress={() => updateSetting("batterySaver", !settings.batterySaver)}
 					isChange={settings.batterySaver}
@@ -127,7 +124,6 @@ export default function SettingsScreen() {
 					]}
 					iconsName={["battery-half", "battery-full"]}
 				/>
-
 				<ToggleBar
 					onPress={() => updateSetting("autoScan", !settings.autoScan)}
 					isChange={settings.autoScan}
@@ -138,7 +134,6 @@ export default function SettingsScreen() {
 					]}
 					iconsName={["scan", "scan"]}
 				/>
-
 				<ScanFrequencyPicker
 					value={settings.scanFrequency}
 					onValueChange={(frequency) =>
@@ -146,16 +141,13 @@ export default function SettingsScreen() {
 					}
 					disabled={!settings.autoScan}
 				/>
-
 				{settings.autoScan && scanStatus && (
 					<>
 						<SettingsSectionHeader title="Scanning Status" />
 						<ScanStatus scanStatus={scanStatus} />
 					</>
 				)}
-
 				<LegalButtons buttons={legalButtons} />
-
 				<SettingsFooter />
 			</ScrollView>
 

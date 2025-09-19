@@ -224,37 +224,44 @@ export class GalleryMonitorV2 {
 	// 	}
 	// }
 
-	// services/gallery/GalleryMonitorV2.ts
 	async checkForChanges(): Promise<void> {
 		try {
-			// Get stats before
-			const statsBefore = galleryScanner.getStats();
+			console.log("[GalleryMonitor] Checking for changes");
 
-			// Quick scan for new images only
+			// Quick monitoring scan - NO UI
 			await galleryScanner.startScan({
 				scanNewOnly: true,
-				processImmediately: true, // Process new images immediately
+				processImmediately: false, // Just discovery
 				batchSize: 100,
+				isMonitoring: true, // FLAG: This is monitoring, no UI
 			});
 
-			// Get stats after
-			const statsAfter = galleryScanner.getStats();
+			const stats = galleryScanner.getStats();
 
-			// Check for new images
-			const newImages = statsAfter.totalImages - statsBefore.totalImages;
+			// If new images found, process them
+			if (stats.pendingImages > 0) {
+				console.log(
+					`[GalleryMonitor] Found ${stats.pendingImages} images to process`,
+				);
 
-			if (newImages > 0) {
-				console.log(`[GalleryMonitorV2] Found ${newImages} new images`);
+				// Process new images - SHOW UI
+				setTimeout(() => {
+					galleryScanner.startScan({
+						scanNewOnly: true,
+						processImmediately: true,
+						isMonitoring: false, // This is processing, show UI
+					});
+				}, 1000);
 
 				// Emit event for listeners
 				this.emitChangeEvent({
-					newImagesCount: newImages,
+					newImagesCount: stats.pendingImages,
 					hasNewImages: true,
-					totalImagesCount: statsAfter.totalImages,
+					totalImagesCount: stats.totalImages,
 				});
 			}
 		} catch (error) {
-			console.error("[GalleryMonitorV2] Check failed:", error);
+			console.error("[GalleryMonitor] Check failed:", error);
 		}
 	}
 

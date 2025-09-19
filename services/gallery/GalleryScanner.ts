@@ -16,6 +16,8 @@ import { galleryPermissions } from "../permissions/galleryPermissions";
 import { nativeMemoryManager } from "../memory/nativeMemoryManager";
 import { useScannerStore } from "../../stores/scannerStore";
 import { ScannerStorage } from "../../storage/MMKVStorage";
+import { smartProgress } from "../progress/SmartProgressController";
+import { notificationProgress } from "../notifications/NotificationProgressManager";
 
 // ===============================
 // TYPES
@@ -43,6 +45,10 @@ export interface ScanOptions {
 	maxRetries?: number;
 	wifiOnly?: boolean;
 	batterySaver?: boolean;
+	
+	// NEW FLAGS
+	isMonitoring?: boolean;  // True for quick checks
+	isBackground?: boolean;  // True for background scans
 }
 
 // ===============================
@@ -54,6 +60,7 @@ export class GalleryScanner {
 	private isScanning = false;
 	private shouldStop = false;
 	private scanStartTime = 0;
+	private currentScanType: "monitoring" | "processing" | "initial" = "processing";
 
 	// Progress tracking
 	private progress: ScanProgress = {
@@ -110,12 +117,16 @@ export class GalleryScanner {
 			processImmediately = true,
 			batchSize = 20,
 			maxRetries = 3,
+			isMonitoring = false, // NEW: Flag for monitoring scans
+			isBackground = false, // NEW: Flag for background scans
 		} = options;
 
 		console.log("[GalleryScanner] Starting scan with options:", {
 			scanNewOnly,
 			processImmediately,
 			batchSize,
+			isMonitoring,
+			isBackground,
 		});
 
 		// Initialize scan state
@@ -152,9 +163,29 @@ export class GalleryScanner {
 				`[GalleryScanner] Found ${allImages.length} total images in gallery`,
 			);
 
+			// Determine scan type
+			const scanType = this.determineScanType({
+				totalImages: allImages.length,
+				scanNewOnly,
+				isMonitoring,
+			});
+			this.currentScanType = scanType;
+
+			console.log(
+				`[GalleryScanner] ${scanType} scan: ${allImages.length} images`,
+			);
+
+			// Initialize smart progress (decides if UI should show)
+			smartProgress.onScanStart({
+				totalImages: allImages.length,
+				scanType,
+				isBackground,
+				scanNewOnly,
+			});
+
 			// Initialize progress tracking
 			this.progress.totalImages = allImages.length;
-			if (allImages.length > 0) {
+			if (allImages.length > 0 && scanType !== "monitoring") {
 				progressTracker.start(allImages.length);
 			}
 
@@ -235,16 +266,29 @@ export class GalleryScanner {
 						this.progress.failedFiles++;
 					}
 
-					// Update progress UI
-					this.updateProgress();
+					// Update smart progress (controller decides if UI updates)
+					smartProgress.onProgressUpdate(this.progress.processedImages, allImages.length, uri);
+
+					// Update progress UI only for processing scans and throttle updates
+					if (scanType !== "monitoring" && this.progress.processedImages % 5 === 0) {
+						this.updateProgress();
+					}
 				}
 
-				// Small delay between batches
-				await this.delay(100);
+				// Small delay between batches - longer for monitoring scans
+				const delayTime = scanType === "monitoring" ? 500 : 100;
+				await this.delay(delayTime);
 			}
 
 			// Save tracker state
 			await fixedImageTracker.forceSave();
+
+			// Complete scan with smart progress
+			smartProgress.onScanComplete({
+				totalProcessed: this.progress.processedImages,
+				newImages: this.progress.newFiles,
+				duration: Date.now() - this.scanStartTime,
+			});
 
 			// Mark scan complete
 			this.progress.phase = "completed";
@@ -264,7 +308,20 @@ export class GalleryScanner {
 			// Clean up
 			this.isScanning = false;
 			this.progress.isScanning = false;
-			this.updateProgress();
+			smartProgress.hideAll();
+			
+			// Force final update for all scan types
+			const wasMonitoring = this.currentScanType === "monitoring";
+			if (wasMonitoring) {
+				// For monitoring scans, do minimal final update
+				this.progressSubject.next(this.progress);
+			} else {
+				// For processing scans, do full update
+				this.updateProgress();
+			}
+			
+			// Reset scan type
+			this.currentScanType = "processing";
 			progressTracker.complete();
 		}
 	}
@@ -277,6 +334,13 @@ export class GalleryScanner {
 		this.shouldStop = true;
 		this.isScanning = false;
 		this.progress.isScanning = false;
+
+		// Hide all progress UI
+		smartProgress.hideAll();
+
+		// Reset scan type
+		this.currentScanType = "processing";
+
 		progressTracker.complete();
 		this.updateProgress();
 	}
@@ -416,6 +480,71 @@ export class GalleryScanner {
 		this.updateProgress();
 	}
 
+	/**
+	 * Quick check for new images without full processing
+	 */
+	async quickNewImageCheck(): Promise<number> {
+		try {
+			const hasPermission = await this.hasPermissions();
+			if (!hasPermission) {
+				return 0;
+			}
+
+			const allImages = await this.fetchAllGalleryImages();
+			let newCount = 0;
+
+			// Check only first 50 images for performance
+			const imagesToCheck = allImages.slice(0, 50);
+
+			for (const photo of imagesToCheck) {
+				const uri = this.extractUri(photo);
+				if (!uri) continue;
+
+				const record = await fixedImageTracker.findExistingRecord(uri);
+				if (!record) {
+					newCount++;
+				}
+			}
+
+			return newCount;
+		} catch (error) {
+			console.error("[GalleryScanner] Quick check failed:", error);
+			return 0;
+		}
+	}
+
+	/**
+	 * Determine scan type based on context
+	 */
+	private determineScanType(options: {
+		totalImages: number;
+		scanNewOnly: boolean;
+		isMonitoring?: boolean;
+	}): "monitoring" | "processing" | "initial" {
+		// Explicit monitoring flag
+		if (options.isMonitoring) {
+			return "monitoring";
+		}
+
+		// Very small scans are monitoring
+		if (options.totalImages < 5) {
+			return "monitoring";
+		}
+
+		// Quick checks for new images are monitoring
+		if (options.scanNewOnly && options.totalImages === 0) {
+			return "monitoring";
+		}
+
+		// First scan with many images
+		if (options.totalImages > 100 && !options.scanNewOnly) {
+			return "initial";
+		}
+
+		// Default to processing
+		return "processing";
+	}
+
 	// ===============================
 	// PRIVATE HELPER METHODS
 	// ===============================
@@ -441,7 +570,9 @@ export class GalleryScanner {
 				: undefined;
 		} while (after);
 
-		return allPhotos;
+		// Reverse the array so oldest images are processed first
+		// This ensures new images appear at the top of the UI
+		return allPhotos.reverse();
 	}
 
 	/**
@@ -476,28 +607,34 @@ export class GalleryScanner {
 	 * Update progress to all listeners
 	 */
 	private updateProgress(): void {
-		// Update progress tracker
-		if (this.progress.isScanning) {
+		// For monitoring scans, minimize UI updates to prevent excessive re-renders
+		const isMonitoringScan = this.currentScanType === "monitoring";
+
+		// Update progress tracker only if it's active (not for monitoring scans)
+		if (this.progress.isScanning && progressTracker.isScanning()) {
 			progressTracker.update(
 				this.progress.processedImages,
 				this.progress.currentFile,
 			);
 		}
 
-		// Notify subject subscribers
-		this.progressSubject.next(this.progress);
+		// Only update reactive streams for non-monitoring scans to prevent excessive re-renders
+		if (!isMonitoringScan) {
+			// Notify subject subscribers
+			this.progressSubject.next(this.progress);
 
-		// Call callback if provided
-		if (this.onProgressCallback) {
-			this.onProgressCallback(this.progress);
+			// Update store
+			const store = useScannerStore.getState();
+			if (store.setImmediateScanProgress) {
+				store.setImmediateScanProgress(this.progress);
+			} else {
+				store.setScanProgress(this.progress);
+			}
 		}
 
-		// Update store
-		const store = useScannerStore.getState();
-		if (store.setImmediateScanProgress) {
-			store.setImmediateScanProgress(this.progress);
-		} else {
-			store.setScanProgress(this.progress);
+		// Always call callback if provided (for internal use)
+		if (this.onProgressCallback) {
+			this.onProgressCallback(this.progress);
 		}
 	}
 

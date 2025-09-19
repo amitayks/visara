@@ -14,28 +14,23 @@ import {
 } from "react-native";
 import { ScannerStorage } from "../../storage/MMKVStorage";
 import { progressTracker } from "../progress/ProductionProgressTracker";
+import { smartProgress } from "../progress/SmartProgressController";
 
 class ProductionBackgroundProgress {
 	async updateProgress(progress: any): Promise<void> {
-		if (!progress.totalImages || progress.totalImages === 0) return;
-
-		if (progress.processedImages === 0) {
-			progressTracker.start(progress.totalImages);
-		} else {
-			progressTracker.update(progress.processedImages, progress.currentFile);
-		}
+		// Progress is now handled by SmartProgressController
+		// This class is kept for backward compatibility but delegates to smart progress
+		return;
 	}
 
 	async forceUpdate(progress: any, message?: string): Promise<void> {
-		if (message && !progress.isScanning) {
-			// Don't show progress for status messages when not scanning
-			return;
-		}
-		await this.updateProgress(progress);
+		// Legacy method - smart progress handles this automatically
+		return;
 	}
 
 	setPaused(paused: boolean): void {
-		// Production tracker handles this internally
+		// Legacy method - smart progress handles this automatically
+		return;
 	}
 }
 
@@ -826,22 +821,31 @@ export class BackgroundScanner {
 		try {
 			console.log("[BackgroundScanner] Starting background scan");
 
-			// Simple options for background scanning
-			await galleryScanner.startScan(
-				{
-					scanNewOnly: true, // ONLY process new images
-					processImmediately: true,
-					batchSize: Platform.OS === "android" ? 5 : 10,
-				},
-				(progress) => {
-					if (this.isPaused) return;
-					progressManager.updateProgress(progress);
-				},
+			// Check if we have new images first
+			const quickCheck = await galleryScanner.quickNewImageCheck();
+
+			if (quickCheck === 0) {
+				console.log("[BackgroundScanner] No new images, skipping scan");
+				return;
+			}
+
+			console.log(
+				`[BackgroundScanner] Found ${quickCheck} new images to process`,
 			);
+
+			// Process new images with appropriate UI
+			await galleryScanner.startScan({
+				scanNewOnly: true,
+				processImmediately: true,
+				batchSize: Platform.OS === "android" ? 5 : 10,
+				isBackground: true, // Flag for background
+				isMonitoring: false, // This is processing, not monitoring
+			});
 
 			console.log("[BackgroundScanner] Background scan completed");
 		} catch (error) {
 			console.error("[BackgroundScanner] Scan failed:", error);
+			smartProgress.hideAll();
 		}
 	}
 

@@ -19,19 +19,18 @@ import {
 	type ScanProgress,
 } from "../services/gallery/GalleryScanner";
 import { notificationPermissions } from "../services/permissions/notificationPermissions";
+import { progressTracker } from "../services/progress/ProductionProgressTracker";
 import { ScannerStorage } from "../storage/MMKVStorage";
 import { useDocumentStore } from "../stores/documentStore";
 import { useScannerStore } from "../stores/scannerStore";
+import { useSearchStore } from "../stores/searchStore";
 import { AppHeader } from "./components/AppHeader";
 import { type Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
-import { FloatingActionButton } from "./components/FloatingActionButton";
 import { ProductionProgressBar } from "./components/ProductionProgressBar/ProductionProgressBar";
 import { SearchBar } from "./components/SearchBar";
-import { progressTracker } from "../services/progress/ProductionProgressTracker";
 import { showToast, ToastContainer } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
-import { useSearchStore } from "../stores/searchStore";
 
 export default function HomeScreen() {
 	const { theme, isDark } = useTheme();
