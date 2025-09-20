@@ -19,6 +19,7 @@ import { useSettingsStore } from "../stores/settingsStore";
 import { useDocumentStore } from "../stores/documentStore";
 import { simpleImageTracker } from "../services/tracker/SimpleImageTracker";
 import { useTheme } from "../contexts/ThemeContext";
+import { createStyles } from "./settings.style";
 
 const storage = new MMKV();
 
@@ -28,6 +29,8 @@ export default function SettingsScreen() {
 	const { settings, updateSetting } = useSettingsStore();
 	const { clearDocuments, totalDocuments } = useDocumentStore();
 	const [isClearing, setIsClearing] = useState(false);
+
+	const styles = createStyles(theme);
 
 	const handleBack = () => {
 		navigation.goBack();
@@ -105,8 +108,8 @@ export default function SettingsScreen() {
 				<Switch
 					value={value}
 					onValueChange={onToggle}
-					trackColor={{ false: theme.border || "#E0E0E0", true: "#0066FF" }}
-					thumbColor="#FFFFFF"
+					trackColor={{ false: theme.border, true: theme.accent }}
+					thumbColor={theme.text}
 				/>
 			)}
 		</View>
@@ -123,10 +126,7 @@ export default function SettingsScreen() {
 				</Text>
 			</View>
 			<View
-				style={[
-					styles.segmentedControl,
-					{ backgroundColor: theme.surface || "#F0F0F0" },
-				]}
+				style={[styles.segmentedControl, { backgroundColor: theme.surface }]}
 			>
 				{(["low", "medium", "high"] as const).map((level) => (
 					<TouchableOpacity
@@ -134,7 +134,7 @@ export default function SettingsScreen() {
 						style={[
 							styles.segmentButton,
 							settings.documentDetectionSensitivity === level && {
-								backgroundColor: theme.background || "#FFFFFF",
+								backgroundColor: theme.background,
 							},
 						]}
 						onPress={() => updateSetting("documentDetectionSensitivity", level)}
@@ -144,7 +144,7 @@ export default function SettingsScreen() {
 								styles.segmentText,
 								{ color: theme.textSecondary },
 								settings.documentDetectionSensitivity === level && {
-									color: "#0066FF",
+									color: theme.accent,
 									fontWeight: "600",
 								},
 							]}
@@ -168,12 +168,7 @@ export default function SettingsScreen() {
 			/>
 
 			{/* Header */}
-			<View
-				style={[
-					styles.header,
-					{ borderBottomColor: theme.border || "#F0F0F0" },
-				]}
-			>
+			<View style={styles.header}>
 				<TouchableOpacity onPress={handleBack} style={styles.backButton}>
 					<Icon name="arrow-back" size={24} color={theme.text} />
 				</TouchableOpacity>
@@ -184,13 +179,7 @@ export default function SettingsScreen() {
 			</View>
 
 			<ScrollView showsVerticalScrollIndicator={false}>
-				{/* Appearance */}
-				<View
-					style={[
-						styles.section,
-						{ borderBottomColor: theme.border || "#F0F0F0" },
-					]}
-				>
+				<View style={[styles.section, { borderBottomColor: theme.border }]}>
 					<Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
 						Appearance
 					</Text>
@@ -203,12 +192,7 @@ export default function SettingsScreen() {
 				</View>
 
 				{/* Document Detection */}
-				<View
-					style={[
-						styles.section,
-						{ borderBottomColor: theme.border || "#F0F0F0" },
-					]}
-				>
+				<View style={[styles.section, { borderBottomColor: theme.border }]}>
 					<Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
 						Document Detection
 					</Text>
@@ -216,12 +200,7 @@ export default function SettingsScreen() {
 				</View>
 
 				{/* Storage */}
-				<View
-					style={[
-						styles.section,
-						{ borderBottomColor: theme.border || "#F0F0F0" },
-					]}
-				>
+				<View style={[styles.section, { borderBottomColor: theme.border }]}>
 					<Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
 						Storage
 					</Text>
@@ -234,12 +213,7 @@ export default function SettingsScreen() {
 				</View>
 
 				{/* Notifications */}
-				<View
-					style={[
-						styles.section,
-						{ borderBottomColor: theme.border || "#F0F0F0" },
-					]}
-				>
+				<View style={[styles.section, { borderBottomColor: theme.border }]}>
 					<Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
 						Notifications
 					</Text>
@@ -252,12 +226,7 @@ export default function SettingsScreen() {
 				</View>
 
 				{/* Privacy */}
-				<View
-					style={[
-						styles.section,
-						{ borderBottomColor: theme.border || "#F0F0F0" },
-					]}
-				>
+				<View style={[styles.section, { borderBottomColor: theme.border }]}>
 					<Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
 						Privacy
 					</Text>
@@ -276,12 +245,7 @@ export default function SettingsScreen() {
 				</View>
 
 				{/* Data Management */}
-				<View
-					style={[
-						styles.section,
-						{ borderBottomColor: theme.border || "#F0F0F0" },
-					]}
-				>
+				<View style={[styles.section, { borderBottomColor: theme.border }]}>
 					<Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
 						Data Management
 					</Text>
@@ -334,107 +298,4 @@ export default function SettingsScreen() {
 	);
 }
 
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-	},
-	header: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		paddingHorizontal: 16,
-		paddingVertical: 12,
-		borderBottomWidth: 1,
-	},
-	backButton: {
-		width: 40,
-		height: 40,
-		justifyContent: "center",
-		alignItems: "center",
-	},
-	headerTitle: {
-		fontSize: 18,
-		fontWeight: "600",
-	},
-	section: {
-		paddingVertical: 16,
-		borderBottomWidth: 1,
-	},
-	sectionTitle: {
-		fontSize: 13,
-		fontWeight: "600",
-		textTransform: "uppercase",
-		letterSpacing: 0.5,
-		marginBottom: 12,
-		marginHorizontal: 16,
-	},
-	settingRow: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "space-between",
-		paddingHorizontal: 16,
-		paddingVertical: 12,
-	},
-	settingInfo: {
-		flex: 1,
-		marginRight: 12,
-	},
-	settingTitle: {
-		fontSize: 16,
-		marginBottom: 2,
-	},
-	settingSubtitle: {
-		fontSize: 13,
-	},
-	segmentedControl: {
-		flexDirection: "row",
-		borderRadius: 8,
-		padding: 2,
-	},
-	segmentButton: {
-		paddingHorizontal: 16,
-		paddingVertical: 8,
-		borderRadius: 6,
-	},
-	segmentText: {
-		fontSize: 13,
-	},
-	dangerButton: {
-		flexDirection: "row",
-		alignItems: "center",
-		justifyContent: "center",
-		backgroundColor: "#FFF5F5",
-		marginHorizontal: 16,
-		paddingVertical: 12,
-		borderRadius: 8,
-		borderWidth: 1,
-		borderColor: "#FFDDDD",
-	},
-	dangerButtonText: {
-		fontSize: 16,
-		color: "#FF3B30",
-		fontWeight: "500",
-		marginLeft: 8,
-	},
-	aboutRow: {
-		flexDirection: "row",
-		justifyContent: "space-between",
-		paddingHorizontal: 16,
-		paddingVertical: 8,
-	},
-	aboutLabel: {
-		fontSize: 15,
-	},
-	aboutValue: {
-		fontSize: 15,
-	},
-	footer: {
-		padding: 24,
-		alignItems: "center",
-	},
-	footerText: {
-		fontSize: 13,
-		textAlign: "center",
-		lineHeight: 18,
-	},
-});
+// const styles = StyleSheet.create({});
