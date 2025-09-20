@@ -340,31 +340,33 @@ export default function HomeScreen() {
 
 			{/* Progress Bar - Always visible during initial scan */}
 			{isInitialScan && scanProgress && (
-				<View style={styles.scanProgressContainer}>
-					<View style={styles.scanProgressHeader}>
-						<Text style={styles.scanProgressTitle}>
-							{scanProgress.phase === "scanning"
-								? "Discovering images..."
-								: scanProgress.phase === "processing"
-									? "Processing documents..."
-									: "Completing scan..."}
-						</Text>
-						<Text style={styles.scanProgressPercentage}>
-							{scanProgress.percentage}%
+				<View style={styles.scanProgressWrapper}>
+					<View style={styles.scanProgressContainer}>
+						<View style={styles.scanProgressHeader}>
+							<Text style={styles.scanProgressTitle}>
+								{scanProgress.phase === "scanning"
+									? "Discovering images..."
+									: scanProgress.phase === "processing"
+										? "Processing documents..."
+										: "Completing scan..."}
+							</Text>
+							<Text style={styles.scanProgressPercentage}>
+								{scanProgress.percentage}%
+							</Text>
+						</View>
+						<View style={styles.progressBar}>
+							<View
+								style={[
+									styles.progressFill,
+									{ width: `${scanProgress.percentage}%` },
+								]}
+							/>
+						</View>
+						<Text style={styles.scanProgressSubtitle}>
+							{scanProgress.documentsFound} documents found •{" "}
+							{scanProgress.processedImages}/{scanProgress.totalImages} images
 						</Text>
 					</View>
-					<View style={styles.progressBar}>
-						<View
-							style={[
-								styles.progressFill,
-								{ width: `${scanProgress.percentage}%` },
-							]}
-						/>
-					</View>
-					<Text style={styles.scanProgressSubtitle}>
-						{scanProgress.documentsFound} documents found •{" "}
-						{scanProgress.processedImages}/{scanProgress.totalImages} images
-					</Text>
 				</View>
 			)}
 
@@ -431,16 +433,23 @@ const createStyles = (theme: any) =>
 			fontSize: 16,
 			color: theme.textSecondary,
 		},
+		scanProgressWrapper: {
+			position: "absolute",
+			top: 60,
+			left: 0,
+			right: 0,
+			zIndex: 1,
+		},
 		scanProgressContainer: {
 			backgroundColor: theme.backgroundAccent,
-			marginHorizontal: 16,
-			marginBottom: 10,
+			marginHorizontal: 6,
+			// marginBottom: 10,
 			padding: 16,
 			borderRadius: theme.borderRadius,
 			elevation: 2,
 			shadowColor: "#000",
 			shadowOffset: { width: 0, height: 2 },
-			shadowOpacity: 0.1,
+			shadowOpacity: 0.5,
 			shadowRadius: 4,
 		},
 		scanProgressHeader: {
