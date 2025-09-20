@@ -431,18 +431,12 @@ const createStyles = (theme: any) =>
 			fontSize: 16,
 			color: theme.textSecondary,
 		},
-		searchContainer: {
-			paddingHorizontal: 16,
-			paddingVertical: 8,
-		},
 		scanProgressContainer: {
-			backgroundColor: "#F0F7FF",
+			backgroundColor: theme.backgroundAccent,
 			marginHorizontal: 16,
-			marginBottom: 8,
+			marginBottom: 10,
 			padding: 16,
-			borderRadius: 12,
-			borderWidth: 1,
-			borderColor: "#D0E4FF",
+			borderRadius: theme.borderRadius,
 			elevation: 2,
 			shadowColor: "#000",
 			shadowOffset: { width: 0, height: 2 },
@@ -458,27 +452,27 @@ const createStyles = (theme: any) =>
 		scanProgressTitle: {
 			fontSize: 14,
 			fontWeight: "600",
-			color: "#333333",
+			color: theme.text,
 		},
 		scanProgressPercentage: {
 			fontSize: 14,
 			fontWeight: "bold",
-			color: "#0066FF",
+			color: theme.text,
 		},
 		scanProgressSubtitle: {
 			fontSize: 12,
-			color: "#666666",
+			color: theme.text,
 			marginTop: 8,
 		},
 		progressBar: {
 			height: 6,
-			backgroundColor: "#E0E0E0",
+			backgroundColor: theme.background,
 			borderRadius: 3,
 			overflow: "hidden",
 		},
 		progressFill: {
 			height: "100%",
-			backgroundColor: "#0066FF",
+			backgroundColor: theme.accent,
 			borderRadius: 3,
 		},
 		scanningContainer: {
@@ -502,7 +496,7 @@ const createStyles = (theme: any) =>
 		documentsFound: {
 			fontSize: 16,
 			fontWeight: "600",
-			color: "#0066FF",
+			color: theme.text,
 			marginTop: 20,
 		},
 		emptyContainer: {
