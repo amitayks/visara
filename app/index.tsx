@@ -1,4 +1,7 @@
-import React, { useEffect, useState, useCallback } from "react";
+// app/index.tsx
+// Fixed version with proper welcome check and persistent progress bar
+
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import {
 	View,
 	StatusBar,
@@ -51,41 +54,28 @@ export default function HomeScreen() {
 	const [isLoading, setIsLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [showUploadModal, setShowUploadModal] = useState(false);
+	const [welcomeChecked, setWelcomeChecked] = useState(false);
 
-	// Check if this is first launch
+	// Refs to prevent multiple operations
+	const hasInitialized = useRef(false);
+	const scanProgressSubscription = useRef<any>(null);
+	const databaseUnsubscribe = useRef<(() => void) | null>(null);
+
+	// Initialize app on mount (welcome check handled by navigation)
 	useEffect(() => {
-		checkFirstLaunch();
+		console.log("[HomeScreen] Mounting, starting initialization...");
+		setWelcomeChecked(true); // No welcome check needed here
+		initializeApp();
 	}, []);
 
-	const checkFirstLaunch = async () => {
-		try {
-			console.log("[HomeScreen] Checking first launch...");
-			const welcomeCompleted = storage.getBoolean("welcome_completed");
-			console.log("[HomeScreen] Welcome completed:", welcomeCompleted);
-
-			// MMKV getBoolean returns undefined for non-existent keys
-			if (welcomeCompleted !== true) {
-				console.log("[HomeScreen] Navigating to Welcome screen");
-				// Set loading to false and navigate to welcome screen
-				setIsLoading(false);
-				navigation.reset({
-					index: 0,
-					routes: [{ name: "Welcome" } as never],
-				});
-				return;
-			}
-
-			console.log("[HomeScreen] Welcome completed, initializing app");
-			// Initialize app
-			await initializeApp();
-		} catch (error) {
-			console.error("[HomeScreen] Launch check error:", error);
-			// On error, try to initialize anyway
-			setIsLoading(false);
-		}
-	};
-
 	const initializeApp = async () => {
+		// Prevent multiple initializations
+		if (hasInitialized.current) {
+			console.log("[HomeScreen] Already initialized, skipping");
+			return;
+		}
+		hasInitialized.current = true;
+
 		try {
 			console.log("[HomeScreen] Starting app initialization...");
 			setIsLoading(true);
@@ -99,32 +89,33 @@ export default function HomeScreen() {
 			const scanCompleted = storage.getBoolean("initial_scan_completed");
 			console.log("[HomeScreen] Initial scan completed:", scanCompleted);
 
-			// Hide loading indicator and show home screen before starting background tasks
+			// Setup real-time updates from database (but don't let it cause re-renders during scan)
+			if (scanCompleted === true) {
+				console.log("[HomeScreen] Setting up real-time updates...");
+				databaseUnsubscribe.current = initializeRealTimeUpdates();
+			}
+
+			// Hide loading before starting scans
 			setIsLoading(false);
 
 			if (scanCompleted !== true) {
-				// Start initial scan in background
+				// Start initial scan
 				console.log("[HomeScreen] Starting initial scan...");
-				startInitialScan(); // Don't await - run in background
+				await startInitialScan(); // Wait for it to complete
 			} else {
 				// Just start real-time monitoring
 				console.log("[HomeScreen] Starting real-time monitoring...");
 				await startRealTimeMonitoring();
 			}
 
-			// Setup real-time updates from database
-			console.log("[HomeScreen] Setting up real-time updates...");
-			const unsubscribe = initializeRealTimeUpdates();
 			console.log("[HomeScreen] App initialization complete!");
-			return unsubscribe;
 		} catch (error) {
 			console.error("[HomeScreen] Initialization error:", error);
 			showToast({
 				type: "error",
 				message: "Failed to initialize app",
 			});
-		} finally {
-			// Loading already set to false above
+			setIsLoading(false);
 		}
 	};
 
@@ -134,15 +125,15 @@ export default function HomeScreen() {
 
 		try {
 			// Subscribe to progress updates
-			const progressSub = initialScanner
+			scanProgressSubscription.current = initialScanner
 				.observeProgress()
 				.subscribe((progress) => {
 					setScanProgress(progress);
 
-					// Update documents as they're found
+					// Only update documents when scan completes or significant progress
 					if (
-						progress.documentsFound > 0 &&
-						progress.documentsFound % 5 === 0
+						progress.phase === "completed" ||
+						(progress.documentsFound > 0 && progress.documentsFound % 10 === 0)
 					) {
 						loadDocuments();
 					}
@@ -151,11 +142,17 @@ export default function HomeScreen() {
 			// Perform initial scan
 			await initialScanner.performInitialScan();
 
-			// Cleanup subscription
-			progressSub.unsubscribe();
-
 			// Mark as completed
 			storage.set("initial_scan_completed", true);
+
+			// Final document load
+			await loadDocuments();
+
+			// NOW setup database observer after scan is complete
+			if (!databaseUnsubscribe.current) {
+				console.log("[HomeScreen] Setting up real-time updates after scan...");
+				databaseUnsubscribe.current = initializeRealTimeUpdates();
+			}
 
 			// Start real-time monitoring
 			await startRealTimeMonitoring();
@@ -172,7 +169,16 @@ export default function HomeScreen() {
 			});
 		} finally {
 			setIsInitialScan(false);
-			setScanProgress(null);
+			// Don't clear scan progress immediately - let it fade out
+			setTimeout(() => {
+				setScanProgress(null);
+			}, 2000);
+
+			// Cleanup subscription
+			if (scanProgressSubscription.current) {
+				scanProgressSubscription.current.unsubscribe();
+				scanProgressSubscription.current = null;
+			}
 		}
 	};
 
@@ -276,10 +282,34 @@ export default function HomeScreen() {
 		);
 	};
 
+	// Cleanup on unmount
+	useEffect(() => {
+		return () => {
+			if (databaseUnsubscribe.current) {
+				databaseUnsubscribe.current();
+				databaseUnsubscribe.current = null;
+			}
+			if (scanProgressSubscription.current) {
+				scanProgressSubscription.current.unsubscribe();
+				scanProgressSubscription.current = null;
+			}
+		};
+	}, []);
+
+	// Don't render until welcome check is complete
+	if (!welcomeChecked) {
+		return (
+			<View style={styles.loadingContainer}>
+				<ActivityIndicator size="large" color="#0066FF" />
+			</View>
+		);
+	}
+
 	if (isLoading) {
 		return (
 			<View style={styles.loadingContainer}>
 				<ActivityIndicator size="large" color="#0066FF" />
+				<Text style={styles.loadingText}>Loading documents...</Text>
 			</View>
 		);
 	}
@@ -297,11 +327,17 @@ export default function HomeScreen() {
 			{/* Header */}
 			<AppHeader setShowUploadModal={setShowUploadModal} />
 
-			{/* Initial Scan Progress */}
+			{/* Progress Bar - Always visible during initial scan */}
 			{isInitialScan && scanProgress && (
 				<View style={styles.scanProgressContainer}>
 					<View style={styles.scanProgressHeader}>
-						<Text style={styles.scanProgressTitle}>Scanning Gallery...</Text>
+						<Text style={styles.scanProgressTitle}>
+							{scanProgress.phase === "scanning"
+								? "Discovering images..."
+								: scanProgress.phase === "processing"
+									? "Processing documents..."
+									: "Completing scan..."}
+						</Text>
 						<Text style={styles.scanProgressPercentage}>
 							{scanProgress.percentage}%
 						</Text>
@@ -310,12 +346,13 @@ export default function HomeScreen() {
 						<View
 							style={[
 								styles.progressFill,
-								// { width: `${scanProgress.percentage}%` },
+								{ width: `${scanProgress.percentage}%` },
 							]}
 						/>
 					</View>
 					<Text style={styles.scanProgressSubtitle}>
-						{scanProgress.documentsFound} documents found
+						{scanProgress.documentsFound} documents found •{" "}
+						{scanProgress.processedImages}/{scanProgress.totalImages} images
 					</Text>
 				</View>
 			)}
@@ -328,23 +365,33 @@ export default function HomeScreen() {
 				onRefresh={handleRefresh}
 			/>
 
-			<DocumentModal
-				visible={isModalVisible}
-				document={selectedDocument}
-				onClose={closeDocumentModal}
-			/>
+			{/* Document Modal */}
+			{isModalVisible && selectedDocument && (
+				<DocumentModal
+					visible={isModalVisible}
+					document={selectedDocument}
+					onClose={closeDocumentModal}
+				/>
+			)}
 
-			<UploadModal
-				visible={showUploadModal}
-				onClose={() => setShowUploadModal(false)}
-			/>
+			{/* Upload Modal */}
+			{showUploadModal && (
+				<UploadModal
+					visible={showUploadModal}
+					onClose={() => setShowUploadModal(false)}
+				/>
+			)}
 
 			{/* Search Bar */}
+			{/* <View style={styles.searchContainer}> */}
 			<SearchBar
 				value={searchQuery}
 				onChangeText={handleSearch}
-				placeholder="Search documents.."
+				placeholder="Search documents..."
 			/>
+			{/* </View> */}
+
+			{/* Toast Container */}
 			<ToastContainer />
 		</SafeAreaView>
 	);
@@ -362,22 +409,39 @@ const createStyles = (theme: any) =>
 			alignItems: "center",
 			backgroundColor: theme.background,
 		},
+		loadingText: {
+			marginTop: 12,
+			fontSize: 16,
+			color: theme.textSecondary,
+		},
+		searchContainer: {
+			paddingHorizontal: 16,
+			paddingVertical: 8,
+		},
 		scanProgressContainer: {
-			backgroundColor: theme.surfaceSecondary,
-			margin: 16,
+			backgroundColor: "#F0F7FF",
+			marginHorizontal: 16,
+			marginBottom: 8,
 			padding: 16,
 			borderRadius: 12,
+			borderWidth: 1,
+			borderColor: "#D0E4FF",
+			elevation: 2,
+			shadowColor: "#000",
+			shadowOffset: { width: 0, height: 2 },
+			shadowOpacity: 0.1,
+			shadowRadius: 4,
 		},
 		scanProgressHeader: {
 			flexDirection: "row",
 			justifyContent: "space-between",
 			alignItems: "center",
-			marginBottom: 8,
+			marginBottom: 10,
 		},
 		scanProgressTitle: {
 			fontSize: 14,
 			fontWeight: "600",
-			color: theme.text,
+			color: "#333333",
 		},
 		scanProgressPercentage: {
 			fontSize: 14,
@@ -386,19 +450,19 @@ const createStyles = (theme: any) =>
 		},
 		scanProgressSubtitle: {
 			fontSize: 12,
-			color: theme.textSecondary,
+			color: "#666666",
 			marginTop: 8,
 		},
 		progressBar: {
-			height: 4,
+			height: 6,
 			backgroundColor: "#E0E0E0",
-			borderRadius: 2,
+			borderRadius: 3,
 			overflow: "hidden",
 		},
 		progressFill: {
 			height: "100%",
 			backgroundColor: "#0066FF",
-			borderRadius: 2,
+			borderRadius: 3,
 		},
 		scanningContainer: {
 			flex: 1,
@@ -414,7 +478,7 @@ const createStyles = (theme: any) =>
 		},
 		scanningSubtitle: {
 			fontSize: 14,
-			color: theme.textSecondary || "#666666",
+			color: theme.textSecondary,
 			marginTop: 8,
 			textAlign: "center",
 		},
@@ -432,13 +496,13 @@ const createStyles = (theme: any) =>
 		},
 		emptyTitle: {
 			fontSize: 18,
-			fontWeight: "bold",
+			fontWeight: "600",
 			color: theme.text,
 			marginBottom: 8,
 		},
 		emptyMessage: {
 			fontSize: 14,
-			color: theme.textSecondary || "#666666",
+			color: theme.textSecondary,
 			textAlign: "center",
 		},
 	});

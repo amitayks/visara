@@ -1,5 +1,5 @@
-// app/WelcomeScreen.tsx
-// One-time welcome screen for new users
+// app/screens/WelcomeScreen.tsx (if you have this file)
+// Updated to use MMKV instead of AsyncStorage
 
 import React, { useState } from "react";
 import {
@@ -12,16 +12,17 @@ import {
 	Platform,
 	Alert,
 	Linking,
+	ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
 import { MMKV } from "react-native-mmkv";
 import { useNavigation } from "@react-navigation/native";
-import type { RootStackParamList } from "../types/navigation";
 import {
 	requestMultiple,
 	PERMISSIONS,
 	RESULTS,
+	check,
 } from "react-native-permissions";
 
 const storage = new MMKV();
@@ -42,10 +43,10 @@ export const WelcomeScreen: React.FC = () => {
 			color: "#0066FF",
 		},
 		{
-			title: "Real-Time Detection",
-			subtitle: "Instant processing, no waiting",
+			title: "Automatic Detection",
+			subtitle: "No manual scanning needed",
 			description:
-				"New photos are detected instantly. Documents are automatically processed in real-time.",
+				"New photos are instantly analyzed. Documents are automatically processed and organized.",
 			icon: "camera",
 			color: "#00C853",
 		},
@@ -83,15 +84,20 @@ export const WelcomeScreen: React.FC = () => {
 			const granted = await requestPermissions();
 
 			if (!granted) {
+				setIsLoading(false);
 				Alert.alert(
 					"Permission Required",
 					"Visara needs access to your photo gallery to function. Please grant permission in Settings.",
 					[
-						{ text: "Cancel", style: "cancel" },
+						{
+							text: "Cancel",
+							style: "cancel",
+							onPress: () => setIsLoading(false),
+						},
 						{
 							text: "Open Settings",
-							onPress: () => {
-								// Open app settings
+							onPress: async () => {
+								setIsLoading(false);
 								if (Platform.OS === "ios") {
 									Linking.openURL("app-settings:");
 								} else {
@@ -101,54 +107,93 @@ export const WelcomeScreen: React.FC = () => {
 						},
 					],
 				);
-				setIsLoading(false);
 				return;
 			}
 
 			// Mark welcome as completed using MMKV
+			console.log("[WelcomeScreen] Setting welcome_completed to true");
 			storage.set("welcome_completed", true);
 
+			// Verify it was saved
+			const saved = storage.getBoolean("welcome_completed");
+			console.log("[WelcomeScreen] Verified welcome_completed:", saved);
+
 			// Navigate to home screen
+			console.log("[WelcomeScreen] Navigating to Home");
 			navigation.reset({
 				index: 0,
-				routes: [{ name: "Home" } as never],
+				routes: [{ name: "Home" as never }],
 			});
 		} catch (error) {
 			console.error("[WelcomeScreen] Error:", error);
-			Alert.alert("Error", "Something went wrong. Please try again.");
-		} finally {
 			setIsLoading(false);
+			Alert.alert("Error", "Something went wrong. Please try again.");
 		}
 	};
 
 	const requestPermissions = async (): Promise<boolean> => {
 		try {
 			if (Platform.OS === "ios") {
-				const result = await requestMultiple([PERMISSIONS.IOS.PHOTO_LIBRARY]);
+				const currentStatus = await check(PERMISSIONS.IOS.PHOTO_LIBRARY);
 
+				if (currentStatus === RESULTS.GRANTED) {
+					return true;
+				}
+
+				if (
+					currentStatus === RESULTS.BLOCKED ||
+					currentStatus === RESULTS.UNAVAILABLE
+				) {
+					return false;
+				}
+
+				const result = await requestMultiple([PERMISSIONS.IOS.PHOTO_LIBRARY]);
 				return result[PERMISSIONS.IOS.PHOTO_LIBRARY] === RESULTS.GRANTED;
 			} else {
-				// Android permissions based on API level
-				const androidVersion =
-					typeof Platform.Version === "number"
-						? Platform.Version
-						: parseInt(Platform.Version.toString(), 10);
+				const androidVersion = Platform.Version;
 
-				if (androidVersion >= 33) {
-					// Android 13+
+				// need attantion here
+				if (androidVersion >= "33") {
+					const currentStatus = await check(
+						PERMISSIONS.ANDROID.READ_MEDIA_IMAGES,
+					);
+
+					if (currentStatus === RESULTS.GRANTED) {
+						return true;
+					}
+
+					if (
+						currentStatus === RESULTS.BLOCKED ||
+						currentStatus === RESULTS.UNAVAILABLE
+					) {
+						return false;
+					}
+
 					const result = await requestMultiple([
 						PERMISSIONS.ANDROID.READ_MEDIA_IMAGES,
 					]);
-
 					return (
 						result[PERMISSIONS.ANDROID.READ_MEDIA_IMAGES] === RESULTS.GRANTED
 					);
 				} else {
-					// Android 12 and below
+					const currentStatus = await check(
+						PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
+					);
+
+					if (currentStatus === RESULTS.GRANTED) {
+						return true;
+					}
+
+					if (
+						currentStatus === RESULTS.BLOCKED ||
+						currentStatus === RESULTS.UNAVAILABLE
+					) {
+						return false;
+					}
+
 					const result = await requestMultiple([
 						PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
 					]);
-
 					return (
 						result[PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE] ===
 						RESULTS.GRANTED
@@ -161,6 +206,10 @@ export const WelcomeScreen: React.FC = () => {
 		}
 	};
 
+	const handleSkip = () => {
+		setCurrentStep(steps.length - 1);
+	};
+
 	const currentStepData = steps[currentStep];
 	const isLastStep = currentStep === steps.length - 1;
 
@@ -170,17 +219,16 @@ export const WelcomeScreen: React.FC = () => {
 				contentContainerStyle={styles.scrollContent}
 				showsVerticalScrollIndicator={false}
 			>
-				{/* Skip Button */}
 				{!isLastStep && (
 					<TouchableOpacity
 						style={styles.skipButton}
-						onPress={handleGetStarted}
+						onPress={handleSkip}
+						disabled={isLoading}
 					>
 						<Text style={styles.skipText}>Skip</Text>
 					</TouchableOpacity>
 				)}
 
-				{/* Icon */}
 				<View
 					style={[
 						styles.iconContainer,
@@ -194,7 +242,6 @@ export const WelcomeScreen: React.FC = () => {
 					/>
 				</View>
 
-				{/* Content */}
 				<View style={styles.content}>
 					<Text style={styles.title}>{currentStepData.title}</Text>
 					<Text style={[styles.subtitle, { color: currentStepData.color }]}>
@@ -203,7 +250,6 @@ export const WelcomeScreen: React.FC = () => {
 					<Text style={styles.description}>{currentStepData.description}</Text>
 				</View>
 
-				{/* Progress Indicators */}
 				<View style={styles.indicators}>
 					{steps.map((_, index) => (
 						<View
@@ -219,22 +265,29 @@ export const WelcomeScreen: React.FC = () => {
 					))}
 				</View>
 
-				{/* Action Button */}
 				<TouchableOpacity
-					style={[styles.button, { backgroundColor: currentStepData.color }]}
+					style={[
+						styles.button,
+						{ backgroundColor: currentStepData.color },
+						isLoading && styles.buttonDisabled,
+					]}
 					onPress={handleNext}
 					disabled={isLoading}
 				>
-					<Text style={styles.buttonText}>
-						{isLoading ? "Setting up..." : isLastStep ? "Let's Start" : "Next"}
-					</Text>
-					{!isLoading && (
-						<Icon
-							name="arrow-forward"
-							size={20}
-							color="#FFFFFF"
-							style={styles.buttonIcon}
-						/>
+					{isLoading ? (
+						<ActivityIndicator size="small" color="#FFFFFF" />
+					) : (
+						<>
+							<Text style={styles.buttonText}>
+								{isLastStep ? "Let's Start" : "Next"}
+							</Text>
+							<Icon
+								name="arrow-forward"
+								size={20}
+								color="#FFFFFF"
+								style={styles.buttonIcon}
+							/>
+						</>
 					)}
 				</TouchableOpacity>
 			</ScrollView>
@@ -259,6 +312,7 @@ const styles = StyleSheet.create({
 		top: 20,
 		right: 24,
 		padding: 8,
+		zIndex: 1,
 	},
 	skipText: {
 		fontSize: 16,
@@ -320,6 +374,9 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 		minWidth: 200,
 	},
+	buttonDisabled: {
+		opacity: 0.7,
+	},
 	buttonText: {
 		fontSize: 18,
 		fontWeight: "600",
@@ -330,4 +387,5 @@ const styles = StyleSheet.create({
 	},
 });
 
+// Also export as default for compatibility
 export default WelcomeScreen;

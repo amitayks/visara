@@ -1,3 +1,6 @@
+// stores/documentStore.ts
+// Fixed version with proper change detection and debouncing
+
 import { create } from "zustand";
 import { documentStorage } from "../services/database/documentStorage";
 import type { Document } from "../app/components/DocumentGrid";
@@ -15,6 +18,10 @@ interface DocumentStore {
 	// Statistics for new real-time system
 	totalDocuments: number;
 	documentsByType: Map<string, number>;
+
+	// Change tracking (NEW)
+	lastDocumentIds: Set<string>;
+	lastUpdateTime: number;
 
 	// Pagination state (kept for backward compatibility)
 	currentPage: number;
@@ -49,6 +56,7 @@ interface DocumentStore {
 // Global subscription tracker to prevent multiple subscriptions
 let globalSubscription: (() => void) | null = null;
 let hasInitializedSearchIndex = false;
+let updateDebounceTimer: NodeJS.Timeout | null = null;
 
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
 	documents: [],
@@ -60,6 +68,10 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 	// Statistics
 	totalDocuments: 0,
 	documentsByType: new Map(),
+
+	// Change tracking
+	lastDocumentIds: new Set(),
+	lastUpdateTime: 0,
 
 	// Pagination state
 	currentPage: 0,
@@ -82,6 +94,14 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 	},
 
 	loadDocuments: async () => {
+		const state = get();
+
+		// Prevent concurrent loads
+		if (state.isLoading) {
+			console.log("[DocumentStore] Already loading, skipping concurrent load");
+			return;
+		}
+
 		set({ isLoading: true, currentPage: 0 });
 		try {
 			const { pageSize } = get();
@@ -118,6 +138,9 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 			const hasMore =
 				transformedDocs.length === pageSize && totalCount > pageSize;
 
+			// Track document IDs for change detection
+			const newDocIds = new Set(transformedDocs.map((d) => d.id));
+
 			set({
 				documents: transformedDocs,
 				filteredDocuments: transformedDocs,
@@ -125,6 +148,8 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				totalDocuments: totalCount,
 				hasMorePages: hasMore,
 				currentPage: 0,
+				lastDocumentIds: newDocIds,
+				lastUpdateTime: Date.now(),
 			});
 
 			// Initialize search index with all documents (only if reasonable count and not already done)
@@ -134,9 +159,13 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				const searchService = MiniSearchService.getInstance();
 				await searchService.reindexAll(allDocs);
 				hasInitializedSearchIndex = true;
-				console.log("[DocumentStore] Search index updated with all documents");
+				console.log(
+					"[DocumentStore] Search index initialized with all documents",
+				);
 			} else if (hasInitializedSearchIndex) {
-				console.log("[DocumentStore] Skipping search index - already initialized");
+				console.log(
+					"[DocumentStore] Skipping search index - already initialized",
+				);
 			} else {
 				console.log(
 					"[DocumentStore] Skipping full search index due to large dataset",
@@ -175,7 +204,6 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				totalAmount: doc.totalAmount,
 				metadata: doc.metadata,
 				createdAt: new Date(doc.createdAt),
-				// Preserve all OCR and processing data
 				imageHash: doc.imageHash,
 				ocrText: doc.ocrText,
 				keywords: doc.keywords,
@@ -212,7 +240,12 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 
 	refreshDocuments: async () => {
 		// Reset pagination and reload first page
-		set({ currentPage: 0, hasMorePages: true });
+		set({
+			currentPage: 0,
+			hasMorePages: true,
+			lastDocumentIds: new Set(),
+			lastUpdateTime: 0,
+		});
 		await get().loadDocuments();
 	},
 
@@ -258,69 +291,104 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 		}
 
 		console.log("[DocumentStore] Initializing real-time updates");
-		
+
 		const subscription = documentStorage.observeDocuments(async (docs) => {
-			const { documents: currentDocs } = get();
+			// Clear any pending debounce timer
+			if (updateDebounceTimer) {
+				clearTimeout(updateDebounceTimer);
+			}
 
-			// Only update if document count changed (avoid unnecessary re-renders)
-			if (docs.length === currentDocs.length) {
-				console.log(
-					"[DocumentStore] Skipped update - no document count change",
+			// Debounce updates to prevent rapid re-renders
+			updateDebounceTimer = setTimeout(() => {
+				const state = get();
+				const {
+					documents: currentDocs,
+					lastDocumentIds,
+					lastUpdateTime,
+				} = state;
+
+				// Quick check: same document count
+				if (docs.length === currentDocs.length && docs.length > 0) {
+					// Deep check: compare document IDs
+					const newDocIds = new Set(docs.map((d) => d.id));
+
+					// Check if all IDs are the same
+					const sameIds =
+						newDocIds.size === lastDocumentIds.size &&
+						[...newDocIds].every((id) => lastDocumentIds.has(id));
+
+					// If same IDs and recent update (within 2 seconds), skip
+					if (sameIds && Date.now() - lastUpdateTime < 2000) {
+						console.log(
+							"[DocumentStore] Skipped update - no real document changes detected",
+						);
+						return;
+					}
+				}
+
+				// Sort by creation date (newest first)
+				const sortedDocs = docs.sort(
+					(a, b) =>
+						new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
 				);
-				return;
-			}
 
-			// Sort by creation date (oldest first - new documents appear at the end)
-			const sortedDocs = docs.sort(
-				(a, b) =>
-					new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-			);
+				const transformedDocs: Document[] = sortedDocs.map((doc) => ({
+					id: doc.id,
+					imageUri: doc.imageUri,
+					documentType: doc.documentType,
+					vendor: doc.vendor,
+					date: doc.date ? new Date(doc.date) : undefined,
+					totalAmount: doc.totalAmount,
+					metadata: doc.metadata,
+					createdAt: new Date(doc.createdAt),
+					imageHash: doc.imageHash,
+					ocrText: doc.ocrText,
+					keywords: doc.keywords,
+					confidence: doc.confidence,
+					processedAt: doc.processedAt ? new Date(doc.processedAt) : undefined,
+					imageWidth: doc.imageWidth,
+					imageHeight: doc.imageHeight,
+					imageSize: doc.imageSize,
+					imageTakenDate: doc.imageTakenDate
+						? new Date(doc.imageTakenDate)
+						: undefined,
+				}));
 
-			const transformedDocs: Document[] = sortedDocs.map((doc) => ({
-				id: doc.id,
-				imageUri: doc.imageUri,
-				documentType: doc.documentType,
-				vendor: doc.vendor,
-				date: doc.date ? new Date(doc.date) : undefined,
-				totalAmount: doc.totalAmount,
-				metadata: doc.metadata,
-				createdAt: new Date(doc.createdAt),
-				// Preserve all OCR and processing data
-				imageHash: doc.imageHash,
-				ocrText: doc.ocrText,
-				keywords: doc.keywords,
-				confidence: doc.confidence,
-				processedAt: doc.processedAt ? new Date(doc.processedAt) : undefined,
-				imageWidth: doc.imageWidth,
-				imageHeight: doc.imageHeight,
-				imageSize: doc.imageSize,
-				imageTakenDate: doc.imageTakenDate
-					? new Date(doc.imageTakenDate)
-					: undefined,
-			}));
+				// Track new IDs
+				const newDocIds = new Set(transformedDocs.map((d) => d.id));
 
-			set({ documents: transformedDocs });
+				set({
+					documents: transformedDocs,
+					lastDocumentIds: newDocIds,
+					lastUpdateTime: Date.now(),
+				});
 
-			// Only update filtered documents if no active search
-			const searchState = useSearchStore.getState();
-			if (!searchState.searchQuery) {
-				set({ filteredDocuments: transformedDocs });
-			}
+				// Only update filtered documents if no active search
+				const searchState = useSearchStore.getState();
+				if (!searchState.searchQuery) {
+					set({ filteredDocuments: transformedDocs });
+				}
 
-			console.log(
-				`[DocumentStore] Updated documents: ${currentDocs.length} -> ${transformedDocs.length}`,
-			);
+				console.log(
+					`[DocumentStore] Updated documents: ${currentDocs.length} -> ${transformedDocs.length}`,
+				);
 
-			// Skip search index update for real-time changes (performance optimization)
-			// Individual documents are already added to search index when created
-			console.log(
-				"[DocumentStore] Skipped search re-index for real-time changes",
-			);
+				// Skip search index update for real-time changes (performance optimization)
+				console.log(
+					"[DocumentStore] Skipped search re-index for real-time changes",
+				);
+
+				updateDebounceTimer = null;
+			}, 500); // 500ms debounce
 		});
 
 		// Store global subscription
 		globalSubscription = () => {
 			console.log("[DocumentStore] Unsubscribing from real-time updates");
+			if (updateDebounceTimer) {
+				clearTimeout(updateDebounceTimer);
+				updateDebounceTimer = null;
+			}
 			subscription?.unsubscribe?.();
 			globalSubscription = null;
 		};
@@ -368,12 +436,18 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 		const updatedTypeMap = new Map(documentsByType);
 		updatedTypeMap.set(doc.documentType, typeCount + 1);
 
+		// Update document IDs
+		const newDocIds = new Set(get().lastDocumentIds);
+		newDocIds.add(doc.id);
+
 		set({
 			documents: updatedDocs,
 			filteredDocuments: updatedDocs,
 			totalDocuments: updatedDocs.length,
 			documentsByType: updatedTypeMap,
 			hasExistingDocuments: true,
+			lastDocumentIds: newDocIds,
+			lastUpdateTime: Date.now(),
 		});
 
 		// Update search index
@@ -427,6 +501,8 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				totalDocuments: 0,
 				documentsByType: new Map(),
 				hasExistingDocuments: false,
+				lastDocumentIds: new Set(),
+				lastUpdateTime: 0,
 			});
 			console.log("[DocumentStore] Cleared all documents");
 		} catch (error) {

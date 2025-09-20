@@ -41,13 +41,29 @@ export default function RootLayout() {
 		initializeApp();
 	}, []);
 
+	// Check welcome status synchronously to determine initial route
+	const checkWelcomeCompleted = () => {
+		try {
+			const storage = new (require('react-native-mmkv').MMKV)();
+			return storage.getBoolean('welcome_completed') === true;
+		} catch (error) {
+			console.error('[RootLayout] Failed to check welcome status:', error);
+			return false; // Assume not completed if error
+		}
+	};
+
+	const hasCompletedWelcome = checkWelcomeCompleted();
+	const initialRoute = hasCompletedWelcome ? "Home" : "Welcome";
+
+	console.log('[RootLayout] Initial route determined:', initialRoute, 'Welcome completed:', hasCompletedWelcome);
+
 	return (
 		<ErrorBoundary>
 			<GestureHandlerRootView style={{ flex: 1 }}>
 				<ThemeProvider>
 					<QueryClientProvider client={queryClient}>
 					<Stack.Navigator
-						initialRouteName="Home"
+						initialRouteName={initialRoute}
 						screenOptions={{
 							headerShown: false,
 							gestureEnabled: true,
