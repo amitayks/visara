@@ -278,6 +278,7 @@ export class KeywordExtractor {
 				.toLowerCase()
 				.match(/(\d{1,2})\s+(\w+)\s+(\d{4})|(\w+)\s+(\d{1,2}),?\s+(\d{4})/);
 			if (writtenDate) {
+				// biome-ignore lint/suspicious/noImplicitAnyLet: <explanation>
 				let day, month, year;
 				if (writtenDate[1]) {
 					// "1 January 2024" format

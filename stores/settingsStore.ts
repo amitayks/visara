@@ -1,90 +1,88 @@
-import * as Keychain from "react-native-keychain";
 import { create } from "zustand";
-import { createJSONStorage, persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
+import { MMKV } from "react-native-mmkv";
 
-interface AppSettings {
-	autoScan: boolean;
-	scanFrequency: "on_new_image" | "hourly" | "daily" | "weekly";
-	darkMode: boolean;
-	scanWifiOnly: boolean;
-	batterySaver: boolean;
-	smartFilterEnabled: boolean;
-	notifications: boolean;
-	biometricLock: boolean;
-	scanQuality: "low" | "medium" | "high";
-	encryptSensitiveDocuments: boolean;
-	language: string;
-	storageLimit: number; // in GB
-	scanNewOnly: boolean;
-	maxScanBatchSize: number;
+// MMKV storage instance
+const storage = new MMKV();
+
+export interface AppSettings {
+	// Display settings
+	theme: "light" | "dark" | "system";
+
+	// Document detection settings
+	documentDetectionSensitivity: "low" | "medium" | "high";
+
+	// Storage settings
+	saveProcessedImages: boolean;
+	deleteProcessedFromGallery: boolean;
+
+	// Privacy settings
+	analyticsEnabled: boolean;
+	crashReportingEnabled: boolean;
+
+	// Notification settings
+	notificationEnabled: boolean;
+	showProcessingNotifications: boolean;
+
+	// Advanced settings
+	debugMode: boolean;
+	showDeveloperOptions: boolean;
 }
 
 interface SettingsStore {
 	settings: AppSettings;
-	isLoading: boolean;
-
-	// Actions
+	hasHydrated: boolean;
 	updateSetting: <K extends keyof AppSettings>(
 		key: K,
 		value: AppSettings[K],
 	) => void;
 	resetSettings: () => void;
-	loadSettings: () => Promise<void>;
-	saveSettings: () => Promise<void>;
+	setHasHydrated: (state: boolean) => void;
 }
 
 const defaultSettings: AppSettings = {
-	autoScan: true,
-	darkMode: false,
-	scanFrequency: "on_new_image",
-	scanWifiOnly: false,
-	batterySaver: false,
-	smartFilterEnabled: false,
-	notifications: false,
-	biometricLock: false,
-	scanQuality: "medium",
-	encryptSensitiveDocuments: false,
-	language: "en",
-	storageLimit: 5,
-	scanNewOnly: false,
-	maxScanBatchSize: 20,
+	// Display
+	theme: "system",
+
+	// Detection
+	documentDetectionSensitivity: "medium",
+
+	// Storage
+	saveProcessedImages: true,
+	deleteProcessedFromGallery: false,
+
+	// Privacy
+	analyticsEnabled: true,
+	crashReportingEnabled: true,
+
+	// Notifications
+	notificationEnabled: true,
+	showProcessingNotifications: false,
+
+	// Advanced
+	debugMode: false,
+	showDeveloperOptions: false,
 };
 
-// Custom storage using React Native Keychain
-const secureStorage = {
-	getItem: async (name: string): Promise<string | null> => {
-		try {
-			const credentials = await Keychain.getGenericPassword({ service: name });
-			if (credentials) {
-				return credentials.password;
-			}
-			return null;
-		} catch (error) {
-			console.error("Error loading settings:", error);
-			return null;
-		}
+// MMKV storage adapter
+const mmkvStorage = {
+	getItem: (name: string): string | null => {
+		const value = storage.getString(name);
+		return value ?? null;
 	},
-	setItem: async (name: string, value: string): Promise<void> => {
-		try {
-			await Keychain.setGenericPassword("visara_settings", value, { service: name });
-		} catch (error) {
-			console.error("Error saving settings:", error);
-		}
+	setItem: (name: string, value: string): void => {
+		storage.set(name, value);
 	},
-	removeItem: async (name: string): Promise<void> => {
-		try {
-			await Keychain.resetGenericPassword({ service: name });
-		} catch (error) {
-			console.error("Error removing settings:", error);
-		}
+	removeItem: (name: string): void => {
+		storage.delete(name);
 	},
 };
 
 export const useSettingsStore = create<SettingsStore>()(
 	persist(
-		(set, get) => ({
+		(set) => ({
 			settings: defaultSettings,
-			isLoading: false,
+			hasHydrated: false,
 
 			updateSetting: (key, value) => {
 				set((state) => ({
@@ -93,40 +91,38 @@ export const useSettingsStore = create<SettingsStore>()(
 						[key]: value,
 					},
 				}));
+
+				console.log(`[Settings] Updated ${key}:`, value);
 			},
 
 			resetSettings: () => {
 				set({ settings: defaultSettings });
+				console.log("[Settings] Reset to defaults");
 			},
 
-			loadSettings: async () => {
-				set({ isLoading: true });
-				try {
-					// Settings are automatically loaded by persist middleware
-					// This method can be used for any additional loading logic
-				} catch (error) {
-					// console.error("Error loading settings:", error);
-				} finally {
-					set({ isLoading: false });
-				}
-			},
-
-			saveSettings: async () => {
-				try {
-					// Settings are automatically saved by persist middleware
-					// This method can be used for any additional saving logic
-					console.log("Settings saved successfully");
-				} catch (error) {
-					console.error("Error saving settings:", error);
-				}
+			setHasHydrated: (hydrated) => {
+				set({ hasHydrated: hydrated });
 			},
 		}),
 		{
-			name: "visara-settings",
-			storage: createJSONStorage(() => secureStorage),
+			name: "app-settings-v2",
+			storage: createJSONStorage(() => mmkvStorage),
+			onRehydrateStorage: () => (state) => {
+				state?.setHasHydrated(true);
+				console.log("[Settings] Hydrated from storage");
+			},
 		},
 	),
 );
 
-// Export the store for direct access
-export const settingsStore = useSettingsStore;
+// Helper hook to get specific setting
+export const useSetting = <K extends keyof AppSettings>(
+	key: K,
+): AppSettings[K] => {
+	return useSettingsStore((state) => state.settings[key]);
+};
+
+// Helper hook to check if settings are loaded
+export const useSettingsLoaded = (): boolean => {
+	return useSettingsStore((state) => state.hasHydrated);
+};

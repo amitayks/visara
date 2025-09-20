@@ -278,6 +278,20 @@ export class DocumentStorage {
 			.fetch();
 	}
 
+	async clearAll(): Promise<void> {
+		const documentsCollection = database.get<Document>("documents");
+		const allDocs = await documentsCollection.query().fetch();
+		
+		await database.write(async () => {
+			for (const doc of allDocs) {
+				await doc.destroyPermanently();
+			}
+		});
+		
+		console.log(`[DocumentStorage] Cleared all ${allDocs.length} documents`);
+		await this.notifyObservers();
+	}
+
 	private async notifyObservers() {
 		const docs = await this.getAllDocuments();
 		this.documentsSubject.next(docs);

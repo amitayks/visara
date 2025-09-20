@@ -38,14 +38,18 @@ export interface Document {
 
 interface DocumentGridProps {
 	onDocumentPress: (doc: Document) => void;
-	handleStartBackgroundScan: () => void;
+	emptyStateComponent?: () => JSX.Element;
+	refreshing?: boolean;
+	onRefresh?: () => Promise<void>;
+	handleStartBackgroundScan?: () => void;
 }
 
 export const DocumentGrid = memo(
-	({ onDocumentPress, handleStartBackgroundScan }: DocumentGridProps) => {
+	({ onDocumentPress, emptyStateComponent, refreshing: externalRefreshing, onRefresh, handleStartBackgroundScan }: DocumentGridProps) => {
 		const { theme } = useTheme();
 		const styles = useThemedStyles(createStyles);
 		const [refreshing, setRefreshing] = useState(false);
+		const isRefreshing = externalRefreshing !== undefined ? externalRefreshing : refreshing;
 
 		const {
 			filteredDocuments,
@@ -143,7 +147,7 @@ export const DocumentGrid = memo(
 						message="Tap the scan button to find documents in your gallery"
 						action={{
 							label: "Start Scanning",
-							onPress: handleStartBackgroundScan,
+							onPress: handleStartBackgroundScan || (() => {}),
 						}}
 					/>
 				</View>

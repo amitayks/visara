@@ -31,7 +31,7 @@ export class ImagePixelAnalyzer {
       const base64 = await RNFS.readFile(thumbnail.uri, 'base64');
       
       // Analyze base64 data (simplified analysis)
-      const analysis = this.analyzeBase64(base64);
+      const analysis = ImagePixelAnalyzer.analyzeBase64(base64);
       
       // Cleanup
       await RNFS.unlink(thumbnail.uri);
@@ -39,7 +39,7 @@ export class ImagePixelAnalyzer {
       return analysis;
     } catch (error) {
       console.error('[PixelAnalyzer] Failed:', error);
-      return this.getDefaultAnalysis();
+      return ImagePixelAnalyzer.getDefaultAnalysis();
     }
   }
   

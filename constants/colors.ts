@@ -85,4 +85,4 @@ export const Colors = {
 };
 
 export type ColorScheme = typeof Colors.light;
-export type ThemeMode = "light" | "dark";
+export type ThemeMode = "light" | "dark" | "system";

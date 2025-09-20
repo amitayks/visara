@@ -33,7 +33,7 @@ export class VisualDocumentDetector {
 			// IMPROVED: Better detection logic
 			let score = 0;
 			let textRegions = 0;
-			let confidence = 0;
+			const confidence = 0;
 
 			// 1. Aspect Ratio Analysis (Documents have standard ratios)
 			const aspectScore = this.getAspectRatioScore(aspectRatio);

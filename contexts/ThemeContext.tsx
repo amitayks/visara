@@ -19,35 +19,42 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const systemColorScheme = useColorScheme();
-  const { settings, updateSetting, isLoading } = useSettingsStore();
+  const { settings, updateSetting } = useSettingsStore();
   const [isInitialized, setIsInitialized] = useState(false);
 
   // Initialize theme based on settings or system preference
   useEffect(() => {
-    if (!isLoading && !isInitialized) {
-      // If no dark mode setting exists, default to system theme
-      if (settings.darkMode === false && systemColorScheme === 'dark') {
-        // Only update if the system is dark and setting is explicitly false
-        // This allows us to respect the system theme on first load
-        const isFirstLoad = settings.darkMode === false; // Check if this is default
-        if (isFirstLoad) {
-          updateSetting('darkMode', systemColorScheme === 'dark');
-        }
+    if (!isInitialized) {
+      // If theme is system, follow system preference
+      if (settings.theme === 'system') {
+        // System theme already handled by computed isDark
       }
       setIsInitialized(true);
     }
-  }, [isLoading, isInitialized, settings.darkMode, systemColorScheme, updateSetting]);
+  }, [isInitialized, settings.theme, systemColorScheme]);
 
   const setTheme = (mode: ThemeMode) => {
-    updateSetting('darkMode', mode === 'dark');
+    if (mode === 'system') {
+      updateSetting('theme', 'system');
+    } else {
+      updateSetting('theme', mode);
+    }
   };
 
   const toggleTheme = () => {
-    updateSetting('darkMode', !settings.darkMode);
+    const currentTheme = settings.theme;
+    if (currentTheme === 'light') {
+      updateSetting('theme', 'dark');
+    } else {
+      updateSetting('theme', 'light');
+    }
   };
 
-  const themeMode: ThemeMode = settings.darkMode ? 'dark' : 'light';
-  const isDark = settings.darkMode;
+  const themeMode: ThemeMode = settings.theme === 'system' 
+    ? (systemColorScheme as ThemeMode) || 'light'
+    : settings.theme;
+    
+  const isDark = themeMode === 'dark';
   const theme = isDark ? Colors.dark : Colors.light;
 
   const value: ThemeContextType = {
@@ -58,8 +65,8 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     setTheme,
   };
 
-  // Don't render children until settings are loaded and theme is initialized
-  if (isLoading || !isInitialized) {
+  // Don't render children until theme is initialized
+  if (!isInitialized) {
     return null;
   }
 

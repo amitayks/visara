@@ -11,7 +11,7 @@ import { createStyles } from "./AppHeader.style";
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 interface AppHeaderProps {
-	setShowUploadModal: (show: boolean) => void;
+	setShowUploadModal?: (show: boolean) => void;
 }
 
 export const AppHeader: React.FC<AppHeaderProps> = ({ setShowUploadModal }) => {
@@ -20,8 +20,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({ setShowUploadModal }) => {
 	const styles = useThemedStyles(createStyles);
 
 	const handleManualUpload = useCallback(() => {
-		setShowUploadModal(true);
-	}, []);
+		setShowUploadModal?.(true);
+	}, [setShowUploadModal]);
 
 	const handleSettingsPress = useCallback(() => {
 		navigation.navigate("Settings");

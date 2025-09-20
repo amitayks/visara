@@ -1,8 +1,7 @@
 import { AppState, AppStateStatus, Platform } from "react-native";
 import { AppStorage } from "../storage/MMKVStorage";
 import { galleryPermissions } from "../services/permissions/galleryPermissions";
-import { settingsStore } from "../stores/settingsStore";
-import { backgroundScanner } from "../services/gallery/backgroundScanner";
+import { useSettingsStore } from "../stores/settingsStore";
 
 export class PermissionChangeHandler {
 	private static instance: PermissionChangeHandler;
@@ -45,9 +44,7 @@ export class PermissionChangeHandler {
 			try {
 				// App came to foreground, check if permissions changed
 				const currentPerms = await galleryPermissions.checkPermission();
-				const storedPerms = await AppStorage.getItem(
-					"last_permission_status",
-				);
+				const storedPerms = await AppStorage.getItem("last_permission_status");
 
 				if (storedPerms && storedPerms !== currentPerms.status) {
 					console.log(
@@ -57,10 +54,7 @@ export class PermissionChangeHandler {
 					await this.handlePermissionChange(currentPerms.status);
 				}
 
-				await AppStorage.setItem(
-					"last_permission_status",
-					currentPerms.status,
-				);
+				await AppStorage.setItem("last_permission_status", currentPerms.status);
 				this.lastPermissionStatus = currentPerms.status;
 			} catch (error) {
 				console.error(
@@ -81,10 +75,7 @@ export class PermissionChangeHandler {
 				);
 				await AppStorage.removeItem("last_crash_reason");
 
-				// Delay any background service starts
-				setTimeout(() => {
-					this.reinitializeServices();
-				}, 3000);
+				// Real-time system handles restart automatically
 			}
 		} catch (error) {
 			console.error(
@@ -100,57 +91,18 @@ export class PermissionChangeHandler {
 		);
 
 		if (newStatus === "granted") {
-			// Permission was granted, check if we should start services
-			const settings = settingsStore.getState().settings;
-			if (settings.autoScan) {
-				console.log(
-					"[PermissionChangeHandler] Permission granted, will restart services after delay",
-				);
-				// Delay to ensure app is stable
-				setTimeout(() => {
-					this.reinitializeServices();
-				}, 3000);
-			}
-		} else {
-			// Permission was revoked, stop services
+			// Permission was granted - real-time monitoring will start automatically
 			console.log(
-				"[PermissionChangeHandler] Permission revoked, stopping services",
+				"[PermissionChangeHandler] Permission granted, real-time monitoring will start automatically",
 			);
-			try {
-				await backgroundScanner.stopPeriodicScan();
-			} catch (error) {
-				console.error(
-					"[PermissionChangeHandler] Error stopping services:",
-					error,
-				);
-			}
-		}
-	}
-
-	private async reinitializeServices() {
-		console.log("[PermissionChangeHandler] Reinitializing services");
-
-		try {
-			// Safely reinitialize services after permission change
-			const settings = settingsStore.getState().settings;
-			if (settings.autoScan) {
-				console.log("[PermissionChangeHandler] Restarting background scanner");
-				// Stop first to ensure clean state
-				await backgroundScanner.stopPeriodicScan();
-
-				// Wait a bit
-				await new Promise((resolve) => setTimeout(resolve, 1000));
-
-				// Start again
-				await backgroundScanner.startPeriodicScan();
-			}
-		} catch (error) {
-			console.error(
-				"[PermissionChangeHandler] Failed to restart background scanner:",
-				error,
+		} else {
+			// Permission was revoked - real-time monitoring will stop automatically
+			console.log(
+				"[PermissionChangeHandler] Permission revoked, real-time monitoring will stop automatically",
 			);
 		}
 	}
+
 
 	async savePermissionCrash() {
 		try {

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { documentStorage } from "../services/database/documentStorage";
 import type { Document } from "../app/components/DocumentGrid";
+import type { ProcessedDocument } from "../services/processing/DocumentProcessor";
 import { useSearchStore } from "./searchStore";
 import { MiniSearchService } from "../services/search/MiniSearchService";
 
@@ -9,13 +10,17 @@ interface DocumentStore {
 	filteredDocuments: Document[];
 	isLoading: boolean;
 	hasExistingDocuments: boolean;
+	error: string | null;
 
-	// Pagination state
+	// Statistics for new real-time system
+	totalDocuments: number;
+	documentsByType: Map<string, number>;
+
+	// Pagination state (kept for backward compatibility)
 	currentPage: number;
 	hasMorePages: boolean;
 	isLoadingMore: boolean;
 	pageSize: number;
-	totalDocuments: number;
 
 	// Modal state
 	selectedDocument: Document | null;
@@ -30,23 +35,37 @@ interface DocumentStore {
 	deleteDocument: (docId: string) => Promise<void>;
 	initializeRealTimeUpdates: () => () => void;
 
+	// New real-time actions
+	addDocument: (doc: ProcessedDocument) => Promise<void>;
+	searchDocuments: (query: string) => Document[];
+	getDocumentsByType: (type: string) => Document[];
+	clearDocuments: () => Promise<void>;
+
 	// Modal actions
 	openDocumentModal: (document: Document) => void;
 	closeDocumentModal: () => void;
 }
+
+// Global subscription tracker to prevent multiple subscriptions
+let globalSubscription: (() => void) | null = null;
+let hasInitializedSearchIndex = false;
 
 export const useDocumentStore = create<DocumentStore>((set, get) => ({
 	documents: [],
 	filteredDocuments: [],
 	isLoading: false,
 	hasExistingDocuments: false,
+	error: null,
+
+	// Statistics
+	totalDocuments: 0,
+	documentsByType: new Map(),
 
 	// Pagination state
 	currentPage: 0,
 	hasMorePages: true,
 	isLoadingMore: false,
 	pageSize: 102,
-	totalDocuments: 0,
 
 	// Modal state
 	selectedDocument: null,
@@ -108,13 +127,16 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				currentPage: 0,
 			});
 
-			// Initialize search index with all documents (only if reasonable count)
-			if (totalCount <= 1000) {
+			// Initialize search index with all documents (only if reasonable count and not already done)
+			if (totalCount <= 1000 && !hasInitializedSearchIndex) {
 				// Only index if manageable size
 				const allDocs = await documentStorage.getAllDocuments();
 				const searchService = MiniSearchService.getInstance();
 				await searchService.reindexAll(allDocs);
+				hasInitializedSearchIndex = true;
 				console.log("[DocumentStore] Search index updated with all documents");
+			} else if (hasInitializedSearchIndex) {
+				console.log("[DocumentStore] Skipping search index - already initialized");
 			} else {
 				console.log(
 					"[DocumentStore] Skipping full search index due to large dataset",
@@ -229,7 +251,26 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 	},
 
 	initializeRealTimeUpdates: () => {
+		// Prevent multiple subscriptions
+		if (globalSubscription) {
+			console.log("[DocumentStore] Real-time updates already initialized");
+			return globalSubscription;
+		}
+
+		console.log("[DocumentStore] Initializing real-time updates");
+		
 		const subscription = documentStorage.observeDocuments(async (docs) => {
+			const { documents: currentDocs } = get();
+
+			// Only update if document count changed (avoid unnecessary re-renders)
+			if (docs.length === currentDocs.length) {
+				console.log(
+					"[DocumentStore] Skipped update - no document count change",
+				);
+				return;
+			}
+
+			// Sort by creation date (oldest first - new documents appear at the end)
 			const sortedDocs = docs.sort(
 				(a, b) =>
 					new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -266,18 +307,134 @@ export const useDocumentStore = create<DocumentStore>((set, get) => ({
 				set({ filteredDocuments: transformedDocs });
 			}
 
-			// Update search index with new documents
-			try {
-				const searchService = MiniSearchService.getInstance();
-				await searchService.reindexAll(docs);
-				console.log(
-					"[DocumentStore] Search index updated from real-time changes",
-				);
-			} catch (error) {
-				console.error("[DocumentStore] Failed to update search index:", error);
-			}
+			console.log(
+				`[DocumentStore] Updated documents: ${currentDocs.length} -> ${transformedDocs.length}`,
+			);
+
+			// Skip search index update for real-time changes (performance optimization)
+			// Individual documents are already added to search index when created
+			console.log(
+				"[DocumentStore] Skipped search re-index for real-time changes",
+			);
 		});
 
-		return () => subscription?.unsubscribe?.();
+		// Store global subscription
+		globalSubscription = () => {
+			console.log("[DocumentStore] Unsubscribing from real-time updates");
+			subscription?.unsubscribe?.();
+			globalSubscription = null;
+		};
+
+		return globalSubscription;
+	},
+
+	// New real-time actions
+	addDocument: async (doc: ProcessedDocument) => {
+		const { documents, documentsByType } = get();
+
+		// Check if document already exists
+		if (documents.some((d) => d.id === doc.id)) {
+			return;
+		}
+
+		// Save to database
+		const savedDoc = await documentStorage.saveDocument(doc);
+
+		// Transform for UI
+		const newDoc: Document = {
+			id: doc.id,
+			imageUri: doc.imageUri,
+			documentType: doc.documentType,
+			vendor: doc.metadata?.vendor,
+			date: doc.metadata?.date,
+			totalAmount: doc.metadata?.totalAmount,
+			metadata: doc.metadata,
+			createdAt: doc.processedAt,
+			imageHash: doc.imageHash,
+			ocrText: doc.ocrText,
+			keywords: doc.keywords,
+			confidence: doc.confidence,
+			processedAt: doc.processedAt,
+			imageWidth: doc.imageWidth,
+			imageHeight: doc.imageHeight,
+			imageSize: doc.imageSize,
+			imageTakenDate: doc.imageTakenDate,
+		};
+
+		const updatedDocs = [newDoc, ...documents];
+
+		// Update type statistics
+		const typeCount = documentsByType.get(doc.documentType) || 0;
+		const updatedTypeMap = new Map(documentsByType);
+		updatedTypeMap.set(doc.documentType, typeCount + 1);
+
+		set({
+			documents: updatedDocs,
+			filteredDocuments: updatedDocs,
+			totalDocuments: updatedDocs.length,
+			documentsByType: updatedTypeMap,
+			hasExistingDocuments: true,
+		});
+
+		// Update search index
+		try {
+			const searchService = MiniSearchService.getInstance();
+			await searchService.addDocument(savedDoc);
+			console.log(
+				`[DocumentStore] Added document to search index: ${savedDoc.documentType}`,
+			);
+		} catch (error) {
+			console.error("[DocumentStore] Failed to add to search index:", error);
+		}
+
+		console.log(
+			`[DocumentStore] Added real-time document: ${doc.documentType}`,
+		);
+	},
+
+	searchDocuments: (query: string) => {
+		const { documents } = get();
+
+		if (!query.trim()) {
+			return documents;
+		}
+
+		const lowerQuery = query.toLowerCase();
+
+		return documents.filter((doc) => {
+			const inText = doc.ocrText?.toLowerCase().includes(lowerQuery);
+			const inKeywords = doc.keywords?.some((k) =>
+				k.toLowerCase().includes(lowerQuery),
+			);
+			const inType = doc.documentType?.toLowerCase().includes(lowerQuery);
+			const inVendor = doc.vendor?.toLowerCase().includes(lowerQuery);
+
+			return inText || inKeywords || inType || inVendor;
+		});
+	},
+
+	getDocumentsByType: (type: string) => {
+		const { documents } = get();
+		return documents.filter((doc) => doc.documentType === type);
+	},
+
+	clearDocuments: async () => {
+		try {
+			await documentStorage.clearAll();
+			set({
+				documents: [],
+				filteredDocuments: [],
+				totalDocuments: 0,
+				documentsByType: new Map(),
+				hasExistingDocuments: false,
+			});
+			console.log("[DocumentStore] Cleared all documents");
+		} catch (error) {
+			console.error("[DocumentStore] Failed to clear documents:", error);
+			set({
+				error:
+					error instanceof Error ? error.message : "Unknown error occurred",
+			});
+		}
 	},
 }));

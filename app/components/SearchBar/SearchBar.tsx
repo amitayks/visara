@@ -31,6 +31,8 @@ import { SearchSuggestionItem } from "./SearchSuggestionItem";
 import { SearchHistory } from "./SearchHistory";
 
 interface SearchBarProps {
+	value?: string;
+	onChangeText?: (text: string) => void;
 	onResultsChange?: (results: SearchResult[]) => void;
 	placeholder?: string;
 	showHistory?: boolean;
@@ -38,6 +40,8 @@ interface SearchBarProps {
 }
 
 export const SearchBar: React.FC<SearchBarProps> = ({
+	value,
+	onChangeText,
 	onResultsChange,
 	placeholder = "Search documents...",
 	showHistory = true,
@@ -55,7 +59,7 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 		addToHistory,
 	} = useSearchStore();
 
-	const [localQuery, setLocalQuery] = useState(searchQuery);
+	const [localQuery, setLocalQuery] = useState(value || searchQuery);
 	const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
 	const [showSuggestions, setShowSuggestions] = useState(false);
 	const [resultCount, setResultCount] = useState(0);
@@ -211,7 +215,13 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 				resultCountOpacity.value = withSpring(0);
 			}
 		}
-	}, [searchQuery, localQuery, clearButtonOpacity, searchIconOpacity, resultCountOpacity]);
+	}, [
+		searchQuery,
+		localQuery,
+		clearButtonOpacity,
+		searchIconOpacity,
+		resultCountOpacity,
+	]);
 
 	// Loading animation
 	useEffect(() => {
@@ -368,12 +378,12 @@ const createStyles = (theme: any, isDark: boolean) =>
 	StyleSheet.create({
 		wrapper: {
 			zIndex: 100,
-			// backgroundColor: theme.background,
+			// backgroundColor: "red",
 		},
 		container: {
 			flexDirection: "row",
 			alignItems: "center",
-			backgroundColor: theme.background,
+			// backgroundColor: theme.background,
 			borderRadius: theme.borderRadius + 20,
 			paddingHorizontal: 16,
 			height: 60,

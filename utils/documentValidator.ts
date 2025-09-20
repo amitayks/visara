@@ -43,11 +43,11 @@ export class DocumentValidator {
 
 		// Validate metadata structure
 		if (sanitized.metadata) {
-			sanitized.metadata = this.sanitizeMetadata(sanitized.metadata);
+			sanitized.metadata = DocumentValidator.sanitizeMetadata(sanitized.metadata);
 		}
 
 		// Log validation results
-		this.logValidationResults(result, sanitized);
+		DocumentValidator.logValidationResults(result, sanitized);
 
 		return sanitized;
 	}

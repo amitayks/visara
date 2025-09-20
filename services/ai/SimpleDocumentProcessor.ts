@@ -282,11 +282,11 @@ export class SimpleDocumentProcessor {
 	private extractDate(text: string): Date | undefined {
 		const datePatterns = [
 			// DD/MM/YYYY or DD-MM-YYYY
-			/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
+			/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/,
 			// MM/DD/YYYY
-			/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/,
+			/(\d{1,2})[/-](\d{1,2})[/-](\d{4})/,
 			// YYYY-MM-DD
-			/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/,
+			/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/,
 		];
 
 		for (const pattern of datePatterns) {

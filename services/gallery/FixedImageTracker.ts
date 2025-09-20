@@ -382,7 +382,7 @@ export class FixedImageTracker {
 	 */
 	private normalizeUri(uri: string): string {
 		return uri
-			.replace(/^content:\/\/[^\/]+/, "") // Remove content:// authority
+			.replace(/^content:\/\/[^/]+/, "") // Remove content:// authority
 			.replace(/^file:\/\//, "") // Remove file:// prefix
 			.replace(/\/+/g, "/") // Normalize slashes
 			.toLowerCase();

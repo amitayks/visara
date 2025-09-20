@@ -1,42 +1,39 @@
-import { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
-	BackHandler,
-	Keyboard,
+	View,
 	StatusBar,
 	StyleSheet,
-	TouchableWithoutFeedback,
+	Text,
+	ActivityIndicator,
 } from "react-native";
-import Animated, {
-	useAnimatedKeyboard,
-	useAnimatedStyle,
-} from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { FlashList } from "@shopify/flash-list";
+import { MMKV } from "react-native-mmkv";
+import { useNavigation } from "@react-navigation/native";
+import type { RootStackParamList } from "../types/navigation";
 
-import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
-import { backgroundScanner } from "../services/gallery/backgroundScanner";
-import {
-	galleryScanner,
-	type ScanProgress,
-} from "../services/gallery/GalleryScanner";
-import { notificationPermissions } from "../services/permissions/notificationPermissions";
-import { progressTracker } from "../services/progress/ProductionProgressTracker";
-import { ScannerStorage } from "../storage/MMKVStorage";
+import { realTimeGalleryManager } from "../services/realtime/RealTimeGalleryManager";
+import { initialScanner } from "../services/realtime/InitialScanner";
 import { useDocumentStore } from "../stores/documentStore";
-import { useScannerStore } from "../stores/scannerStore";
 import { useSearchStore } from "../stores/searchStore";
+import { useTheme, useThemedStyles } from "../contexts/ThemeContext";
 import { AppHeader } from "./components/AppHeader";
 import { type Document, DocumentGrid } from "./components/DocumentGrid";
 import { DocumentModal } from "./components/DocumentModal";
-import { ProductionProgressBar } from "./components/ProductionProgressBar/ProductionProgressBar";
 import { SearchBar } from "./components/SearchBar";
 import { showToast, ToastContainer } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
 
+const storage = new MMKV();
+
 export default function HomeScreen() {
 	const { theme, isDark } = useTheme();
 	const styles = useThemedStyles(createStyles);
+	const navigation = useNavigation();
 
 	const {
+		documents,
+		filteredDocuments,
 		loadDocuments,
 		checkExistingDocuments,
 		initializeRealTimeUpdates,
@@ -44,88 +41,181 @@ export default function HomeScreen() {
 		isModalVisible,
 		openDocumentModal,
 		closeDocumentModal,
+		setFilteredDocuments,
 	} = useDocumentStore();
-	const { scanProgress: backgroundScanProgress, isBackgroundScanEnabled } =
-		useScannerStore();
 	const { searchQuery, clearSearch } = useSearchStore();
 
 	// Local UI state
-	const [isScanning, setIsScanning] = useState(false);
-	const [scanProgress, setScanProgress] = useState<ScanProgress | null>(null);
+	const [isInitialScan, setIsInitialScan] = useState(false);
+	const [scanProgress, setScanProgress] = useState<any>(null);
+	const [isLoading, setIsLoading] = useState(true);
+	const [refreshing, setRefreshing] = useState(false);
 	const [showUploadModal, setShowUploadModal] = useState(false);
 
-	// Animation values
-	const keyboard = useAnimatedKeyboard();
-
-	// Real-time document updates
+	// Check if this is first launch
 	useEffect(() => {
-		const unsubscribe = initializeRealTimeUpdates();
-		return unsubscribe;
-	}, [initializeRealTimeUpdates]);
-
-	// Clean up progress tracker on unmount
-	useEffect(() => {
-		return () => {
-			progressTracker.reset();
-		};
+		checkFirstLaunch();
 	}, []);
 
-	// Optimized scan progress subscription
-	useEffect(() => {
-		let unsubscribe: (() => void) | undefined;
+	const checkFirstLaunch = async () => {
+		try {
+			console.log("[HomeScreen] Checking first launch...");
+			const welcomeCompleted = storage.getBoolean("welcome_completed");
+			console.log("[HomeScreen] Welcome completed:", welcomeCompleted);
 
-		// Only subscribe if we don't have background scanning
-		if (!isBackgroundScanEnabled) {
-			unsubscribe = galleryScanner.subscribeToProgress((progress) => {
-				// Only update if there's a significant change
-				setScanProgress((prev) => {
+			// MMKV getBoolean returns undefined for non-existent keys
+			if (welcomeCompleted !== true) {
+				console.log("[HomeScreen] Navigating to Welcome screen");
+				// Set loading to false and navigate to welcome screen
+				setIsLoading(false);
+				navigation.reset({
+					index: 0,
+					routes: [{ name: "Welcome" } as never],
+				});
+				return;
+			}
+
+			console.log("[HomeScreen] Welcome completed, initializing app");
+			// Initialize app
+			await initializeApp();
+		} catch (error) {
+			console.error("[HomeScreen] Launch check error:", error);
+			// On error, try to initialize anyway
+			setIsLoading(false);
+		}
+	};
+
+	const initializeApp = async () => {
+		try {
+			console.log("[HomeScreen] Starting app initialization...");
+			setIsLoading(true);
+
+			// Load existing documents
+			console.log("[HomeScreen] Loading documents...");
+			await loadDocuments();
+			console.log("[HomeScreen] Documents loaded");
+
+			// Check if initial scan was completed
+			const scanCompleted = storage.getBoolean("initial_scan_completed");
+			console.log("[HomeScreen] Initial scan completed:", scanCompleted);
+
+			// Hide loading indicator and show home screen before starting background tasks
+			setIsLoading(false);
+
+			if (scanCompleted !== true) {
+				// Start initial scan in background
+				console.log("[HomeScreen] Starting initial scan...");
+				startInitialScan(); // Don't await - run in background
+			} else {
+				// Just start real-time monitoring
+				console.log("[HomeScreen] Starting real-time monitoring...");
+				await startRealTimeMonitoring();
+			}
+
+			// Setup real-time updates from database
+			console.log("[HomeScreen] Setting up real-time updates...");
+			const unsubscribe = initializeRealTimeUpdates();
+			console.log("[HomeScreen] App initialization complete!");
+			return unsubscribe;
+		} catch (error) {
+			console.error("[HomeScreen] Initialization error:", error);
+			showToast({
+				type: "error",
+				message: "Failed to initialize app",
+			});
+		} finally {
+			// Loading already set to false above
+		}
+	};
+
+	const startInitialScan = async () => {
+		console.log("[HomeScreen] Starting initial scan...");
+		setIsInitialScan(true);
+
+		try {
+			// Subscribe to progress updates
+			const progressSub = initialScanner
+				.observeProgress()
+				.subscribe((progress) => {
+					setScanProgress(progress);
+
+					// Update documents as they're found
 					if (
-						!prev ||
-						prev.isScanning !== progress.isScanning ||
-						Math.abs(prev.processedImages - progress.processedImages) >= 10 ||
-						prev.scanType !== progress.scanType
+						progress.documentsFound > 0 &&
+						progress.documentsFound % 5 === 0
 					) {
-						return progress;
+						loadDocuments();
 					}
-					return prev;
 				});
 
-				// Update isScanning separately for immediate UI response
-				setIsScanning(progress.isScanning);
+			// Perform initial scan
+			await initialScanner.performInitialScan();
+
+			// Cleanup subscription
+			progressSub.unsubscribe();
+
+			// Mark as completed
+			storage.set("initial_scan_completed", true);
+
+			// Start real-time monitoring
+			await startRealTimeMonitoring();
+
+			showToast({
+				type: "success",
+				message: `Found ${scanProgress?.documentsFound || 0} documents`,
 			});
-		}
-
-		return () => unsubscribe?.();
-	}, [isBackgroundScanEnabled]);
-
-	// Simplified scanning state check - reduced logging
-	useEffect(() => {
-		const isBackgroundScanning =
-			isBackgroundScanEnabled && backgroundScanProgress.isScanning;
-		const isForegroundScanning = scanProgress?.isScanning || false;
-		const overallScanning = isBackgroundScanning || isForegroundScanning;
-
-		// Update local state to reflect the current scanning status
-		setIsScanning(overallScanning);
-
-		// Use appropriate progress data - prefer foreground scan progress when available
-		if (isForegroundScanning && scanProgress) {
-			// Use foreground scanner progress (from auto-scan or manual scan)
-			// Don't override with backgroundScanProgress as it may be stale
-		} else if (isBackgroundScanning) {
-			setScanProgress(backgroundScanProgress);
-		} else if (!overallScanning) {
-			// No scanning active, clear progress
+		} catch (error) {
+			console.error("[HomeScreen] Initial scan failed:", error);
+			showToast({
+				type: "error",
+				message: "Initial scan failed",
+			});
+		} finally {
+			setIsInitialScan(false);
 			setScanProgress(null);
 		}
-	}, [isBackgroundScanEnabled, backgroundScanProgress, scanProgress]);
+	};
 
-	// Keyboard animation
-	const searchBarStyle = useAnimatedStyle(() => {
-		return {
-			transform: [{ translateY: keyboard.height.value * -1 }],
-		};
-	});
+	const startRealTimeMonitoring = async () => {
+		try {
+			console.log("[HomeScreen] Starting real-time monitoring...");
+			await realTimeGalleryManager.start();
+			console.log("[HomeScreen] Real-time monitoring started");
+		} catch (error) {
+			console.error("[HomeScreen] Failed to start monitoring:", error);
+		}
+	};
+
+	// Handle search
+	const handleSearch = useCallback(
+		(query: string) => {
+			if (!query.trim()) {
+				setFilteredDocuments(documents);
+				return;
+			}
+
+			const lowerQuery = query.toLowerCase();
+			const filtered = documents.filter((doc) => {
+				const inText = doc.ocrText?.toLowerCase().includes(lowerQuery);
+				const inType = doc.documentType?.toLowerCase().includes(lowerQuery);
+				const inKeywords = doc.keywords?.some((k) =>
+					k.toLowerCase().includes(lowerQuery),
+				);
+				const inVendor = doc.vendor?.toLowerCase().includes(lowerQuery);
+
+				return inText || inType || inKeywords || inVendor;
+			});
+
+			setFilteredDocuments(filtered);
+		},
+		[documents, setFilteredDocuments],
+	);
+
+	const handleRefresh = useCallback(async () => {
+		setRefreshing(true);
+		await loadDocuments();
+		setRefreshing(false);
+	}, [loadDocuments]);
 
 	// Handle document press
 	const handleDocumentPress = useCallback(
@@ -135,129 +225,64 @@ export default function HomeScreen() {
 		[openDocumentModal],
 	);
 
-	// TODO: REMOVE - This is for testing only, production apps should not have manual scan buttons
-	// Production flow: User sees scan button only on first app open, then all scanning is automatic
-	const handleStartBackgroundScan = useCallback(async () => {
-		try {
-			// Check if background scanning is already running
-			const isRunning = backgroundScanner.isBackgroundServiceRunning();
-			if (isRunning) {
-				showToast({
-					type: "info",
-					message: "Background scanning is already running",
-					// icon: "check",
-				});
-				return;
-			}
-
-			// Check gallery permissions first
-			const hasGalleryPermission = await galleryScanner.hasPermissions();
-			if (!hasGalleryPermission) {
-				const granted = await galleryScanner.requestPermissions();
-				if (!granted) {
-					showToast({
-						type: "error",
-						message: "Gallery access required to scan documents",
-					});
-					return;
-				}
-			}
-
-			// Check notification permissions (required for background service notifications)
-			console.log("[HomeScreen] Checking notification permissions...");
-			const notificationGranted =
-				await notificationPermissions.ensurePermission();
-			if (!notificationGranted) {
-				showToast({
-					type: "info",
-					message:
-						"Notification permission not granted. Scan will proceed without progress notifications.",
-				});
-			}
-
-			// Clear the manual stop flag when starting manually
-			await ScannerStorage.removeItem("manual_scan_stopped");
-
-			// Start the background service
-			console.log("[HomeScreen] Starting background scanner service...");
-			await backgroundScanner.startPeriodicScan();
-
-			showToast({
-				type: "success",
-				message:
-					"Checking gallery for new documents... Check notifications for progress.",
-			});
-
-			// Refresh documents periodically while scanning
-			const refreshInterval = setInterval(async () => {
-				const status = await backgroundScanner.getBackgroundServiceStatus();
-				if (!status.isRunning) {
-					clearInterval(refreshInterval);
-					await loadDocuments(); // Final refresh when scan completes
-				} else {
-					await loadDocuments(); // Periodic refresh during scan
-				}
-			}, 10000); // Refresh every 10 seconds
-		} catch (error) {
-			console.error("Background scan error:", error);
-			showToast({
-				type: "error",
-				message: "Failed to start background scan",
-			});
+	const renderEmptyState = () => {
+		if (isInitialScan) {
+			return (
+				<View style={styles.scanningContainer}>
+					<ActivityIndicator size="large" color="#0066FF" />
+					<Text style={styles.scanningTitle}>Scanning Gallery</Text>
+					<Text style={styles.scanningSubtitle}>
+						{scanProgress?.phase === "scanning" && "Looking for documents..."}
+						{scanProgress?.phase === "processing" &&
+							`Processing ${scanProgress.processedImages}/${scanProgress.totalImages} images`}
+					</Text>
+					{scanProgress?.percentage > 0 && (
+						<View style={styles.progressBar}>
+							<View
+								style={[
+									styles.progressFill,
+									{ width: `${scanProgress.percentage}%` },
+								]}
+							/>
+						</View>
+					)}
+					{scanProgress?.documentsFound > 0 && (
+						<Text style={styles.documentsFound}>
+							Found {scanProgress.documentsFound} documents
+						</Text>
+					)}
+				</View>
+			);
 		}
-	}, [loadDocuments]);
 
-	// Periodically check background scanner status to keep UI in sync
-	useEffect(() => {
-		const interval = setInterval(async () => {
-			try {
-				const status = await backgroundScanner.getBackgroundServiceStatus();
-				const isBackgroundRunning = status.isRunning && status.isServiceRunning;
+		if (searchQuery) {
+			return (
+				<View style={styles.emptyContainer}>
+					<Text style={styles.emptyTitle}>No results found</Text>
+					<Text style={styles.emptyMessage}>
+						No documents found for "{searchQuery}"
+					</Text>
+				</View>
+			);
+		}
 
-				// Update background scan enabled state if it changed
-				if (isBackgroundRunning !== isBackgroundScanEnabled) {
-					console.log(
-						"[HomeScreen] Background scan state changed:",
-						isBackgroundRunning,
-					);
-				}
-			} catch (error) {
-				console.error("[HomeScreen] Error checking background status:", error);
-			}
-		}, 2000); // Check every 2 seconds
-
-		return () => clearInterval(interval);
-	}, [isBackgroundScanEnabled]);
-
-	// Check for existing documents first (faster than loading all)
-	useEffect(() => {
-		checkExistingDocuments();
-	}, [checkExistingDocuments]);
-
-	// Initial load
-	useEffect(() => {
-		loadDocuments();
-	}, [loadDocuments]);
-
-	// Handle Android back button for search
-	useEffect(() => {
-		const backHandler = BackHandler.addEventListener(
-			"hardwareBackPress",
-			() => {
-				// If there's an active search query, clear it instead of closing the app
-				if (searchQuery && searchQuery.trim().length > 0) {
-					clearSearch();
-					Keyboard.dismiss(); // Also dismiss keyboard if open
-					return true; // Prevent default back behavior
-				}
-
-				// Otherwise, allow default back behavior (close app or dismiss keyboard)
-				return false;
-			},
+		return (
+			<View style={styles.emptyContainer}>
+				<Text style={styles.emptyTitle}>No documents yet</Text>
+				<Text style={styles.emptyMessage}>
+					Take photos of documents and they'll appear here automatically
+				</Text>
+			</View>
 		);
+	};
 
-		return () => backHandler.remove();
-	}, [searchQuery, clearSearch]);
+	if (isLoading) {
+		return (
+			<View style={styles.loadingContainer}>
+				<ActivityIndicator size="large" color="#0066FF" />
+			</View>
+		);
+	}
 
 	return (
 		<SafeAreaView
@@ -269,40 +294,56 @@ export default function HomeScreen() {
 				backgroundColor={theme.background}
 			/>
 
-			<TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-				{/* * biome-ignore lint/complexity/noUselessFragments: <explanation> */}
-				<>
-					<AppHeader setShowUploadModal={setShowUploadModal} />
+			{/* Header */}
+			<AppHeader setShowUploadModal={setShowUploadModal} />
 
-					{/* Add the progress bar near the top of the screen */}
-					<ProductionProgressBar />
+			{/* Initial Scan Progress */}
+			{isInitialScan && scanProgress && (
+				<View style={styles.scanProgressContainer}>
+					<View style={styles.scanProgressHeader}>
+						<Text style={styles.scanProgressTitle}>Scanning Gallery...</Text>
+						<Text style={styles.scanProgressPercentage}>
+							{scanProgress.percentage}%
+						</Text>
+					</View>
+					<View style={styles.progressBar}>
+						<View
+							style={[
+								styles.progressFill,
+								// { width: `${scanProgress.percentage}%` },
+							]}
+						/>
+					</View>
+					<Text style={styles.scanProgressSubtitle}>
+						{scanProgress.documentsFound} documents found
+					</Text>
+				</View>
+			)}
 
-					<DocumentGrid
-						onDocumentPress={handleDocumentPress}
-						handleStartBackgroundScan={handleStartBackgroundScan}
-					/>
-				</>
-			</TouchableWithoutFeedback>
-
-			<Animated.View style={[styles.searchWrapper, searchBarStyle]}>
-				<SearchBar
-					onResultsChange={(results) => {
-						// Update your document grid with search results
-						console.log("Search results:", results);
-					}}
-					showHistory={true}
-					autoFocus={false}
-				/>
-			</Animated.View>
+			{/* Document Grid */}
+			<DocumentGrid
+				onDocumentPress={handleDocumentPress}
+				emptyStateComponent={renderEmptyState}
+				refreshing={refreshing}
+				onRefresh={handleRefresh}
+			/>
 
 			<DocumentModal
 				visible={isModalVisible}
 				document={selectedDocument}
 				onClose={closeDocumentModal}
 			/>
+
 			<UploadModal
 				visible={showUploadModal}
 				onClose={() => setShowUploadModal(false)}
+			/>
+
+			{/* Search Bar */}
+			<SearchBar
+				value={searchQuery}
+				onChangeText={handleSearch}
+				placeholder="Search documents.."
 			/>
 			<ToastContainer />
 		</SafeAreaView>
@@ -315,10 +356,89 @@ const createStyles = (theme: any) =>
 			flex: 1,
 			backgroundColor: theme.background,
 		},
-		searchWrapper: {
-			position: "absolute",
-			bottom: 0,
-			left: 0,
-			right: 0,
+		loadingContainer: {
+			flex: 1,
+			justifyContent: "center",
+			alignItems: "center",
+			backgroundColor: theme.background,
+		},
+		scanProgressContainer: {
+			backgroundColor: theme.surfaceSecondary,
+			margin: 16,
+			padding: 16,
+			borderRadius: 12,
+		},
+		scanProgressHeader: {
+			flexDirection: "row",
+			justifyContent: "space-between",
+			alignItems: "center",
+			marginBottom: 8,
+		},
+		scanProgressTitle: {
+			fontSize: 14,
+			fontWeight: "600",
+			color: theme.text,
+		},
+		scanProgressPercentage: {
+			fontSize: 14,
+			fontWeight: "bold",
+			color: "#0066FF",
+		},
+		scanProgressSubtitle: {
+			fontSize: 12,
+			color: theme.textSecondary,
+			marginTop: 8,
+		},
+		progressBar: {
+			height: 4,
+			backgroundColor: "#E0E0E0",
+			borderRadius: 2,
+			overflow: "hidden",
+		},
+		progressFill: {
+			height: "100%",
+			backgroundColor: "#0066FF",
+			borderRadius: 2,
+		},
+		scanningContainer: {
+			flex: 1,
+			justifyContent: "center",
+			alignItems: "center",
+			padding: 40,
+		},
+		scanningTitle: {
+			fontSize: 20,
+			fontWeight: "bold",
+			color: theme.text,
+			marginTop: 20,
+		},
+		scanningSubtitle: {
+			fontSize: 14,
+			color: theme.textSecondary || "#666666",
+			marginTop: 8,
+			textAlign: "center",
+		},
+		documentsFound: {
+			fontSize: 16,
+			fontWeight: "600",
+			color: "#0066FF",
+			marginTop: 20,
+		},
+		emptyContainer: {
+			flex: 1,
+			justifyContent: "center",
+			alignItems: "center",
+			padding: 40,
+		},
+		emptyTitle: {
+			fontSize: 18,
+			fontWeight: "bold",
+			color: theme.text,
+			marginBottom: 8,
+		},
+		emptyMessage: {
+			fontSize: 14,
+			color: theme.textSecondary || "#666666",
+			textAlign: "center",
 		},
 	});

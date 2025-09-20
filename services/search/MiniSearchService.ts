@@ -230,8 +230,15 @@ export class MiniSearchService {
 	async addDocument(doc: Document): Promise<void> {
 		try {
 			const searchDoc = this.documentToSearchDoc(doc);
-			this.miniSearch.add(searchDoc);
-			console.log(`[MiniSearchService] Added document: ${doc.id}`);
+			
+			// Check if document already exists and replace if needed
+			if (this.miniSearch.has(doc.id)) {
+				this.miniSearch.replace(searchDoc);
+				console.log(`[MiniSearchService] Updated document: ${doc.id}`);
+			} else {
+				this.miniSearch.add(searchDoc);
+				console.log(`[MiniSearchService] Added document: ${doc.id}`);
+			}
 		} catch (error) {
 			console.error(`[MiniSearchService] Failed to add document ${doc.id}:`, error);
 		}
@@ -276,6 +283,13 @@ export class MiniSearchService {
 	// Re-index all documents (useful after major changes)
 	async reindexAll(documents: Document[]): Promise<void> {
 		try {
+			// Prevent double re-indexing with the same document count
+			const currentCount = this.miniSearch.documentCount;
+			if (currentCount === documents.length) {
+				console.log(`[MiniSearchService] Skipping re-index, already has ${documents.length} documents`);
+				return;
+			}
+
 			// Clear existing index
 			this.miniSearch.removeAll();
 
