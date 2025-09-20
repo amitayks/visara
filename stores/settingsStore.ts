@@ -17,8 +17,8 @@ export interface AppSettings {
 	deleteProcessedFromGallery: boolean;
 
 	// Privacy settings
-	analyticsEnabled: boolean;
-	crashReportingEnabled: boolean;
+	// analyticsEnabled: boolean;
+	// crashReportingEnabled: boolean;
 
 	// Notification settings
 	notificationEnabled: boolean;
@@ -52,8 +52,8 @@ const defaultSettings: AppSettings = {
 	deleteProcessedFromGallery: false,
 
 	// Privacy
-	analyticsEnabled: true,
-	crashReportingEnabled: true,
+	// analyticsEnabled: true,
+	// crashReportingEnabled: true,
 
 	// Notifications
 	notificationEnabled: true,

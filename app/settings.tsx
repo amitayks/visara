@@ -20,6 +20,11 @@ import { useDocumentStore } from "../stores/documentStore";
 import { simpleImageTracker } from "../services/tracker/SimpleImageTracker";
 import { useTheme } from "../contexts/ThemeContext";
 import { createStyles } from "./settings.style";
+import { LegalModal } from "./components/LegalModal";
+import { privacyPolicy } from "../constants/PRIVACY_POLICY";
+import { userAgreement } from "../constants/USER_AGREEMENT";
+import { LegalButtonData, LegalButtons } from "./components/LegalButtons";
+import { SettingsFooter } from "./components/SettingsFooter";
 
 const storage = new MMKV();
 
@@ -29,6 +34,25 @@ export default function SettingsScreen() {
 	const { settings, updateSetting } = useSettingsStore();
 	const { clearDocuments, totalDocuments } = useDocumentStore();
 	const [isClearing, setIsClearing] = useState(false);
+
+	// Legal modal states
+	const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+	const [showUserAgreement, setShowUserAgreement] = useState(false);
+
+	const legalButtons: LegalButtonData[] = [
+		{
+			title: "Privacy Policy",
+			subtitle: "How we protect your data",
+			icon: "shield-checkmark-outline",
+			onPress: () => setShowPrivacyPolicy(true),
+		},
+		{
+			title: "User Agreement",
+			subtitle: "Terms and conditions",
+			icon: "document-text-outline",
+			onPress: () => setShowUserAgreement(true),
+		},
+	];
 
 	const styles = createStyles(theme);
 
@@ -200,7 +224,7 @@ export default function SettingsScreen() {
 				</View>
 
 				{/* Storage */}
-				<View style={[styles.section, { borderBottomColor: theme.border }]}>
+				{/* <View style={[styles.section, { borderBottomColor: theme.border }]}>
 					<Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
 						Storage
 					</Text>
@@ -210,10 +234,10 @@ export default function SettingsScreen() {
 						settings.saveProcessedImages,
 						(value) => updateSetting("saveProcessedImages", value),
 					)}
-				</View>
+				</View> */}
 
 				{/* Notifications */}
-				<View style={[styles.section, { borderBottomColor: theme.border }]}>
+				{/* <View style={[styles.section, { borderBottomColor: theme.border }]}>
 					<Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
 						Notifications
 					</Text>
@@ -223,10 +247,10 @@ export default function SettingsScreen() {
 						settings.notificationEnabled,
 						(value) => updateSetting("notificationEnabled", value),
 					)}
-				</View>
+				</View> */}
 
 				{/* Privacy */}
-				<View style={[styles.section, { borderBottomColor: theme.border }]}>
+				{/* <View style={[styles.section, { borderBottomColor: theme.border }]}>
 					<Text style={[styles.sectionTitle, { color: theme.textSecondary }]}>
 						Privacy
 					</Text>
@@ -242,7 +266,7 @@ export default function SettingsScreen() {
 						settings.crashReportingEnabled,
 						(value) => updateSetting("crashReportingEnabled", value),
 					)}
-				</View>
+				</View> */}
 
 				{/* Data Management */}
 				<View style={[styles.section, { borderBottomColor: theme.border }]}>
@@ -254,7 +278,7 @@ export default function SettingsScreen() {
 						onPress={handleClearData}
 						disabled={isClearing}
 					>
-						<Icon name="trash-outline" size={20} color="#FF3B30" />
+						<Icon name="trash-outline" size={20} color={theme.error} />
 						<Text style={styles.dangerButtonText}>
 							{isClearing
 								? "Clearing..."
@@ -284,16 +308,26 @@ export default function SettingsScreen() {
 							{totalDocuments}
 						</Text>
 					</View>
+					<LegalButtons buttons={legalButtons} />
 				</View>
 
-				{/* Footer */}
-				<View style={styles.footer}>
-					<Text style={[styles.footerText, { color: theme.textSecondary }]}>
-						Visara uses advanced AI to automatically detect and process
-						documents in your gallery.
-					</Text>
-				</View>
+				<SettingsFooter />
 			</ScrollView>
+
+			{/* Legal Modals */}
+			<LegalModal
+				visible={showPrivacyPolicy}
+				title="Privacy Policy"
+				content={privacyPolicy}
+				onClose={() => setShowPrivacyPolicy(false)}
+			/>
+
+			<LegalModal
+				visible={showUserAgreement}
+				title="User Agreement"
+				content={userAgreement}
+				onClose={() => setShowUserAgreement(false)}
+			/>
 		</SafeAreaView>
 	);
 }

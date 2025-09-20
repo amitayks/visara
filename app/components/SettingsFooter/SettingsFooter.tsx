@@ -9,9 +9,6 @@ export function SettingsFooter() {
 
 	return (
 		<View style={styles.versionSection}>
-			<Text style={[styles.version, { color: theme.primary }]}>
-				Version 1.1.0
-			</Text>
 			<Text style={[styles.buildInfo, { color: theme.primary }]}>
 				Build {Platform.OS === "ios" ? "iOS" : "Android"} •{" "}
 				{new Date().getFullYear()}

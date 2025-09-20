@@ -5,12 +5,6 @@ export const createStyles = (theme: any) => {
 		versionSection: {
 			alignItems: "center",
 			paddingHorizontal: 20,
-			paddingVertical: 24,
-		},
-		version: {
-			color: theme.primary,
-			fontSize: 16,
-			marginBottom: 2,
 		},
 		buildInfo: {
 			fontSize: 14,
