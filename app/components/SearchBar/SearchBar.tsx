@@ -1,34 +1,28 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
-	View,
-	TextInput,
-	StyleSheet,
-	TouchableOpacity,
-	Text,
 	ActivityIndicator,
 	Platform,
-	Keyboard,
-	ScrollView,
-	Modal,
-	TouchableWithoutFeedback,
+	StyleSheet,
+	Text,
+	TextInput,
+	TouchableOpacity,
+	View,
 } from "react-native";
 import Animated, {
+	interpolate,
 	useAnimatedStyle,
 	useSharedValue,
 	withSpring,
 	withTiming,
-	interpolate,
 } from "react-native-reanimated";
 import Icon from "react-native-vector-icons/Ionicons";
 // import { AutocompleteDropdown } from "react-native-autocomplete-dropdown"; // Removed - package issues
 import { useTheme } from "../../../contexts/ThemeContext";
-import { useSearchStore } from "../../../stores/searchStore";
-import { MiniSearchService } from "../../../services/search/MiniSearchService";
+import type { Suggestion } from "../../../services/search/AutocompleteService";
 import { AutocompleteService } from "../../../services/search/AutocompleteService";
 import type { SearchResult } from "../../../services/search/MiniSearchService";
-import type { Suggestion } from "../../../services/search/AutocompleteService";
-import { SearchSuggestionItem } from "./SearchSuggestionItem";
-import { SearchHistory } from "./SearchHistory";
+import { MiniSearchService } from "../../../services/search/MiniSearchService";
+import { useSearchStore } from "../../../stores/searchStore";
 
 interface SearchBarProps {
 	value?: string;
@@ -160,19 +154,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 		},
 		[setSearchQuery, performSearch, clearButtonOpacity],
 	);
-
-	// Handle suggestion selection
-	// const handleSuggestionSelect = useCallback(
-	// 	(suggestion: Suggestion) => {
-	// 		const query = suggestion.title;
-	// 		setLocalQuery(query);
-	// 		setSearchQuery(query);
-	// 		setShowSuggestions(false);
-	// 		performSearch(query);
-	// 		Keyboard.dismiss();
-	// 	},
-	// 	[setSearchQuery, performSearch],
-	// );
 
 	// Clear search
 	const handleClear = useCallback(() => {
@@ -329,47 +310,6 @@ export const SearchBar: React.FC<SearchBarProps> = ({
 					)}
 				</View>
 			</Animated.View>
-
-			{/* Suggestions Dropdown */}
-			{/* {showSuggestions && suggestions.length > 0 && (
-				<View style={styles.suggestionsContainer}>
-					<ScrollView
-						style={styles.suggestionsList}
-						keyboardShouldPersistTaps="handled"
-						nestedScrollEnabled={true}
-					>
-						{suggestions.map((suggestion, index) => (
-							<TouchableOpacity
-								key={suggestion.id}
-								onPress={() => handleSuggestionSelect(suggestion)}
-								activeOpacity={0.7}
-							>
-								<SearchSuggestionItem
-									item={suggestion}
-									searchText={localQuery}
-									theme={theme}
-									isDark={isDark}
-								/>
-								{index < suggestions.length - 1 && (
-									<View style={styles.separator} />
-								)}
-							</TouchableOpacity>
-						))}
-					</ScrollView>
-				</View>
-			)} */}
-
-			{/* Search History */}
-			{/* {showHistory && !localQuery && searchHistory.length > 0 && (
-				<SearchHistory
-					onSelectSearch={(query) => {
-						setLocalQuery(query);
-						handleSearchChange(query);
-					}}
-					theme={theme}
-					isDark={isDark}
-				/>
-			)} */}
 		</View>
 	);
 };
@@ -378,12 +318,11 @@ const createStyles = (theme: any, isDark: boolean) =>
 	StyleSheet.create({
 		wrapper: {
 			zIndex: 100,
-			// backgroundColor: "red",
 		},
 		container: {
 			flexDirection: "row",
 			alignItems: "center",
-			// backgroundColor: theme.background,
+			backgroundColor: theme.background,
 			borderRadius: theme.borderRadius + 20,
 			paddingHorizontal: 16,
 			height: 60,
@@ -431,34 +370,5 @@ const createStyles = (theme: any, isDark: boolean) =>
 		},
 		clearButton: {
 			padding: 4,
-		},
-		suggestionsContainer: {
-			position: "absolute",
-			top: 55,
-			left: 0,
-			right: 0,
-			maxHeight: 300,
-			zIndex: 1000,
-		},
-		suggestionsList: {
-			backgroundColor: theme.card,
-			borderRadius: 8,
-			borderWidth: 1,
-			borderColor: theme.border,
-			...Platform.select({
-				ios: {
-					shadowColor: "#000",
-					shadowOffset: { width: 0, height: 2 },
-					shadowRadius: 8,
-					shadowOpacity: 0.15,
-				},
-				android: {
-					elevation: 5,
-				},
-			}),
-		},
-		separator: {
-			height: 1,
-			backgroundColor: theme.border,
 		},
 	});

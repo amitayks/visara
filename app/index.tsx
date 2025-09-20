@@ -26,6 +26,10 @@ import { DocumentModal } from "./components/DocumentModal";
 import { SearchBar } from "./components/SearchBar";
 import { showToast, ToastContainer } from "./components/Toast";
 import { UploadModal } from "./components/UploadModal";
+import Animated, {
+	useAnimatedKeyboard,
+	useAnimatedStyle,
+} from "react-native-reanimated";
 
 const storage = new MMKV();
 
@@ -231,6 +235,13 @@ export default function HomeScreen() {
 		[openDocumentModal],
 	);
 
+	const keyboard = useAnimatedKeyboard();
+	const searchBarStyle = useAnimatedStyle(() => {
+		return {
+			transform: [{ translateY: keyboard.height.value * -1 }],
+		};
+	});
+
 	const renderEmptyState = () => {
 		if (isInitialScan) {
 			return (
@@ -383,13 +394,13 @@ export default function HomeScreen() {
 			)}
 
 			{/* Search Bar */}
-			{/* <View style={styles.searchContainer}> */}
-			<SearchBar
-				value={searchQuery}
-				onChangeText={handleSearch}
-				placeholder="Search documents..."
-			/>
-			{/* </View> */}
+			<Animated.View style={[styles.searchWrapper, searchBarStyle]}>
+				<SearchBar
+					value={searchQuery}
+					onChangeText={handleSearch}
+					placeholder="Search documents..."
+				/>
+			</Animated.View>
 
 			{/* Toast Container */}
 			<ToastContainer />
@@ -402,6 +413,12 @@ const createStyles = (theme: any) =>
 		container: {
 			flex: 1,
 			backgroundColor: theme.background,
+		},
+		searchWrapper: {
+			position: "absolute",
+			bottom: 0,
+			left: 0,
+			right: 0,
 		},
 		loadingContainer: {
 			flex: 1,
