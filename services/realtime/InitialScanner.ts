@@ -6,6 +6,7 @@ import { documentDetector } from "../processing/DocumentDetector";
 import { documentProcessor } from "../processing/DocumentProcessor";
 import { simpleImageTracker } from "../tracker/SimpleImageTracker";
 import { useDocumentStore } from "../../stores/documentStore";
+import { notificationManager } from "../notifications/NotificationManager";
 import { BehaviorSubject } from "rxjs";
 
 export interface ScanProgress {
@@ -61,6 +62,10 @@ class InitialScanner {
 		this.shouldStop = false;
 
 		try {
+			// Show background notification
+			await notificationManager.showProcessingNotification();
+			console.log("[InitialScanner] Background notification started");
+
 			// Initialize services
 			await this.initializeServices();
 
@@ -152,6 +157,14 @@ class InitialScanner {
 			throw error;
 		} finally {
 			this.isScanning = false;
+			
+			// Hide background notification
+			try {
+				await notificationManager.hideProcessingNotification();
+				console.log("[InitialScanner] Background notification stopped");
+			} catch (error) {
+				console.error("[InitialScanner] Failed to hide notification:", error);
+			}
 		}
 	}
 

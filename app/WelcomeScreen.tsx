@@ -19,6 +19,8 @@ import {
 	RESULTS,
 	check,
 	requestMultiple,
+	requestNotifications,
+	checkNotifications,
 } from "react-native-permissions";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Icon from "react-native-vector-icons/Ionicons";
@@ -54,8 +56,8 @@ export const WelcomeScreen: React.FC = () => {
 			if (!granted) {
 				setIsLoading(false);
 				Alert.alert(
-					"Permission Required",
-					"Visara needs access to your photo gallery to function. Please grant permission in Settings.",
+					"Permissions Required",
+					"Visara needs access to your photo gallery and notifications to function properly. Please grant permissions in Settings.",
 					[
 						{
 							text: "Cancel",
@@ -101,73 +103,85 @@ export const WelcomeScreen: React.FC = () => {
 
 	const requestPermissions = async (): Promise<boolean> => {
 		try {
+			let galleryGranted = false;
+			let notificationGranted = false;
+
 			if (Platform.OS === "ios") {
-				const currentStatus = await check(PERMISSIONS.IOS.PHOTO_LIBRARY);
+				// Request photo library permission
+				const photoStatus = await check(PERMISSIONS.IOS.PHOTO_LIBRARY);
 
-				if (currentStatus === RESULTS.GRANTED) {
-					return true;
-				}
-
-				if (
-					currentStatus === RESULTS.BLOCKED ||
-					currentStatus === RESULTS.UNAVAILABLE
+				if (photoStatus === RESULTS.GRANTED) {
+					galleryGranted = true;
+				} else if (
+					photoStatus === RESULTS.BLOCKED ||
+					photoStatus === RESULTS.UNAVAILABLE
 				) {
-					return false;
+					galleryGranted = false;
+				} else {
+					const result = await requestMultiple([PERMISSIONS.IOS.PHOTO_LIBRARY]);
+					galleryGranted = result[PERMISSIONS.IOS.PHOTO_LIBRARY] === RESULTS.GRANTED;
 				}
 
-				const result = await requestMultiple([PERMISSIONS.IOS.PHOTO_LIBRARY]);
-				return result[PERMISSIONS.IOS.PHOTO_LIBRARY] === RESULTS.GRANTED;
+				// Request notification permissions
+				try {
+					const notificationResult = await requestNotifications(['alert', 'sound']);
+					notificationGranted = notificationResult.status === RESULTS.GRANTED;
+				} catch (error) {
+					console.log("[WelcomeScreen] Notification permission request failed:", error);
+					notificationGranted = false;
+				}
 			} else {
 				const androidVersion = Platform.Version;
 
-				// need attantion here
-				if (androidVersion >= "33") {
-					const currentStatus = await check(
-						PERMISSIONS.ANDROID.READ_MEDIA_IMAGES,
-					);
-
-					if (currentStatus === RESULTS.GRANTED) {
-						return true;
-					}
-
-					if (
-						currentStatus === RESULTS.BLOCKED ||
-						currentStatus === RESULTS.UNAVAILABLE
+				// Android 13+ (API 33)
+				if (Number(androidVersion) >= 33) {
+					// Request media images permission
+					const mediaStatus = await check(PERMISSIONS.ANDROID.READ_MEDIA_IMAGES);
+					
+					if (mediaStatus === RESULTS.GRANTED) {
+						galleryGranted = true;
+					} else if (
+						mediaStatus === RESULTS.BLOCKED ||
+						mediaStatus === RESULTS.UNAVAILABLE
 					) {
-						return false;
+						galleryGranted = false;
+					} else {
+						const result = await requestMultiple([PERMISSIONS.ANDROID.READ_MEDIA_IMAGES]);
+						galleryGranted = result[PERMISSIONS.ANDROID.READ_MEDIA_IMAGES] === RESULTS.GRANTED;
 					}
-
-					const result = await requestMultiple([
-						PERMISSIONS.ANDROID.READ_MEDIA_IMAGES,
-					]);
-					return (
-						result[PERMISSIONS.ANDROID.READ_MEDIA_IMAGES] === RESULTS.GRANTED
-					);
 				} else {
-					const currentStatus = await check(
-						PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
-					);
+					// Android < 13 (API < 33)
+					const storageStatus = await check(PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE);
 
-					if (currentStatus === RESULTS.GRANTED) {
-						return true;
-					}
-
-					if (
-						currentStatus === RESULTS.BLOCKED ||
-						currentStatus === RESULTS.UNAVAILABLE
+					if (storageStatus === RESULTS.GRANTED) {
+						galleryGranted = true;
+					} else if (
+						storageStatus === RESULTS.BLOCKED ||
+						storageStatus === RESULTS.UNAVAILABLE
 					) {
-						return false;
+						galleryGranted = false;
+					} else {
+						const result = await requestMultiple([PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE]);
+						galleryGranted = result[PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE] === RESULTS.GRANTED;
 					}
+				}
 
-					const result = await requestMultiple([
-						PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE,
-					]);
-					return (
-						result[PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE] ===
-						RESULTS.GRANTED
-					);
+				// Request notification permissions for Android
+				try {
+					const notificationResult = await requestNotifications(['alert', 'sound']);
+					notificationGranted = notificationResult.status === RESULTS.GRANTED;
+				} catch (error) {
+					console.log("[WelcomeScreen] Notification permission request failed:", error);
+					notificationGranted = false;
 				}
 			}
+
+			// Log permission results
+			console.log("[WelcomeScreen] Gallery permission:", galleryGranted);
+			console.log("[WelcomeScreen] Notification permission:", notificationGranted);
+
+			// Return true only if gallery permission is granted (notification is nice to have but not required)
+			return galleryGranted;
 		} catch (error) {
 			console.error("[WelcomeScreen] Permission error:", error);
 			return false;
