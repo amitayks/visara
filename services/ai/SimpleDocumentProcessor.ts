@@ -10,7 +10,14 @@ export interface SimpleProcessedDocument {
 	imageUri: string;
 	imageHash: string;
 	ocrText: string;
-	documentType: "receipt" | "invoice" | "id" | "letter" | "form" | "screenshot" | "unknown";
+	documentType:
+		| "receipt"
+		| "invoice"
+		| "id"
+		| "letter"
+		| "form"
+		| "screenshot"
+		| "unknown";
 	confidence: number;
 	processedAt: Date;
 	keywords: string[];
@@ -34,7 +41,7 @@ export class SimpleDocumentProcessor {
 
 	async initialize(): Promise<void> {
 		if (this.initialized) return;
-		
+
 		try {
 			// Only need to initialize OCR engine (MLKit)
 			await ocrEngineManager.initialize();
@@ -49,7 +56,9 @@ export class SimpleDocumentProcessor {
 	async process(imageUri: string): Promise<SimpleProcessedDocument | null> {
 		// Check if this image is already being processed
 		if (this.processingLock.has(imageUri)) {
-			console.log(`[SimpleDocumentProcessor] ⏳ Image already being processed, skipping: ${imageUri.substring(imageUri.lastIndexOf('/') + 1)}`);
+			console.log(
+				`[SimpleDocumentProcessor] ⏳ Image already being processed, skipping: ${imageUri.substring(imageUri.lastIndexOf("/") + 1)}`,
+			);
 			return null;
 		}
 
@@ -61,24 +70,35 @@ export class SimpleDocumentProcessor {
 				await this.initialize();
 			}
 
-			console.log("[SimpleDocumentProcessor] Starting processing:", imageUri.substring(imageUri.lastIndexOf('/') + 1));
+			console.log(
+				"[SimpleDocumentProcessor] Starting processing:",
+				imageUri.substring(imageUri.lastIndexOf("/") + 1),
+			);
 
 			// 1. Visual document check (existing)
-			const visualResult = await visualDocumentDetector.detectDocument(imageUri);
-			
+			const visualResult =
+				await visualDocumentDetector.detectDocument(imageUri);
+
 			// Reject if not likely a document (more selective threshold)
-			if (visualResult.overallScore < 0.5) {
-				console.log(`[SimpleDocumentProcessor] Document rejected: low visual score ${visualResult.overallScore.toFixed(2)}`);
+			if (visualResult.overallScore < 0.1) {
+				console.log(
+					`[SimpleDocumentProcessor] Document rejected: low visual score ${visualResult.overallScore.toFixed(2)}`,
+				);
 				this.processingLock.delete(imageUri);
 				return null;
 			}
 
 			// 2. OCR with MLKit (Hebrew + English support)
-			const ocrResult: OCRResult = await ocrEngineManager.processImage(imageUri, "mlkit");
-			
+			const ocrResult: OCRResult = await ocrEngineManager.processImage(
+				imageUri,
+				"mlkit",
+			);
+
 			// Reject if no meaningful text found
 			if (!ocrResult.text || ocrResult.text.trim().length < 10) {
-				console.log("[SimpleDocumentProcessor] Document rejected: insufficient text");
+				console.log(
+					"[SimpleDocumentProcessor] Document rejected: insufficient text",
+				);
 				this.processingLock.delete(imageUri);
 				return null;
 			}
@@ -100,7 +120,10 @@ export class SimpleDocumentProcessor {
 				imageHash,
 				ocrText: ocrResult.text,
 				documentType,
-				confidence: Math.max(visualResult.overallScore, ocrResult.confidence / 100),
+				confidence: Math.max(
+					visualResult.overallScore,
+					ocrResult.confidence / 100,
+				),
 				processedAt: new Date(),
 				keywords: keywords.slice(0, 15), // Limit keywords
 				metadata: {
@@ -113,18 +136,20 @@ export class SimpleDocumentProcessor {
 			};
 
 			console.log(`[SimpleDocumentProcessor] Successfully processed:`, {
-			documentType: documentType,
-			keywordCount: keywords.length,
-			confidence: Math.max(visualResult.overallScore, ocrResult.confidence / 100),
-			language: ocrResult.language,
-			vendor: vendor,
-			amount: amount?.value,
-			currency: amount?.currency,
-			hasDate: !!date,
-			ocrTextLength: ocrResult.text.length
-		});
+				documentType: documentType,
+				keywordCount: keywords.length,
+				confidence: Math.max(
+					visualResult.overallScore,
+					ocrResult.confidence / 100,
+				),
+				language: ocrResult.language,
+				vendor: vendor,
+				amount: amount?.value,
+				currency: amount?.currency,
+				hasDate: !!date,
+				ocrTextLength: ocrResult.text.length,
+			});
 			return result;
-
 		} catch (error) {
 			console.error("[SimpleDocumentProcessor] Processing failed:", error);
 			return null;
@@ -135,9 +160,13 @@ export class SimpleDocumentProcessor {
 	}
 
 	// Simple rule-based document classification
-	private classifyDocument(text: string): SimpleProcessedDocument["documentType"] {
+	private classifyDocument(
+		text: string,
+	): SimpleProcessedDocument["documentType"] {
 		const lowerText = text.toLowerCase();
-		console.log(`[SimpleDocumentProcessor] Classifying document with ${text.length} chars, Hebrew: ${/[\u0590-\u05FF]/.test(text)}, English: ${/[A-Za-z]/.test(text)}`);
+		console.log(
+			`[SimpleDocumentProcessor] Classifying document with ${text.length} chars, Hebrew: ${/[\u0590-\u05FF]/.test(text)}, English: ${/[A-Za-z]/.test(text)}`,
+		);
 
 		// Receipt indicators (English and Hebrew)
 		if (
@@ -209,7 +238,9 @@ export class SimpleDocumentProcessor {
 	}
 
 	// Simple amount extraction using regex
-	private extractAmount(text: string): { value: number; currency: string } | null {
+	private extractAmount(
+		text: string,
+	): { value: number; currency: string } | null {
 		// Try different currency patterns (English and Hebrew)
 		const patterns = [
 			// Shekel patterns
@@ -238,9 +269,17 @@ export class SimpleDocumentProcessor {
 					let currency = "ILS"; // Default for Israel
 					if (text.includes("$")) currency = "USD";
 					else if (text.includes("€")) currency = "EUR";
-					else if (text.includes("₪") || text.includes("שקל") || text.includes("שח") || text.includes("nis")) currency = "ILS";
+					else if (
+						text.includes("₪") ||
+						text.includes("שקל") ||
+						text.includes("שח") ||
+						text.includes("nis")
+					)
+						currency = "ILS";
 
-					console.log(`[SimpleDocumentProcessor] Found amount: ${amount} ${currency} (pattern: ${pattern})`);
+					console.log(
+						`[SimpleDocumentProcessor] Found amount: ${amount} ${currency} (pattern: ${pattern})`,
+					);
 					return { value: amount, currency };
 				}
 			}
@@ -251,12 +290,12 @@ export class SimpleDocumentProcessor {
 
 	// Simple vendor extraction
 	private extractVendor(text: string): string | undefined {
-		const lines = text.split("\n").filter(line => line.trim().length > 0);
-		
+		const lines = text.split("\n").filter((line) => line.trim().length > 0);
+
 		// Usually vendor name is in the first few lines
 		for (let i = 0; i < Math.min(3, lines.length); i++) {
 			const line = lines[i].trim();
-			
+
 			// Skip lines that look like addresses or phone numbers
 			if (
 				line.match(/^\d+/) || // Starts with number
@@ -270,7 +309,9 @@ export class SimpleDocumentProcessor {
 
 			// This line might be the vendor name (Hebrew or English)
 			if (line.match(/[א-ת]/) || line.match(/[a-zA-Z]/)) {
-				console.log(`[SimpleDocumentProcessor] Found potential vendor: "${line}"`);
+				console.log(
+					`[SimpleDocumentProcessor] Found potential vendor: "${line}"`,
+				);
 				return line.substring(0, 30); // Limit length
 			}
 		}
@@ -296,11 +337,15 @@ export class SimpleDocumentProcessor {
 					// Try different date formats
 					const date1 = new Date(`${match[3]}-${match[2]}-${match[1]}`); // DD/MM/YYYY
 					const date2 = new Date(`${match[3]}-${match[1]}-${match[2]}`); // MM/DD/YYYY
-					
+
 					// Return the date that seems more reasonable (not in the future, not too old)
 					const now = new Date();
-					const twoYearsAgo = new Date(now.getFullYear() - 2, now.getMonth(), now.getDate());
-					
+					const twoYearsAgo = new Date(
+						now.getFullYear() - 2,
+						now.getMonth(),
+						now.getDate(),
+					);
+
 					if (date1 >= twoYearsAgo && date1 <= now) return date1;
 					if (date2 >= twoYearsAgo && date2 <= now) return date2;
 				} catch (error) {
@@ -327,7 +372,9 @@ export class SimpleDocumentProcessor {
 			// For content:// URIs, create hash from URI itself (stable identifier)
 			if (imageUri.startsWith("content://")) {
 				const hash = CryptoJS.SHA256(imageUri).toString();
-				console.log(`[SimpleDocumentProcessor] Generated content URI hash: ${hash.substring(0, 16)}...`);
+				console.log(
+					`[SimpleDocumentProcessor] Generated content URI hash: ${hash.substring(0, 16)}...`,
+				);
 				return hash;
 			}
 
@@ -336,16 +383,23 @@ export class SimpleDocumentProcessor {
 				const stats = await RNFS.stat(imageUri);
 				const hashInput = `${imageUri}-${stats.size}-${stats.mtime}`;
 				const hash = CryptoJS.SHA256(hashInput).toString();
-				console.log(`[SimpleDocumentProcessor] Generated file hash: ${hash.substring(0, 16)}... (size: ${stats.size}, modified: ${stats.mtime})`);
+				console.log(
+					`[SimpleDocumentProcessor] Generated file hash: ${hash.substring(0, 16)}... (size: ${stats.size}, modified: ${stats.mtime})`,
+				);
 				return hash;
 			} catch (error) {
 				// Fallback to URI-based hash
-				console.log(`[SimpleDocumentProcessor] File stats failed, using URI hash fallback`);
+				console.log(
+					`[SimpleDocumentProcessor] File stats failed, using URI hash fallback`,
+				);
 				const hash = CryptoJS.SHA256(imageUri).toString();
 				return hash;
 			}
 		} catch (error) {
-			console.error("[SimpleDocumentProcessor] Error calculating image hash:", error);
+			console.error(
+				"[SimpleDocumentProcessor] Error calculating image hash:",
+				error,
+			);
 			// Ultimate fallback
 			const hash = CryptoJS.SHA256(imageUri).toString();
 			return hash;

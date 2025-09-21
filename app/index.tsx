@@ -40,7 +40,7 @@ export default function HomeScreen() {
 
 	const {
 		documents,
-		filteredDocuments,
+		getFilteredDocuments,
 		loadDocuments,
 		checkExistingDocuments,
 		initializeRealTimeUpdates,
