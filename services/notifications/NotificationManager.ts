@@ -13,6 +13,7 @@ interface NotificationOptions {
 	};
 	color: string;
 	ongoing: boolean;
+	linkingURI: string;
 }
 
 class NotificationManager {
@@ -48,6 +49,7 @@ class NotificationManager {
 				},
 				color: "#0066FF",
 				ongoing: true,
+				linkingURI: "visara://home",
 			};
 
 			// Start the background service with a simple task
