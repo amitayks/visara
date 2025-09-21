@@ -45,11 +45,18 @@ interface DocumentGridProps {
 }
 
 export const DocumentGrid = memo(
-	({ onDocumentPress, emptyStateComponent, refreshing: externalRefreshing, onRefresh, handleStartBackgroundScan }: DocumentGridProps) => {
+	({
+		onDocumentPress,
+		emptyStateComponent,
+		refreshing: externalRefreshing,
+		onRefresh,
+		handleStartBackgroundScan,
+	}: DocumentGridProps) => {
 		const { theme } = useTheme();
 		const styles = useThemedStyles(createStyles);
 		const [refreshing, setRefreshing] = useState(false);
-		const isRefreshing = externalRefreshing !== undefined ? externalRefreshing : refreshing;
+		const isRefreshing =
+			externalRefreshing !== undefined ? externalRefreshing : refreshing;
 
 		const {
 			getFilteredDocuments,
@@ -72,12 +79,20 @@ export const DocumentGrid = memo(
 				// Map search results back to documents
 				const resultIds = new Set(searchResults.map((r) => r.id));
 				const filteredDocs = getFilteredDocuments();
-			return filteredDocs.filter((doc) => resultIds.has(doc.id));
+				return filteredDocs.filter((doc) => resultIds.has(doc.id));
 			}
 			const allDocs = getFilteredDocuments();
-		console.log(`[DocumentGrid] No search, returning all: ${allDocs.length} items`);
-		return allDocs;
-		}, [getFilteredDocuments, searchQuery, searchResults, totalDocuments, cacheVersion]);
+			console.log(
+				`[DocumentGrid] No search, returning all: ${allDocs.length} items`,
+			);
+			return allDocs;
+		}, [
+			getFilteredDocuments,
+			searchQuery,
+			searchResults,
+			totalDocuments,
+			cacheVersion,
+		]);
 
 		// Debug: Log when component receives new data
 		useEffect(() => {
@@ -182,12 +197,17 @@ export const DocumentGrid = memo(
 		// Show skeleton grid when loading and there are existing documents
 		// This prevents showing the "start scanning" button when documents exist but are loading
 		if (isLoading && hasExistingDocuments) {
-			return <SkeletonGrid count={12} />;
+			return <SkeletonGrid count={22} />;
 		}
 
 		// Debug: Log data being passed to FlashList
-		console.log(`[DocumentGrid] 📱 FlashList receiving data: ${documents.length} items`);
-		console.log(`[DocumentGrid] 📱 First 3 document IDs:`, documents.slice(0, 3).map(d => d.id));
+		console.log(
+			`[DocumentGrid] 📱 FlashList receiving data: ${documents.length} items`,
+		);
+		console.log(
+			`[DocumentGrid] 📱 First 3 document IDs:`,
+			documents.slice(0, 3).map((d) => d.id),
+		);
 
 		return (
 			<FlashList

@@ -161,9 +161,9 @@ export const useDocumentStore = create<DocumentStore>()(
 		console.log(`[DocumentStore] updateDocumentsArray: Map has ${documentsMap.size} items`);
 		console.log(`[DocumentStore] Map keys:`, Array.from(documentsMap.keys()));
 		
-		// Always build new array from Map (sorted by creation date, newest first)
+		// Always build new array from Map (sorted by creation date, oldest first)
 		const docsArray = Array.from(documentsMap.values()).sort(
-			(a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+			(a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
 		);
 		
 		console.log(`[DocumentStore] Created array with ${docsArray.length} items`);
@@ -196,7 +196,7 @@ export const useDocumentStore = create<DocumentStore>()(
 		const filtered = Array.from(filteredDocumentIds)
 			.map(id => documentsMap.get(id))
 			.filter((doc): doc is Document => doc !== undefined)
-			.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+			.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 		
 		console.log(`[getFilteredDocuments] Filtered result: ${filtered.length} items`);
 		return filtered;
@@ -342,14 +342,17 @@ export const useDocumentStore = create<DocumentStore>()(
 	},
 
 	loadMoreDocuments: async () => {
-		const { isLoadingMore, hasMorePages, currentPage, pageSize, documents } =
+		const { isLoadingMore, hasMorePages, currentPage, pageSize, documentsMap, hasDocumentChanged } =
 			get();
 
 		if (isLoadingMore || !hasMorePages) {
 			return;
 		}
 
-		set({ isLoadingMore: true });
+		set((draft) => {
+			draft.isLoadingMore = true;
+		});
+
 		try {
 			const nextPage = currentPage + 1;
 			const docs = await documentStorage.getDocumentsPaginated(
@@ -357,45 +360,67 @@ export const useDocumentStore = create<DocumentStore>()(
 				pageSize,
 			);
 
-			const transformedDocs: Document[] = docs.map((doc) => ({
-				id: doc.id,
-				imageUri: doc.imageUri,
-				documentType: doc.documentType,
-				vendor: doc.vendor,
-				date: doc.date ? new Date(doc.date) : undefined,
-				totalAmount: doc.totalAmount,
-				metadata: doc.metadata,
-				createdAt: new Date(doc.createdAt),
-				imageHash: doc.imageHash,
-				ocrText: doc.ocrText,
-				keywords: doc.keywords,
-				confidence: doc.confidence,
-				processedAt: doc.processedAt ? new Date(doc.processedAt) : undefined,
-				imageWidth: doc.imageWidth,
-				imageHeight: doc.imageHeight,
-				imageSize: doc.imageSize,
-				imageTakenDate: doc.imageTakenDate
-					? new Date(doc.imageTakenDate)
-					: undefined,
-			}));
+			let hasRealChanges = false;
 
-			const newDocuments = [...documents, ...transformedDocs];
-			const hasMore = transformedDocs.length === pageSize;
+			// Process each document using Map-based approach
+			for (const rawDoc of docs) {
+				// Create new Document object
+				const newDoc: Document = {
+					id: rawDoc.id,
+					imageUri: rawDoc.imageUri,
+					documentType: rawDoc.documentType,
+					vendor: rawDoc.vendor,
+					date: rawDoc.date ? new Date(rawDoc.date) : undefined,
+					totalAmount: rawDoc.totalAmount,
+					metadata: rawDoc.metadata,
+					createdAt: new Date(rawDoc.createdAt),
+					imageHash: rawDoc.imageHash,
+					ocrText: rawDoc.ocrText,
+					keywords: rawDoc.keywords,
+					confidence: rawDoc.confidence,
+					processedAt: rawDoc.processedAt ? new Date(rawDoc.processedAt) : undefined,
+					imageWidth: rawDoc.imageWidth,
+					imageHeight: rawDoc.imageHeight,
+					imageSize: rawDoc.imageSize,
+					imageTakenDate: rawDoc.imageTakenDate ? new Date(rawDoc.imageTakenDate) : undefined,
+				};
 
-			set({
-				documents: newDocuments,
-				currentPage: nextPage,
-				hasMorePages: hasMore,
+				// Check if document exists and has changed
+				const existingDoc = documentsMap.get(rawDoc.id);
+
+				if (!existingDoc || hasDocumentChanged(existingDoc, newDoc)) {
+					// Document is new or changed - update Map
+					set((draft) => {
+						draft.documentsMap.set(rawDoc.id, newDoc);
+					});
+					hasRealChanges = true;
+				}
+			}
+
+			const hasMore = docs.length === pageSize;
+
+			// Update pagination state
+			set((draft) => {
+				draft.currentPage = nextPage;
+				draft.hasMorePages = hasMore;
+				if (hasRealChanges) {
+					draft.cacheVersion++; // Increment version to trigger array rebuild
+				}
 			});
 
+			// Update documents array from Map
+			get().updateDocumentsArray();
+
 			console.log(
-				`[DocumentStore] Loaded page ${nextPage + 1}, total documents: ${newDocuments.length}`,
+				`[DocumentStore] Loaded page ${nextPage + 1} using Map-based approach, changes: ${hasRealChanges}`,
 			);
 		} catch (error) {
 			console.error("Failed to load more documents:", error);
 			throw error;
 		} finally {
-			set({ isLoadingMore: false });
+			set((draft) => {
+				draft.isLoadingMore = false;
+			});
 		}
 	},
 
