@@ -97,6 +97,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 					message: "Cannot open this image in gallery",
 					icon: "alert-circle",
 				});
+				console.error("Cannot open URL:", canOpen);
 				onClose();
 			}
 		} catch (error) {
