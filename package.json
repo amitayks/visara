@@ -1,6 +1,6 @@
 {
 	"name": "visara-app",
-	"version": "1.1.0",
+	"version": "1.0.2",
 	"main": "index.js",
 	"scripts": {
 		"start": "react-native start",
@@ -13,7 +13,8 @@
 		"check": "npx @biomejs/biome check --write",
 		"format": "npx @biomejs/biome format --write",
 		"typecheck": "tsc --noEmit",
-		"clean": "react-native clean"
+		"clean": "react-native clean",
+		"bump": "node bump-version.js"
 	},
 	"dependencies": {
 		"@bam.tech/react-native-image-resizer": "^3.0.6",

@@ -132,6 +132,7 @@ coverage/
 
 # Gradle Wrapper
 !gradle/wrapper/gradle-wrapper.jar
+android/gradle.properties
 *.properties
 
 #local lists
