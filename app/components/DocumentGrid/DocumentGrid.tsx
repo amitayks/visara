@@ -107,17 +107,11 @@ export const DocumentGrid = memo(
 			setRefreshing(true);
 			try {
 				await refreshDocuments();
-				showToast({
-					type: "success",
-					message: "Gallery refreshed successfully",
-					// icon: "checkmark-circle",
-				});
 			} catch (error) {
 				console.error("Refresh documents error:", error);
 				showToast({
 					type: "error",
 					message: "Failed to refresh documents",
-					// icon: "alert-circle",
 				});
 			} finally {
 				setRefreshing(false);
