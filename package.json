@@ -7,6 +7,7 @@
 		"android": "react-native run-android",
 		"ios": "react-native run-ios",
 		"build-apk": "cd android && gradlew assembleRelease",
+		"build-aab": "npx react-native build-android --mode=release",
 		"clean-android": "cd android && gradlew clean && cd ..",
 		"lint": "npx @biomejs/biome lint --write",
 		"check": "npx @biomejs/biome check --write",

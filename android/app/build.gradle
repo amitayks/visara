@@ -86,10 +86,18 @@ android {
         applicationId "com.visara.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode 3
+        versionName "1.0.1"
     }
     signingConfigs {
+        release {
+            if (project.hasProperty('VISARA_UPLOAD_STORE_FILE')) {
+                storeFile file(VISARA_UPLOAD_STORE_FILE)
+                storePassword VISARA_UPLOAD_STORE_PASSWORD
+                keyAlias VISARA_UPLOAD_KEY_ALIAS
+                keyPassword VISARA_UPLOAD_KEY_PASSWORD
+            }
+        }
         debug {
             storeFile file('debug.keystore')
             storePassword 'android'
@@ -102,9 +110,7 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
