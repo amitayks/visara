@@ -12,7 +12,7 @@ Visara is a React Native mobile application for document management and OCR (Opt
 - **WatermelonDB** (@nozbe/watermelondb) - Local database for document storage
 - **Zustand** - State management
 - **React Navigation** - Navigation system
-- **Multiple OCR Engines**: MLKit, Tesseract, VisionCamera
+- **OCR Engine**: MLKit
 - **TanStack React Query** - Data fetching and caching
 - **React Native Reanimated** - Animations
 - **Biome** - Linting and formatting
@@ -68,7 +68,7 @@ npm run clean
 - `schema.ts` and `migrations.ts` - Database structure
 
 #### AI/OCR (`services/ai/`)
-- `OCREngineManager.ts` - Manages multiple OCR engines (MLKit, Tesseract, VisionCamera)
+- `OCREngineManager.ts` - Manages multiple OCR engines (MLKit)
 - `documentProcessor.ts` - Processes documents and extracts metadata (uses native memory management)
 - `keywordExtractor.ts` - Extracts keywords for search
 - `visualDocumentDetector.ts` - Detects document types from images

@@ -43,11 +43,11 @@ import {
 
 // Import SendIntentAndroid for proper file handling on Android
 let SendIntentAndroid: any = null;
-if (Platform.OS === 'android') {
+if (Platform.OS === "android") {
 	try {
-		SendIntentAndroid = require('react-native-send-intent').default;
+		SendIntentAndroid = require("react-native-send-intent").default;
 	} catch (error) {
-		console.warn('react-native-send-intent not available:', error);
+		console.warn("react-native-send-intent not available:", error);
 	}
 }
 
@@ -95,60 +95,60 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 		}
 	}, [document]);
 
-	const handleOpenInGallery = useCallback(async () => {
-		if (!document?.imageUri) return;
+	// const handleOpenInGallery = useCallback(async () => {
+	// 	if (!document?.imageUri) return;
 
-		try {
-			console.log("[DocumentModal] Opening in gallery:", document.imageUri);
+	// 	try {
+	// 		console.log("[DocumentModal] Opening in gallery:", document.imageUri);
 
-			if (Platform.OS === 'android') {
-				if (SendIntentAndroid) {
-					// Use SendIntentAndroid for proper file URI handling on Android
-					await SendIntentAndroid.openFileChooser({
-						fileUrl: document.imageUri,
-						type: 'image/*'
-					}, 'Open with');
-					
-					showToast({
-						type: "success",
-						message: "Opening image in gallery",
-						icon: "checkmark-circle",
-					});
-				} else {
-					// Fallback: try to extract filename and show in gallery app
-					const filename = document.imageUri.split('/').pop() || '';
-					await SendIntentAndroid.openGallery();
-					
-					showToast({
-						type: "info", 
-						message: `Look for: ${filename}`,
-						icon: "information-circle",
-					});
-				}
-			} else {
-				// iOS: Try Linking first, fallback to photos app
-				try {
-					const canOpen = await Linking.canOpenURL(document.imageUri);
-					if (canOpen) {
-						await Linking.openURL(document.imageUri);
-					} else {
-						// Fallback: open Photos app
-						await Linking.openURL('photos-redirect://');
-					}
-				} catch (iosError) {
-					console.log("[DocumentModal] iOS Linking failed, trying Photos app:", iosError);
-					await Linking.openURL('photos-redirect://');
-				}
-			}
-		} catch (error) {
-			console.error("Failed to open in gallery:", error);
-			showToast({
-				type: "error",
-				message: "Cannot open image in gallery",
-				icon: "alert-circle",
-			});
-		}
-	}, [document, onClose]);
+	// 		if (Platform.OS === 'android') {
+	// 			if (SendIntentAndroid) {
+	// 				// Use SendIntentAndroid for proper file URI handling on Android
+	// 				await SendIntentAndroid.openFileChooser({
+	// 					fileUrl: document.imageUri,
+	// 					type: 'image/*'
+	// 				}, 'Open with');
+
+	// 				showToast({
+	// 					type: "success",
+	// 					message: "Opening image in gallery",
+	// 					icon: "checkmark-circle",
+	// 				});
+	// 			} else {
+	// 				// Fallback: try to extract filename and show in gallery app
+	// 				const filename = document.imageUri.split('/').pop() || '';
+	// 				await SendIntentAndroid.openGallery();
+
+	// 				showToast({
+	// 					type: "info",
+	// 					message: `Look for: ${filename}`,
+	// 					icon: "information-circle",
+	// 				});
+	// 			}
+	// 		} else {
+	// 			// iOS: Try Linking first, fallback to photos app
+	// 			try {
+	// 				const canOpen = await Linking.canOpenURL(document.imageUri);
+	// 				if (canOpen) {
+	// 					await Linking.openURL(document.imageUri);
+	// 				} else {
+	// 					// Fallback: open Photos app
+	// 					await Linking.openURL('photos-redirect://');
+	// 				}
+	// 			} catch (iosError) {
+	// 				console.log("[DocumentModal] iOS Linking failed, trying Photos app:", iosError);
+	// 				await Linking.openURL('photos-redirect://');
+	// 			}
+	// 		}
+	// 	} catch (error) {
+	// 		console.error("Failed to open in gallery:", error);
+	// 		showToast({
+	// 			type: "error",
+	// 			message: "Cannot open image in gallery",
+	// 			icon: "alert-circle",
+	// 		});
+	// 	}
+	// }, [document, onClose]);
 
 	const handleDelete = async () => {
 		if (!document) return;
@@ -389,12 +389,12 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 					<View style={styles.bottomSheetContent}>
 						{/* Action Buttons */}
 						<View style={styles.actionButtons}>
-							<ActionButton
+							{/* <ActionButton
 								icon="images"
 								// label="Gallery"
 								onPress={handleOpenInGallery}
 								style={styles.actionButton}
-							/>
+							/> */}
 
 							<ActionButton
 								icon="share"
