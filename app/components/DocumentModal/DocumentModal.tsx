@@ -72,7 +72,7 @@ export const DocumentModal: React.FC<DocumentModalProps> = ({
 	const { deleteDocument } = useDocumentStore();
 
 	// Bottom sheet snap points
-	const snapPoints = React.useMemo(() => ["13%", "90%"], []);
+	const snapPoints = React.useMemo(() => ["40%", "13", "90%"], []);
 
 	// Animated values for drag-to-dismiss
 	const translateX = useSharedValue(0);
