@@ -6,10 +6,16 @@
 		"android": "react-native run-android",
 		"ios": "react-native run-ios",
 		"start": "react-native start",
+		"build-apk": "cd android && gradlew assembleRelease",
+		"build-aab": "npx react-native build-android --mode=release",
+		"CA": "cd android && gradlew clean && cd ..",
+		"CR": "react-native clean",
+		"typecheck": "tsc --noEmit",
 		"test": "jest",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"format": "biome format --write ."
+		"format": "biome format --write .",
+		"bump": "node bump-version.js"
 	},
 	"dependencies": {
 		"@nozbe/simdjson": "^3.9.4",
