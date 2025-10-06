@@ -1,0 +1,59 @@
+{
+	"name": "visara",
+	"version": "2.0.0",
+	"private": true,
+	"scripts": {
+		"android": "react-native run-android",
+		"ios": "react-native run-ios",
+		"start": "react-native start",
+		"test": "jest",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"format": "biome format --write ."
+	},
+	"dependencies": {
+		"@nozbe/simdjson": "^3.9.4",
+		"@nozbe/watermelondb": "^0.28.0",
+		"@react-native-camera-roll/camera-roll": "^7.10.2",
+		"@react-native-ml-kit/image-labeling": "^2.0.0",
+		"@react-native-ml-kit/text-recognition": "^2.0.0",
+		"@react-navigation/bottom-tabs": "^7.4.8",
+		"@react-navigation/native": "^7.1.18",
+		"@react-navigation/stack": "^7.4.9",
+		"@shopify/flash-list": "^2.1.0",
+		"babel-plugin-module-resolver": "^5.0.2",
+		"minisearch": "^7.2.0",
+		"notifee": "^0.0.1",
+		"react": "19.1.0",
+		"react-native": "0.81.4",
+		"react-native-background-actions": "^4.0.1",
+		"react-native-config": "^1.5.9",
+		"react-native-device-info": "^14.1.1",
+		"react-native-fast-image": "^8.6.3",
+		"react-native-gesture-handler": "^2.20.2",
+		"react-native-mmkv": "^3.3.3",
+		"react-native-paper": "^5.14.5",
+		"react-native-reanimated": "^3.16.5",
+		"react-native-safe-area-context": "^5.6.1",
+		"react-native-screens": "^4.16.0",
+		"react-native-vision-camera": "^4.7.2"
+	},
+	"engines": {
+		"node": ">=18",
+		"npm": ">=9"
+	},
+	"devDependencies": {
+		"@babel/core": "^7.28.4",
+		"@babel/preset-env": "^7.28.3",
+		"@babel/runtime": "^7.28.4",
+		"@biomejs/biome": "^2.2.5",
+		"@react-native/babel-preset": "^0.80.2",
+		"@react-native/metro-config": "^0.80.2",
+		"@testing-library/react-native": "^13.3.3",
+		"@types/react": "^19.2.1",
+		"@types/react-native": "^0.72.8",
+		"jest": "^30.2.0",
+		"metro-react-native-babel-preset": "^0.77.0",
+		"typescript": "^5.9.3"
+	}
+}
