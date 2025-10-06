@@ -36,23 +36,23 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 
 ---
 
-## Phase 3.1: Setup & Dependencies
+## Phase 3.1: Setup & Dependencies ✅ COMPLETED
 
-- [ ] T001 Initialize React Native 0.81.4 project with TypeScript 5.0+ template using `npx react-native@0.81.4 init Visara --template react-native-template-typescript`
-- [ ] T002 Enable React Native New Architecture (Fabric + TurboModules) by updating android/gradle.properties and ios/Podfile with newArchEnabled=true
-- [ ] T003 [P] Install UI dependencies: react-native-paper, react-native-gesture-handler@2.20.2, react-native-reanimated@3.16.5, react-native-safe-area-context
-- [ ] T004 [P] Install navigation dependencies: @react-navigation/native@7, @react-navigation/stack, @react-navigation/bottom-tabs, react-native-screens
-- [ ] T005 [P] Install data dependencies: @nozbe/watermelondb, @nozbe/simdjson, react-native-mmkv, minisearch
-- [ ] T006 [P] Install ML dependencies: @react-native-ml-kit/image-labeling, @react-native-ml-kit/text-recognition
-- [ ] T007 [P] Install media dependencies: @react-native-camera-roll/camera-roll, react-native-vision-camera, react-native-fast-image
-- [ ] T008 [P] Install background/notification dependencies: react-native-background-actions, notifee
-- [ ] T009 [P] Install additional dependencies: @shopify/flash-list, react-native-config, react-native-device-info
-- [ ] T010 Configure Biome for linting and formatting in biome.json with strict TypeScript rules
-- [ ] T011 Create project structure: src/components/{atoms,molecules,organisms,templates}, src/screens, src/services, src/contexts, src/models, src/hooks, src/utils, src/types, src/navigation
-- [ ] T012 Configure tsconfig.json with strict mode, path aliases (@components, @screens, @services, @contexts, @models, @hooks, @utils, @types)
-- [ ] T013 [P] Configure Android permissions in android/app/src/main/AndroidManifest.xml (READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, CAMERA, POST_NOTIFICATIONS)
-- [ ] T014 [P] Configure iOS permissions in ios/Visara/Info.plist (NSPhotoLibraryUsageDescription, NSCameraUsageDescription, NSPhotoLibraryAddUsageDescription)
-- [ ] T015 Configure Hermes engine in android/app/build.gradle and ios/Podfile
+- [x] T001 Initialize React Native 0.81.4 project with TypeScript 5.0+ template using `npx react-native@0.81.4 init Visara --template react-native-template-typescript`
+- [x] T002 Enable React Native New Architecture (Fabric + TurboModules) by updating android/gradle.properties and ios/Podfile with newArchEnabled=true
+- [x] T003 [P] Install UI dependencies: react-native-paper, react-native-gesture-handler@2.20.2, react-native-reanimated@3.16.5, react-native-safe-area-context
+- [x] T004 [P] Install navigation dependencies: @react-navigation/native@7, @react-navigation/stack, @react-navigation/bottom-tabs, react-native-screens
+- [x] T005 [P] Install data dependencies: @nozbe/watermelondb, @nozbe/simdjson, react-native-mmkv, minisearch
+- [x] T006 [P] Install ML dependencies: @react-native-ml-kit/image-labeling, @react-native-ml-kit/text-recognition
+- [x] T007 [P] Install media dependencies: @react-native-camera-roll/camera-roll, react-native-vision-camera, react-native-fast-image
+- [x] T008 [P] Install background/notification dependencies: react-native-background-actions, notifee
+- [x] T009 [P] Install additional dependencies: @shopify/flash-list, react-native-config, react-native-device-info
+- [x] T010 Configure Biome for linting and formatting in biome.json with strict TypeScript rules
+- [x] T011 Create project structure: src/components/{atoms,molecules,organisms,templates}, src/screens, src/services, src/contexts, src/models, src/hooks, src/utils, src/types, src/navigation
+- [x] T012 Configure tsconfig.json with strict mode, path aliases (@components, @screens, @services, @contexts, @models, @hooks, @utils, @types)
+- [x] T013 [P] Configure Android permissions in android/app/src/main/AndroidManifest.xml (FULL storage access: READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, MANAGE_EXTERNAL_STORAGE, CAMERA, POST_NOTIFICATIONS, FOREGROUND_SERVICE, FOREGROUND_SERVICE_DATA_SYNC)
+- [x] T014 [P] Configure iOS permissions in ios/VisaraApp/Info.plist (NSPhotoLibraryUsageDescription, NSCameraUsageDescription, NSPhotoLibraryAddUsageDescription, UIBackgroundModes: fetch+processing)
+- [x] T015 Configure Hermes engine in android/gradle.properties and ios/Podfile
 
 ## Phase 3.2: Tests First (TDD) ⚠️ MUST COMPLETE BEFORE 3.3
 

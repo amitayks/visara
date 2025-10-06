@@ -14,7 +14,7 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
-target 'VisaraApp' do
+target 'Visara' do
   config = use_native_modules!
 
   use_react_native!(
@@ -25,11 +25,6 @@ target 'VisaraApp' do
     :fabric_enabled => true,
     :hermes_enabled => true
   )
-
-  target 'VisaraAppTests' do
-    inherit! :complete
-    # Pods for testing
-  end
 
   post_install do |installer|
     # https://github.com/facebook/react-native/blob/main/packages/react-native/scripts/react_native_pods.rb#L197-L202
