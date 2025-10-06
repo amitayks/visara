@@ -10,7 +10,7 @@
 ## Clarifications
 
 ### Session 2025-10-05
-- Q: When displaying AI-detected labels to users in the information drawer, what is the minimum confidence score threshold for showing a label? → A: Show all labels regardless of confidence (0-100%)
+- Q: When displaying AI-detected labels to users in the information drawer, what is the minimum confidence score threshold for showing a label? → A: Show all labels regardless of confidence (0.1 - 1.0)
 - Q: When AI processing fails for an individual file (e.g., corrupted image, insufficient memory), how should the system handle retries? → A: No retry, adding fail badge in the image modal drawer
 - Q: How many files should the system process concurrently in the background to balance performance with device resource constraints? → A: Process 1 file at a time (serial processing)
 - Q: When the system discovers multiple copies of the same photo (e.g., same file saved in different folders), how should it handle duplicates? → A: Show all duplicates separately in the timeline
@@ -192,7 +192,7 @@ Users need to organize and find photos in their device gallery without manual ta
 - **FR-057**: Settings drawer MUST slide in from bottom of the screen
 - **FR-058**: Settings MUST include Processing settings section with Battery Saver Mode, Night Processing toggle
 - **FR-059**: Battery Saver Mode MUST pause processing when device is not charging
-- **FR-060**: Night Processing MUST restrict processing to 00:00-06:00 time window when enabled
+- **FR-060**: Night Processing MUST restrict processing to ONLY the 00:00-06:00 time window when enabled
 - **FR-061**: Settings MUST include Appearance section with Theme toggle (Dark/Light/System)
 - **FR-062**: Theme changes MUST apply immediately to entire UI
 - **FR-063**: Settings MUST include Data Management section with Clear Cache, Delete All Data
@@ -201,43 +201,43 @@ Users need to organize and find photos in their device gallery without manual ta
 - **FR-066**: Settings MUST include Legal section with Privacy Policy, Terms of Service, Version info, and Licenses
 
 #### Background AI Processing
-- **FR-066**: System MUST listen for new images and files by ContentObserver on MediaStore (android) / PHPhotoLibraryChangeObserver on PhotoKit (ios)
-- **FR-067**: Newly discovered files MUST appear immediately in UI with "processing pending" indicator
-- **FR-068**: System MUST run image labeling on each file to identify objects, scenes, and concepts with confidence scores
-- **FR-069**: System MUST conditionally run OCR when text is detected in images
-- **FR-070**: All AI processing MUST occur on-device without cloud uploads or external transmission
-- **FR-071**: Processing results MUST be stored in local database
-- **FR-072**: System MUST build searchable index incrementally as files are processed
-- **FR-073**: Processing pipeline MUST process files serially (one file at a time) with memory monitoring to prevent overflow
-- **FR-074**: System MUST implement automatic cleanup of temporary files created during processing
-- **FR-075**: System MUST support resume capability after app termination or notification, continuing from last checkpoint
-- **FR-076**: System MUST respect Battery Saver Mode and Night Processing settings when scheduling background work
-- **FR-077**: System MUST show persistent notification with processing progress and pause/resume controls
-- **FR-078**: Notification MUST display current progress count and allow user to pause or resume processing
-- **FR-079**: System MUST NOT automatically retry processing for files that fail; failed files are marked with failed status and no retry attempts occur
+- **FR-067**: System MUST listen for new images and files by ContentObserver on MediaStore (android) / PHPhotoLibraryChangeObserver on PhotoKit (ios)
+- **FR-068**: Newly discovered files MUST appear immediately in UI with "processing pending" indicator
+- **FR-069**: System MUST run image labeling on each file to identify objects, scenes, and concepts with confidence scores
+- **FR-070**: System MUST conditionally run OCR when text is detected in images
+- **FR-071**: All AI processing MUST occur on-device without cloud uploads or external transmission
+- **FR-072**: Processing results MUST be stored in local database
+- **FR-073**: System MUST build searchable index incrementally as files are processed
+- **FR-074**: Processing pipeline MUST process files serially (one file at a time) with memory monitoring to prevent overflow
+- **FR-075**: System MUST implement automatic cleanup of temporary files created during processing
+- **FR-076**: System MUST support resume capability after app termination or notification, continuing from last checkpoint
+- **FR-077**: System MUST respect Battery Saver Mode and Night Processing settings when scheduling background work
+- **FR-078**: System MUST show persistent notification with processing progress and pause/resume controls
+- **FR-079**: Notification MUST display current progress count and allow user to pause or resume processing
+- **FR-080**: System MUST NOT automatically retry processing for files that fail; failed files are marked with failed status and no retry attempts occur
 
 #### Navigation & UI
-- **FR-080**: Bottom navigation container MUST float 10px from bottom of screen
-- **FR-081**: Bottom navigation MUST contain four buttons: Search, Documents, Albums, and Settings
-- **FR-082**: Navigation container MUST have subtle elevation shadow
-- **FR-083**: Navigation MUST show smooth transitions when switching between modes
-- **FR-084**: All animations MUST target 60fps performance
-- **FR-085**: All user interactions MUST provide immediate visual feedback within 100ms
+- **FR-081**: Bottom navigation container MUST float 10px from bottom of screen
+- **FR-082**: Bottom navigation MUST contain four buttons: Search, Documents, Albums, and Settings
+- **FR-083**: Navigation container MUST have subtle elevation shadow
+- **FR-084**: Navigation MUST show smooth transitions when switching between modes
+- **FR-085**: All animations MUST target 60fps performance
+- **FR-086**: All user interactions MUST provide immediate visual feedback within 100ms
 
 #### Performance & Responsiveness
-- **FR-086**: System MUST maintain 60fps animations during all user interactions
-- **FR-087**: System MUST handle photo libraries with 10,000+ images without performance degradation
-- **FR-088**: Search queries MUST return results within 300ms for libraries up to 10,000 photos
-- **FR-089**: Thumbnail loading MUST complete within 16ms per frame to maintain smooth scrolling
-- **FR-090**: App launch MUST reach interactive state within 2 seconds
-- **FR-091**: Modal view transitions MUST complete within 300ms
+- **FR-087**: System MUST maintain 60fps animations during all user interactions
+- **FR-088**: System MUST handle photo libraries with 10,000+ images without performance degradation
+- **FR-089**: Search queries MUST return results within 300ms for libraries up to 10,000 photos
+- **FR-090**: Thumbnail loading MUST complete within 16ms per frame to maintain smooth scrolling
+- **FR-091**: App launch MUST reach interactive state within 2 seconds
+- **FR-092**: Modal view transitions MUST complete within 300ms
 
 #### Data & Privacy
-- **FR-092**: System MUST store all processed metadata in encrypted local database
-- **FR-092a**: System MUST generate encryption key on first app launch and store securely in device Keychain (iOS) or Keystore (Android)
-- **FR-093**: System MUST never transmit user photos or metadata to external servers
-- **FR-094**: System MUST work fully offline without requiring internet connectivity
-- **FR-095**: System MUST allow complete data deletion when user requests it
+- **FR-093**: System MUST store all processed metadata in encrypted local database
+- **FR-093a**: System MUST generate encryption key on first app launch and store securely in device Keychain (iOS) or Keystore (Android)
+- **FR-094**: System MUST never transmit user photos or metadata to external servers
+- **FR-095**: System MUST work fully offline without requiring internet connectivity
+- **FR-096**: System MUST allow complete data deletion when user requests it
 
 ### Key Entities
 
@@ -253,9 +253,9 @@ Users need to organize and find photos in their device gallery without manual ta
 
 - **ProcessingQueue**: Tracks files pending or in-progress for AI processing. Contains file reference, queue position, processing state (pending/in-progress/completed/failed), checkpoint data for resume capability, and timestamp added to queue. Files are processed serially (one at a time). Failed files are not retried automatically.
 
-- **SearchIndex**: Maintains searchable index of processed content. Contains tokenized label terms, tokenized OCR text, file reference mappings, and index last updated timestamp.
+- **SearchIndex**: Maintains searchable index of processed content. Contains tokenized label terms, tokenized OCR text, file reference mappings, and index last updated timestamp (Virtual entity - stored as serialized MMKV data, not WatermelonDB table).
 
-- **DateSection**: Logical grouping of media files by date. Contains section label (Today/Yesterday/specific date), date value, array of media file references, and item count.
+- **DateSection**: Logical grouping of media files by date. Contains section label (Today/Yesterday/specific date), date value, array of media file references, and item count (Computed UI grouping - not persisted, generated from MediaFile.creation_date).
 
 ---
 
