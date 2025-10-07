@@ -96,6 +96,8 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 - [x] T038 [P] Create Album model in src/models/Album.ts with fields: id, album_name, cover_image_path, creation_type, creation_date, last_modified, item_count
 - [ ] T039 [P] Create UserPreference model in src/models/UserPreference.ts with fields: id, grid_zoom_level, theme, default_modal_zoom, battery_saver_enabled, night_processing_enabled, onboarding_completed, encryption_key_ref
 - [x] T040 [P] Create ProcessingQueue model in src/models/ProcessingQueue.ts with fields: id, media_file_id, queue_position, processing_state, checkpoint_data, added_timestamp
+- [x] Create AppSettings model in src/models/AppSettings.ts (key-value store for user preferences)
+- [x] Create AlbumMedia junction model in src/models/AlbumMedia.ts (many-to-many between albums and media files)
 
 ### Model Relationships
 
