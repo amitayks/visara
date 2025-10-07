@@ -108,7 +108,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 ### MMKV Setup
 
 - [x] T044 Create MMKV storage configuration in src/services/storage/mmkv.ts with encryption enabled
-- [ ] T045 Create MMKV storage keys constants in src/utils/constants/storage-keys.ts (SEARCH_INDEX, USER_PREFS, PROCESSING_CHECKPOINT)
+- [x] T045 Create MMKV storage keys constants in src/utils/constants/storage-keys.ts (SEARCH_INDEX, USER_PREFS, PROCESSING_CHECKPOINT)
 
 ## Phase 3.4: Core Services
 
