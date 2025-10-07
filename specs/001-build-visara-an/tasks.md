@@ -89,7 +89,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 
 ### WatermelonDB Models (Parallel - Different Files)
 
-- [ ] T034 [P] Create MediaFile model in src/models/MediaFile.ts with fields: id, file_path, file_type, file_name, creation_date, modification_date, file_size, thumbnail_path, processing_status
+- [x] T034 [P] Create MediaFile model in src/models/MediaFile.ts with fields: id, file_path, file_type, file_name, creation_date, modification_date, file_size, thumbnail_path, processing_status
 - [ ] T035 [P] Create ProcessingMetadata model in src/models/ProcessingMetadata.ts with fields: id, media_file_id, processing_timestamp, success_status
 - [ ] T036 [P] Create Label model in src/models/Label.ts with fields: id, metadata_id, label_text, confidence_score, category, timestamp
 - [ ] T037 [P] Create OCRText model in src/models/OCRText.ts with fields: id, metadata_id, extracted_text, blocks, confidence_score, timestamp
