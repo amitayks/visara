@@ -120,7 +120,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 
 ### Database Repositories (Parallel - Different Files)
 
-- [ ] T049 [P] Implement MediaFileRepository CRUD operations in src/services/database/MediaFileRepository.ts with reactive queries
+- [x] T049 [P] Implement MediaFileRepository CRUD operations in src/services/database/MediaFileRepository.ts with reactive queries
 - [ ] T050 [P] Implement ProcessingMetadataRepository CRUD in src/services/database/ProcessingMetadataRepository.ts
 - [ ] T051 [P] Implement LabelRepository CRUD in src/services/database/LabelRepository.ts
 - [ ] T052 [P] Implement OCRTextRepository CRUD in src/services/database/OCRTextRepository.ts
