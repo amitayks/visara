@@ -115,7 +115,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 ### ML Services (Parallel - Different Files)
 
 - [x] T046 [P] Implement ImageLabelingService.processImage() in src/services/ml/ImageLabelingService.ts using @react-native-ml-kit/image-labeling
-- [ ] T047 [P] Implement TextRecognitionService.extractText() in src/services/ml/TextRecognitionService.ts using @react-native-ml-kit/text-recognition
+- [x] T047 [P] Implement TextRecognitionService.extractText() in src/services/ml/TextRecognitionService.ts using @react-native-ml-kit/text-recognition
 - [ ] T048 Create ProcessingService with serial processing queue in src/services/ml/ProcessingService.ts (orchestrates ImageLabeling + TextRecognition)
 
 ### Database Repositories (Parallel - Different Files)

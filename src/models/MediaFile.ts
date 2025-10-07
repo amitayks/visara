@@ -1,5 +1,5 @@
 import { Model } from '@nozbe/watermelondb';
-import { field, readonly, date, relation } from '@nozbe/watermelondb/decorators';
+import { field, readonly, date } from '@nozbe/watermelondb/decorators';
 
 export class MediaFile extends Model {
 	static table = 'media_files';

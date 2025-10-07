@@ -1,4 +1,5 @@
-import ImageLabeling from '@react-native-ml-kit/image-labeling';
+/** biome-ignore-all lint/complexity/noStaticOnlyClass: it bother me */
+import ImageLabeling from "@react-native-ml-kit/image-labeling";
 
 export interface ImageLabel {
 	text: string;
@@ -35,16 +36,16 @@ export class ImageLabelingService {
 				processingTime,
 			};
 		} catch (error) {
-			console.error('ImageLabelingService.processImage error:', error);
+			console.error("ImageLabelingService.processImage error:", error);
 			throw new Error(
-				`Failed to process image labels: ${error instanceof Error ? error.message : 'Unknown error'}`,
+				`Failed to process image labels: ${error instanceof Error ? error.message : "Unknown error"}`,
 			);
 		}
 	}
 
 	static setMinConfidence(minConfidence: number): void {
 		if (minConfidence < 0 || minConfidence > 1) {
-			throw new Error('Confidence must be between 0 and 1');
+			throw new Error("Confidence must be between 0 and 1");
 		}
 		(this.MIN_CONFIDENCE as number) = minConfidence;
 	}
