@@ -125,7 +125,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 - [x] T051 [P] Implement LabelRepository CRUD in src/services/database/LabelRepository.ts
 - [x] T052 [P] Implement OCRTextRepository CRUD in src/services/database/OCRTextRepository.ts
 - [x] T053 [P] Implement AlbumRepository with smart album logic in src/services/database/AlbumRepository.ts
-- [ ] T054 [P] Implement UserPreferenceRepository singleton pattern in src/services/database/UserPreferenceRepository.ts
+- [x] T054 [P] Implement UserPreferenceRepository singleton pattern in src/services/database/UserPreferenceRepository.ts (implemented as AppSettingsRepository)
 - [ ] T055 [P] Implement ProcessingQueueRepository CRUD in src/services/database/ProcessingQueueRepository.ts
 
 ### Search Service
