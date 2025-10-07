@@ -85,7 +85,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 ### WatermelonDB Setup
 
 - [x] T032 Create WatermelonDB database configuration in src/services/database/database.ts with SQLite adapter and encryption enabled
-- [ ] T033 Create WatermelonDB schema in src/services/database/schema.ts defining all 7 tables with indexes
+- [x] T033 Create WatermelonDB schema in src/services/database/schema.ts defining all 7 tables with indexes
 
 ### WatermelonDB Models (Parallel - Different Files)
 
