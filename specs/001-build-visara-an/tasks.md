@@ -130,8 +130,8 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 
 ### Search Service
 
-- [ ] T056 Create SearchService with MiniSearch integration in src/services/search/SearchService.ts implementing index(), search(), serializeIndex()
-- [ ] T057 Implement incremental index updates in SearchService with MMKV persistence
+- [x] T056 Create SearchService with MiniSearch integration in src/services/search/SearchService.ts implementing index(), search(), serializeIndex()
+- [x] T057 Implement incremental index updates in SearchService with MMKV persistence
 
 ### Media Access Service
 
