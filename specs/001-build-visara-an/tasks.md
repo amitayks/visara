@@ -92,7 +92,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 - [x] T034 [P] Create MediaFile model in src/models/MediaFile.ts with fields: id, file_path, file_type, file_name, creation_date, modification_date, file_size, thumbnail_path, processing_status
 - [ ] T035 [P] Create ProcessingMetadata model in src/models/ProcessingMetadata.ts with fields: id, media_file_id, processing_timestamp, success_status
 - [x] T036 [P] Create Label model in src/models/Label.ts with fields: id, metadata_id, label_text, confidence_score, category, timestamp
-- [ ] T037 [P] Create OCRText model in src/models/OCRText.ts with fields: id, metadata_id, extracted_text, blocks, confidence_score, timestamp
+- [x] T037 [P] Create OCRText model in src/models/OCRText.ts with fields: id, metadata_id, extracted_text, blocks, confidence_score, timestamp
 - [ ] T038 [P] Create Album model in src/models/Album.ts with fields: id, album_name, cover_image_path, creation_type, creation_date, last_modified, item_count
 - [ ] T039 [P] Create UserPreference model in src/models/UserPreference.ts with fields: id, grid_zoom_level, theme, default_modal_zoom, battery_saver_enabled, night_processing_enabled, onboarding_completed, encryption_key_ref
 - [ ] T040 [P] Create ProcessingQueue model in src/models/ProcessingQueue.ts with fields: id, media_file_id, queue_position, processing_state, checkpoint_data, added_timestamp
