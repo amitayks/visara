@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/complexity/noStaticOnlyClass: its bother me */
 import { Q } from "@nozbe/watermelondb";
 import { database } from "./database";
 import { ProcessingQueue } from "@models/ProcessingQueue";
@@ -105,11 +104,15 @@ export class ProcessingQueueRepository {
 		});
 	}
 
-	static async markAsProcessing(queue: ProcessingQueue): Promise<ProcessingQueue> {
+	static async markAsProcessing(
+		queue: ProcessingQueue,
+	): Promise<ProcessingQueue> {
 		return await this.update(queue, { status: "processing" });
 	}
 
-	static async markAsCompleted(queue: ProcessingQueue): Promise<ProcessingQueue> {
+	static async markAsCompleted(
+		queue: ProcessingQueue,
+	): Promise<ProcessingQueue> {
 		return await this.update(queue, { status: "completed" });
 	}
 

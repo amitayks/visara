@@ -1,4 +1,3 @@
-/** biome-ignore-all lint/complexity/noStaticOnlyClass: its bother me */
 import { Q } from "@nozbe/watermelondb";
 import { database } from "./database";
 import { OcrText } from "@models/OcrText";
