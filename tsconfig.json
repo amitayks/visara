@@ -26,7 +26,8 @@
       "@models/*": ["./src/models/*"],
       "@hooks/*": ["./src/hooks/*"],
       "@utils/*": ["./src/utils/*"],
-      "@types/*": ["./src/types/*"]
+      "@types/*": ["./src/types/*"],
+      "@native-modules/*": ["./src/native-modules/*"]
     }
   },
   "include": ["src/**/*"],

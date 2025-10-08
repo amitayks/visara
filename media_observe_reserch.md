@@ -228,16 +228,327 @@ state.
   4. ✅ Throttling: 5 seconds default, 30s in battery saver
   5. ✅ On app launch: Check last sync timestamp, use native to fetch missed changes
 
+  Does this approach work for you? Any adjustments needed?
 
-1. i like the idea to always be in the forground and immidately listen to changes, but one important thing is, if we constantly show notification to the user, eventualy they will think we just wasting resources and kill the app themself. if we didnt needed to do that then it was more suitble. even so, if we immidately reflect the changes in the app (ui flashlist and then starting background processing) then its ok for ux. tell me your thought on that. 
+> 1. i like the idea to always be in the forground and immidately listen to changes, but one important thing is, if we constantly show notification to
+the user, eventualy they will think we just wasting resources and kill the app themself. if we didnt needed to do that then it was more suitble. even
+so, if we immidately reflect the changes in the app (ui flashlist and then starting background processing) then its ok for ux. tell me your thought on
+that.
 
-2. yes. 
+2. yes.
 
-3. explain to me more about the complexity of the native implemntaion of the progress callback, and if with native implementation even large gallerys with 10,000 photos it will take 20-50s then that better then the js implemntation. the question if we can immidately reflect the changes to the ui. 
+3. explain to me more about the complexity of the native implemntaion of the progress callback, and if with native implementation even large gallerys
+with 10,000 photos it will take 20-50s then that better then the js implemntation. the question if we can immidately reflect the changes to the ui.
 
 4. yes, if we can do that with the native observer instead of pulling all the gallery again in the js, that will be great.
 
-5. ok lets do the hybrid approach. but that mean we do will use the more complex progress callback, explain to me what dose that mean (also in 3). so mose of the time we will use the observer, when opening the app after the first time and so, for manual refresh from the user lets say we will use the js.
+5. ok lets do the hybrid approach. but that mean we do will use the more complex progress callback, explain to me what dose that mea
 
-6. so the first initial will be in batches of 100 from the native implementation, and the observer will also be 100? but every 5s? 
-im ok with that, if we can immidately reflect the changes in the ui. in the battery saver lets keep it that the only thing that will degrade in the process progess, not the actual ui, as its minor resorce impact but to much ux and ui giving away for that. 
+● Great feedback! Let me address each point:
+
+  1. Foreground Service Notification - The UX Problem
+
+  You're absolutely right about the notification concern. Let me propose two alternatives:
+
+  Option A: "Smart" Foreground Service
+
+  - Service starts ONLY when app is in background
+  - When app comes to foreground → stop service, register observer in Activity
+  - When app goes to background → start service, transfer observer to Service
+  - Result: No notification when user is actively using the app!
+
+  Pros:
+  - ✅ No notification spam during active use
+  - ✅ Still catches changes when app is backgrounded
+  - ✅ Better perceived UX
+
+  Cons:
+  - ❌ More complex lifecycle management
+  - ❌ May miss changes during transition moments
+
+  ---
+  Option B: "Low-priority" Notification
+
+  - Use PRIORITY_MIN notification (no sound, minimal visibility)
+  - Customize text: "Visara - Syncing your photos" with last sync time
+  - User can collapse notification drawer
+  - Make it useful: Show "Last synced: 2 mins ago • 5 new photos"
+
+  Pros:
+  - ✅ Simple implementation
+  - ✅ Informative (users see sync status)
+  - ✅ No missed changes
+
+  Cons:
+  - ❌ Still shows notification
+  - ❌ Some users will kill it
+
+  ---
+  My Recommendation: Option A (Smart Service)
+
+  Implementation:
+  // When app goes to background
+  onPause() -> startForegroundService() -> transfer observer
+
+  // When app comes to foreground
+  onResume() -> stopService() -> register observer in Activity
+
+  Result: Best of both worlds - no notification during use, persistent when backgrounded.
+
+  Does this solve the notification concern?
+
+  ---
+  2. ✅ Acknowledged
+
+  ---
+  3. Native Progress Callbacks - Complexity Explained
+
+  The Challenge:
+
+  JS Implementation (Current):
+  // Easy - just update React state
+  for await (const batch of getBatches()) {
+    setProgress(processed / total); // React re-renders automatically
+  }
+
+  Native Implementation:
+  // Must send events from Java → JS
+  for (int i = 0; i < total; i += 100) {
+    // Process 100 items...
+
+    // Send event to JS
+    sendEvent("scanProgress", Map.of(
+      "processed", i,
+      "total", total,
+      "batch", currentBatch
+    ));
+
+    // How do we know if user cancelled?
+    // Must check shared state or receive cancellation event
+  }
+
+  Specific Complexities:
+
+  1. Progress Updates:
+    - Need to emit events from native → JS every N items
+    - Creates bridge traffic (but batching helps)
+    - Example: emitProgressEvent(1000, 10000) every 100 items = 100 events
+  2. Cancellation:
+    - User presses "Cancel" in UI
+    - JS must call native method: cancelScan()
+    - Native must check isCancelled flag in loop
+    - More complex than just breaking a JS loop
+  3. UI Updates:
+  // JS side - listen to native events
+  mediaObserver.addListener('scanProgress', (progress) => {
+    setScanned(progress.processed);
+    setTotal(progress.total);
+    // Update FlashList incrementally
+  });
+  4. Immediate UI Reflection:
+    - Native can send items in batches of 100
+    - JS adds to state: setPhotos(prev => [...prev, ...batch])
+    - FlashList renders incrementally
+    - Yes, this works! User sees photos appear in real-time
+
+  Performance Comparison for 10,000 photos:
+
+  | Metric              | JS Implementation | Native Implementation |
+  |---------------------|-------------------|-----------------------|
+  | Total Time          | 2-3 minutes       | 20-50 seconds         |
+  | First Photo Visible | ~2 seconds        | ~0.5 seconds          |
+  | Smooth Scrolling    | After all loaded  | Incremental batches   |
+  | Can Show Progress   | ✅ Easy            | ⚠️ Needs event setup  |
+  | Can Cancel          | ✅ Easy            | ⚠️ Needs flag check   |
+
+  Complexity Rating:
+
+  - JS: ⭐ (Simple)
+  - Native: ⭐⭐⭐ (Moderate - need event emitter + cancellation logic)
+
+  But the 4-6x speed improvement is worth it for first launch!
+
+  ---
+  4. Observer for Missed Changes ✅
+
+  Yes! Here's the approach:
+
+  // On app launch
+  async function syncMissedChanges() {
+    const lastSync = await AppSettingsRepository.getInstance().getLastSyncTimestamp();
+
+    // Ask native module: "Give me everything since timestamp X"
+    const missedItems = await MediaObserverModule.getChangesSince(lastSync);
+
+    // Process in JS
+    for (const item of missedItems) {
+      if (item.type === 'added') {
+        await MediaFileRepository.create(item);
+      } else if (item.type === 'deleted') {
+        await MediaFileRepository.deleteByUri(item.uri);
+      }
+    }
+
+    // Update last sync
+    await AppSettingsRepository.getInstance().setLastSyncTimestamp(Date.now());
+  }
+
+  Native Module:
+  // Query MediaStore for items modified after timestamp
+  getChangesSince(long timestamp) {
+    Cursor cursor = contentResolver.query(
+      MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+      projection,
+      "date_modified > ?",
+      new String[]{String.valueOf(timestamp / 1000)},
+      "date_modified ASC"
+    );
+    // Return batch of changes
+  }
+
+  This avoids re-scanning entire library!
+
+  ---
+  5. Hybrid Approach - Progress Callback Details
+
+  What "Complex Progress Callback" Means:
+
+  Scenario: First Launch (10,000 photos)
+
+  // Native sends progress events
+  MediaObserverModule.startInitialScan();
+
+  // JS listens
+  MediaObserverModule.addListener('scanProgress', (data) => {
+    // data = { processed: 1000, total: 10000, batch: [100 photos] }
+
+    // Update progress bar
+    setProgress(data.processed / data.total);
+
+    // Add batch to UI immediately
+    setPhotos(prev => [...prev, ...data.batch]);
+
+    // FlashList shows new items in real-time!
+  });
+
+  MediaObserverModule.addListener('scanComplete', () => {
+    console.log('Initial scan done!');
+  });
+
+  To cancel:
+  function handleCancel() {
+    MediaObserverModule.cancelScan(); // Tells native to stop
+    setScanning(false);
+  }
+
+  Native side (simplified):
+  private volatile boolean isCancelled = false;
+
+  public void cancelScan() {
+    isCancelled = true;
+  }
+
+  public void startInitialScan() {
+    new Thread(() -> {
+      List<Photo> allPhotos = queryMediaStore();
+      int total = allPhotos.size();
+
+      for (int i = 0; i < total; i += 100) {
+        if (isCancelled) break; // Check cancellation
+
+        List<Photo> batch = allPhotos.subList(i, Math.min(i + 100, total));
+
+        // Send to JS
+        WritableMap event = Arguments.createMap();
+        event.putInt("processed", i + 100);
+        event.putInt("total", total);
+        event.putArray("batch", convertToWritableArray(batch));
+
+        sendEvent("scanProgress", event);
+      }
+
+      sendEvent("scanComplete", null);
+    }).start();
+  }
+
+  Complexity Summary:
+
+  1. Set up event emitter (one-time setup)
+  2. Handle cancellation flag (simple boolean)
+  3. Batch and send results (straightforward)
+
+  Not that complex! Just more boilerplate than JS.
+
+  ---
+  6. Batching Strategy - Clarification
+
+  Let me clarify the batching:
+
+  Initial Scan (First Launch):
+
+  - Native scans MediaStore
+  - Sends batches of 100 items immediately to JS (no delay)
+  - JS receives: [100 photos] → [100 photos] → [100 photos]...
+  - No throttling - want fast initial load
+  - Total time: 20-50 seconds for 10k photos
+
+  Observer (Incremental Changes):
+
+  - User takes 5 photos in 2 seconds
+  - Observer detects 5 changes
+  - Waits 5 seconds to collect more changes
+  - After 5 seconds: Sends all 5 in one event
+  - If battery saver: Wait 30 seconds instead
+
+  Configuration:
+
+  interface ThrottleConfig {
+    normal: {
+      batchSize: 100,        // For initial scan
+      observerDelay: 5000,   // 5s for observer
+    },
+    batterySaver: {
+      batchSize: 100,        // Same for initial scan
+      observerDelay: 30000,  // 30s for observer
+    }
+  }
+
+  UI Reflection:
+
+  Both modes update UI immediately:
+  - Initial scan: Every 100 items → UI updates
+  - Observer: Every 5s (or 30s) → UI updates batch
+
+  Battery saver only affects:
+  - ✅ Observer throttling (30s vs 5s)
+  - ✅ Processing queue priority
+  - ❌ NOT initial scan speed
+  - ❌ NOT UI updates (always immediate)
+
+  This preserves UX while saving battery. Agreed?
+
+  ---
+  Summary - Final Decisions:
+
+  1. ✅ Smart Foreground Service (no notification during active use)
+  2. ✅ Send actual data from native to JS
+  3. ✅ Native initial scan with progress events (4-6x faster)
+  4. ✅ Observer for missed changes (no full rescan)
+  5. ✅ Hybrid approach with progress callbacks
+  6. ✅ Batching: 100 items (initial), 5s throttle (observer), 30s (battery saver)
+
+  Ready to implement? Or any final adjustments needed?
+
+> ok so we will do that:
+1. no background service for observer, its too much code maintance for feature that can be replace with 0.1s wait from the user and app launch. we will
+only observe the changes in app launch as the ios will do. (for background process of the flies we dont touch)
+
+3. lets do the native implementation for initial and observer, BUT! memorise that, we cancel option AND the progress tracking is always and ONLY for the
+ *process images progress* that happend in the js anyway, not the ui loading progress.
+so let implement the native way.
+
+4. great expample, we will continue with the native way.
+
+5. the implemntaion is only to emmit event and sending the data, no cancelation option for ui and observer scans.
+
+6. lets do with the throttling.

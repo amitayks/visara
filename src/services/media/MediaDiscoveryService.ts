@@ -1,9 +1,16 @@
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: its bother me */
+import MediaObserverModule, {
+	type MediaChange,
+} from "@native-modules/NativeMediaObserver";
 import {
 	CameraRoll,
 	type PhotoIdentifier,
 } from "@react-native-camera-roll/camera-roll";
-import { Platform } from "react-native";
+import {
+	type EmitterSubscription,
+	NativeEventEmitter,
+	Platform,
+} from "react-native";
 import RNFS from "react-native-fs";
 
 export interface DiscoveredMedia {
@@ -28,9 +35,168 @@ export interface DiscoveryOptions {
 }
 
 export class MediaDiscoveryService {
-	static async discoverMedia(
-		options: DiscoveryOptions = {},
-	): Promise<{ media: DiscoveredMedia[]; hasNextPage: boolean; endCursor?: string }> {
+	private static eventEmitter: NativeEventEmitter | null = null;
+	private static mediaBatchListener: EmitterSubscription | null = null;
+	private static scanCompleteListener: EmitterSubscription | null = null;
+	private static isNativeModuleAvailable = false;
+
+	static {
+		// Check if native module is available
+		try {
+			if (MediaObserverModule) {
+				this.isNativeModuleAvailable = true;
+				this.eventEmitter = new NativeEventEmitter(
+					MediaObserverModule as unknown as {
+						addListener: (eventType: string) => void;
+						removeListeners: (count: number) => void;
+					},
+				);
+			}
+		} catch (error) {
+			console.warn("Native MediaObserver not available, using fallback", error);
+			this.isNativeModuleAvailable = false;
+		}
+	}
+
+	/**
+	 * Start initial scan using native module
+	 */
+	static startNativeScan(
+		onBatch: (changes: MediaChange[]) => void,
+		onComplete: (total: number) => void,
+	): () => void {
+		if (!this.isNativeModuleAvailable || !this.eventEmitter) {
+			console.warn("Native module not available, cannot start native scan");
+			return () => {};
+		}
+
+		// Set up listeners
+		this.mediaBatchListener = this.eventEmitter.addListener(
+			"media_batch",
+			(event: { changes: MediaChange[] }) => {
+				onBatch(event.changes);
+			},
+		);
+
+		this.scanCompleteListener = this.eventEmitter.addListener(
+			"scan_complete",
+			(event: { total: number }) => {
+				onComplete(event.total);
+			},
+		);
+
+		// Start the scan
+		MediaObserverModule.startInitialScan();
+
+		// Return cleanup function
+		return () => {
+			this.mediaBatchListener?.remove();
+			this.scanCompleteListener?.remove();
+			this.mediaBatchListener = null;
+			this.scanCompleteListener = null;
+		};
+	}
+
+	/**
+	 * Get changes since timestamp using native module
+	 */
+	static getChangesSinceNative(
+		timestamp: number,
+		onBatch: (changes: MediaChange[]) => void,
+		onComplete: (total: number) => void,
+	): () => void {
+		if (!this.isNativeModuleAvailable || !this.eventEmitter) {
+			console.warn("Native module not available, cannot get changes");
+			return () => {};
+		}
+
+		// Set up listeners
+		this.mediaBatchListener = this.eventEmitter.addListener(
+			"media_batch",
+			(event: { changes: MediaChange[] }) => {
+				onBatch(event.changes);
+			},
+		);
+
+		this.scanCompleteListener = this.eventEmitter.addListener(
+			"scan_complete",
+			(event: { total: number }) => {
+				onComplete(event.total);
+			},
+		);
+
+		// Get changes
+		MediaObserverModule.getChangesSince(timestamp);
+
+		// Return cleanup function
+		return () => {
+			this.mediaBatchListener?.remove();
+			this.scanCompleteListener?.remove();
+			this.mediaBatchListener = null;
+			this.scanCompleteListener = null;
+		};
+	}
+
+	/**
+	 * Start observing media changes using native module
+	 */
+	static startObserver(
+		throttleMs: number,
+		onBatch: (changes: MediaChange[]) => void,
+	): () => void {
+		if (!this.isNativeModuleAvailable || !this.eventEmitter) {
+			console.warn("Native module not available, cannot start observer");
+			return () => {};
+		}
+
+		// Set up listener
+		this.mediaBatchListener = this.eventEmitter.addListener(
+			"media_batch",
+			(event: { changes: MediaChange[] }) => {
+				onBatch(event.changes);
+			},
+		);
+
+		// Add empty listeners to prevent warnings
+		MediaObserverModule.addListener("media_batch");
+
+		// Start observer
+		MediaObserverModule.startObserver(throttleMs);
+
+		// Return cleanup function
+		return () => {
+			MediaObserverModule.stopObserver();
+			MediaObserverModule.removeListeners(1);
+			this.mediaBatchListener?.remove();
+			this.mediaBatchListener = null;
+		};
+	}
+
+	/**
+	 * Convert native MediaChange to DiscoveredMedia
+	 */
+	static convertMediaChange(change: MediaChange): DiscoveredMedia {
+		return {
+			uri: change.uri,
+			filename: change.filename,
+			mimeType: change.mimeType,
+			width: change.width,
+			height: change.height,
+			fileSize: change.fileSize,
+			creationDate: change.creationDate,
+			modificationDate: change.modificationDate,
+			latitude: change.latitude,
+			longitude: change.longitude,
+			isPdf: change.mimeType === "application/pdf",
+		};
+	}
+
+	// using camera roll for fallback
+	static async discoverMedia(options: DiscoveryOptions = {}): Promise<{
+		media: DiscoveredMedia[];
+		hasNextPage: boolean;
+		endCursor?: string;
+	}> {
 		try {
 			const result = await CameraRoll.getPhotos({
 				first: options.first || 50,
@@ -49,7 +215,9 @@ export class MediaDiscoveryService {
 					const node = edge.node;
 					return {
 						uri: node.image.uri,
-						filename: node.image.filename || this.extractFilenameFromUri(node.image.uri),
+						filename:
+							node.image.filename ||
+							this.extractFilenameFromUri(node.image.uri),
 						mimeType: this.getMimeType(node.type, node.image.uri),
 						width: node.image.width || 0,
 						height: node.image.height || 0,
@@ -185,9 +353,7 @@ export class MediaDiscoveryService {
 		lastSyncTimestamp: number,
 	): Promise<DiscoveredMedia[]> {
 		const allMedia = await this.discoverAllMedia();
-		return allMedia.filter(
-			(media) => media.creationDate > lastSyncTimestamp,
-		);
+		return allMedia.filter((media) => media.creationDate > lastSyncTimestamp);
 	}
 
 	static async getMediaCount(): Promise<number> {
