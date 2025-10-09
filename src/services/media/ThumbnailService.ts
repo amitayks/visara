@@ -1,8 +1,6 @@
-import { Platform } from "react-native";
 import RNFS from "react-native-fs";
 import ImageResizer from "@bam.tech/react-native-image-resizer";
 import { storage } from "@services/storage/mmkv";
-import { STORAGE_KEYS } from "@utils/constants/storage-keys";
 
 // Constants
 const MEMORY_CACHE_SIZE_MB = 50;
