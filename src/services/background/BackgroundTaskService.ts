@@ -3,6 +3,7 @@ import BackgroundService from "react-native-background-actions";
 import { AppState, type AppStateStatus, type NativeEventSubscription } from "react-native";
 import { storage } from "@services/storage/mmkv";
 import { STORAGE_KEYS } from "@utils/constants/storage-keys";
+import { shouldAllowProcessing, getBatteryStatus } from "@utils/device/battery";
 
 export interface BackgroundTaskOptions {
 	taskName: string;
@@ -122,7 +123,7 @@ export class BackgroundTaskService {
 						while (!this.shouldStop && BackgroundService.isRunning()) {
 							try {
 								// Check if we should pause
-								if (this.shouldPauseProcessing()) {
+								if (await this.shouldPauseProcessing()) {
 									this.isPaused = true;
 									this.checkpoint.isPaused = true;
 									await this.saveCheckpoint();
@@ -138,8 +139,9 @@ export class BackgroundTaskService {
 
 									// Wait while paused
 									await new Promise<void>((pauseResolve) => {
-										const checkPauseInterval = setInterval(() => {
-											if (!this.shouldPauseProcessing() || this.shouldStop) {
+										const checkPauseInterval = setInterval(async () => {
+											const shouldPause = await this.shouldPauseProcessing();
+											if (!shouldPause || this.shouldStop) {
 												clearInterval(checkPauseInterval);
 												pauseResolve();
 											}
@@ -304,7 +306,7 @@ export class BackgroundTaskService {
 	/**
 	 * Check if processing should pause based on settings
 	 */
-	private static shouldPauseProcessing(): boolean {
+	private static async shouldPauseProcessing(): Promise<boolean> {
 		// Check if manually paused
 		if (this.isPaused) {
 			return true;
@@ -312,10 +314,10 @@ export class BackgroundTaskService {
 
 		// Check battery saver mode
 		if (this.batterySaverEnabled) {
-			// TODO: Integrate with actual battery status
-			// For now, assume we should pause if battery saver is enabled
-			// In a full implementation, check if device is charging
-			// return !batteryStatus.isCharging;
+			const canProcess = await shouldAllowProcessing(this.batterySaverEnabled);
+			if (!canProcess) {
+				return true; // Pause if not charging
+			}
 		}
 
 		// Check night processing mode
@@ -488,5 +490,20 @@ export class BackgroundTaskService {
 	static async incrementFailed(): Promise<void> {
 		this.checkpoint.totalFailed += 1;
 		this.checkpoint.timestamp = Date.now();
+	}
+
+	/**
+	 * Get current battery status
+	 */
+	static async getBatteryInfo(): Promise<{
+		level: number;
+		isCharging: boolean;
+		percentage: number;
+	}> {
+		const status = await getBatteryStatus();
+		return {
+			...status,
+			percentage: Math.round(status.level * 100),
+		};
 	}
 }
