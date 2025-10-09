@@ -136,7 +136,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 ### Media Access Service
 
 - [x] T058 Create MediaDiscoveryService in src/services/media/MediaDiscoveryService.ts with platform-specific implementation (ContentObserver for Android, PHPhotoLibraryChangeObserver for iOS)
-- [ ] T059 Implement thumbnail generation service in src/services/media/ThumbnailService.ts with 3-tier caching (memory 50MB, disk 500MB, on-demand)
+- [x] T059 Implement thumbnail generation service in src/services/media/ThumbnailService.ts with 3-tier caching (memory 50MB, disk 500MB, on-demand)
 
 ### Background Processing Service
 
