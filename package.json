@@ -18,6 +18,7 @@
 		"bump": "node bump-version.js"
 	},
 	"dependencies": {
+		"@bam.tech/react-native-image-resizer": "^3.0.11",
 		"@nozbe/simdjson": "^3.9.4",
 		"@nozbe/watermelondb": "^0.28.0",
 		"@react-native-camera-roll/camera-roll": "^7.10.2",
