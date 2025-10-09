@@ -19,6 +19,7 @@
 	},
 	"dependencies": {
 		"@bam.tech/react-native-image-resizer": "^3.0.11",
+		"@notifee/react-native": "^9.1.8",
 		"@nozbe/simdjson": "^3.9.4",
 		"@nozbe/watermelondb": "^0.28.0",
 		"@react-native-camera-roll/camera-roll": "^7.10.2",
@@ -31,7 +32,6 @@
 		"@shopify/flash-list": "^2.1.0",
 		"babel-plugin-module-resolver": "^5.0.2",
 		"minisearch": "^7.2.0",
-		"notifee": "^0.0.1",
 		"react": "19.1.0",
 		"react-native": "0.81.4",
 		"react-native-background-actions": "^4.0.1",
