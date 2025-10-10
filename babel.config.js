@@ -16,6 +16,7 @@ module.exports = {
           '@utils': './src/utils',
           '@types': './src/types',
           '@native-modules': './src/native-modules',
+          '@theme': './src/theme',
         },
       },
     ],
