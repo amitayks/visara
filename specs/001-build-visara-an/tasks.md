@@ -172,7 +172,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 - [x] T075 [P] Create SearchBar molecule in src/components/molecules/SearchBar.tsx with animated transform from nav button
 - [x] T076 [P] Create DateSectionHeader molecule in src/components/molecules/DateSectionHeader.tsx with sticky positioning
 - [x] T077 [P] Create AlbumCard molecule in src/components/molecules/AlbumCard.tsx with cover image and item count
-- [ ] T078 [P] Create ProcessingIndicator molecule in src/components/molecules/ProcessingIndicator.tsx with animated circular progress
+- [x] T078 [P] Create ProcessingIndicator molecule in src/components/molecules/ProcessingIndicator.tsx with animated circular progress
 - [ ] T079 [P] Create BottomNavContainer molecule in src/components/molecules/BottomNavContainer.tsx with 4 buttons and elevation shadow
 
 ### Organisms (Parallel - Different Files)
