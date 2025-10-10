@@ -151,7 +151,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 
 ## Phase 3.5: State Management - Contexts
 
-- [ ] T065 [P] Create GalleryContext in src/contexts/GalleryContext.tsx with useReducer managing: mediaFiles, currentZoomLevel, dateFilters, loading state
+- [x] T065 [P] Create GalleryContext in src/contexts/GalleryContext.tsx with useReducer managing: mediaFiles, currentZoomLevel, dateFilters, loading state
 - [ ] T066 [P] Create ProcessingContext in src/contexts/ProcessingContext.tsx with useReducer managing: processingQueue, currentProgress, isPaused, failedFiles
 - [ ] T067 [P] Create SearchContext in src/contexts/SearchContext.tsx with useReducer managing: searchQuery, searchResults, isSearchActive, resultCount
 - [ ] T068 [P] Create SettingsContext in src/contexts/SettingsContext.tsx with useReducer managing: theme, batterySaver, nightProcessing, preferences
