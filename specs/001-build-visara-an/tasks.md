@@ -177,7 +177,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 
 ### Organisms (Parallel - Different Files)
 
-- [ ] T080 [P] Create PhotoGrid organism in src/components/organisms/PhotoGrid.tsx using FlashList with virtualized rendering and pinch-to-zoom gesture
+- [x] T080 [P] Create PhotoGrid organism in src/components/organisms/PhotoGrid.tsx using FlashList with virtualized rendering and pinch-to-zoom gesture
 - [ ] T081 [P] Create PhotoViewerModal organism in src/components/organisms/PhotoViewerModal.tsx with swipe navigation, double-tap zoom, pinch zoom (1x-4x)
 - [ ] T082 [P] Create InfoDrawer organism in src/components/organisms/InfoDrawer.tsx with 3 snap points (10%, half, full) showing labels, OCR text, actions
 - [ ] T083 [P] Create SettingsDrawer organism in src/components/organisms/SettingsDrawer.tsx with Processing/Appearance/Data Management/Legal sections
