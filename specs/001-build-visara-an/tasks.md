@@ -193,7 +193,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 
 - [x] T088 [P] Create OnboardingScreen1 (Welcome) in src/screens/Onboarding/OnboardingScreen1.tsx
 - [x] T089 [P] Create OnboardingScreen2 (AI Capabilities) in src/screens/Onboarding/OnboardingScreen2.tsx
-- [ ] T090 [P] Create OnboardingScreen3 (Privacy) in src/screens/Onboarding/OnboardingScreen3.tsx
+- [x] T090 [P] Create OnboardingScreen3 (Privacy) in src/screens/Onboarding/OnboardingScreen3.tsx
 - [ ] T091 [P] Create OnboardingScreen4 (Permissions) in src/screens/Onboarding/OnboardingScreen4.tsx
 - [ ] T092 Create GalleryScreen in src/screens/Gallery/GalleryScreen.tsx consuming GalleryContext and rendering PhotoGrid
 - [ ] T093 Create AlbumsScreen in src/screens/Albums/AlbumsScreen.tsx consuming GalleryContext and rendering AlbumList
