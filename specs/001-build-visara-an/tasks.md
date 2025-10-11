@@ -187,7 +187,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 ### Templates (Parallel - Different Files)
 
 - [x] T086 [P] Create MainTemplate in src/components/templates/MainTemplate.tsx with header, photo grid, bottom nav layout
-- [ ] T087 [P] Create OnboardingTemplate in src/components/templates/OnboardingTemplate.tsx with horizontal swipe pager and dots indicator
+- [x] T087 [P] Create OnboardingTemplate in src/components/templates/OnboardingTemplate.tsx with horizontal swipe pager and dots indicator
 
 ## Phase 3.7: Screens (Sequential - May Share Navigation Logic)
 
