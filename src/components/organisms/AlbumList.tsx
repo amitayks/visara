@@ -13,7 +13,7 @@ import {
 import { DropProvider, Sortable, SortableItem } from "react-native-reanimated-dnd";
 import type { SharedValue } from "react-native-reanimated";
 
-interface AlbumData {
+export interface AlbumData {
 	id: string; // Required by react-native-reanimated-dnd
 	album: Album;
 	coverImageUri?: string;
