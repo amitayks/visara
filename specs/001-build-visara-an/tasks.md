@@ -182,7 +182,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 - [x] T082 [P] Create InfoDrawer organism in src/components/organisms/InfoDrawer.tsx with 3 snap points (10%, half, full) showing labels, OCR text, actions
 - [x] T083 [P] Create SettingsDrawer organism in src/components/organisms/SettingsDrawer.tsx with Processing/Appearance/Data Management/Legal sections
 - [x] T084 [P] Create UploadDrawer organism in src/components/organisms/UploadDrawer.tsx with file select and camera capture options
-- [ ] T085 [P] Create AlbumList organism in src/components/organisms/AlbumList.tsx with drag-to-reorder capability
+- [x] T085 [P] Create AlbumList organism in src/components/organisms/AlbumList.tsx with drag-to-reorder capability
 
 ### Templates (Parallel - Different Files)
 
