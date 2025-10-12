@@ -53,21 +53,30 @@ export function UploadDrawer({
 
 	const snapPoints = {
 		closed: screenHeight,
-		peek: screenHeight * 0.75, // 25% visible
+		peek: screenHeight * 0.55, // 55% visible
 	};
 
 	const translateY = useSharedValue(snapPoints.closed);
 
 	useEffect(() => {
 		if (visible) {
-			translateY.value = withSpring(snapPoints.peek, { damping: 20, stiffness: 300 });
+			translateY.value = withSpring(snapPoints.peek, {
+				damping: 20,
+				stiffness: 300,
+			});
 		} else {
-			translateY.value = withSpring(snapPoints.closed, { damping: 20, stiffness: 300 });
+			translateY.value = withSpring(snapPoints.closed, {
+				damping: 20,
+				stiffness: 300,
+			});
 		}
 	}, [visible, translateY, snapPoints.peek, snapPoints.closed]);
 
 	const handleClose = useCallback(() => {
-		translateY.value = withSpring(snapPoints.closed, { damping: 20, stiffness: 300 });
+		translateY.value = withSpring(snapPoints.closed, {
+			damping: 20,
+			stiffness: 300,
+		});
 		setTimeout(() => {
 			onClose();
 		}, 300);
@@ -95,7 +104,10 @@ export function UploadDrawer({
 			if (event.translationY > 100 || event.velocityY > 500) {
 				runOnJS(handleClose)();
 			} else {
-				translateY.value = withSpring(snapPoints.peek, { damping: 20, stiffness: 300 });
+				translateY.value = withSpring(snapPoints.peek, {
+					damping: 20,
+					stiffness: 300,
+				});
 			}
 		});
 
@@ -130,7 +142,9 @@ export function UploadDrawer({
 				{isProcessing && processingFile ? (
 					// Processing Overlay
 					<View style={styles.processingContainer}>
-						<Text style={[styles.processingTitle, { color: colors.text }]}>Processing...</Text>
+						<Text style={[styles.processingTitle, { color: colors.text }]}>
+							Processing...
+						</Text>
 
 						{/* Thumbnail Preview */}
 						<View style={styles.thumbnailPreview}>
@@ -153,19 +167,31 @@ export function UploadDrawer({
 
 						{/* Progress Bar */}
 						<View style={styles.progressContainer}>
-							<ProgressBar progress={processingFile.progress} height={6} style={styles.progressBar} />
-							<Text style={[styles.progressText, { color: colors.textSecondary }]}>
+							<ProgressBar
+								progress={processingFile.progress}
+								height={6}
+								style={styles.progressBar}
+							/>
+							<Text
+								style={[styles.progressText, { color: colors.textSecondary }]}
+							>
 								{Math.round(processingFile.progress * 100)}%
 							</Text>
 						</View>
 
 						{/* Circular Progress Indicator */}
-						<ActivityIndicator size="large" color={colors.buttonPrimary} style={styles.spinner} />
+						<ActivityIndicator
+							size="large"
+							color={colors.buttonPrimary}
+							style={styles.spinner}
+						/>
 					</View>
 				) : (
 					// Upload Options
 					<View style={styles.optionsContainer}>
-						<Text style={[styles.title, { color: colors.text }]}>Add Photos</Text>
+						<Text style={[styles.title, { color: colors.text }]}>
+							Add Photos
+						</Text>
 
 						<View style={styles.buttonContainer}>
 							<Button

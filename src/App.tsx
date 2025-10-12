@@ -1,12 +1,12 @@
-import React from "react";
-import { StatusBar, useColorScheme } from "react-native";
-import { SafeAreaProvider } from "react-native-safe-area-context";
-import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { SettingsProvider } from "@contexts/SettingsContext";
 import { GalleryProvider } from "@contexts/GalleryContext";
 import { ProcessingProvider } from "@contexts/ProcessingContext";
 import { SearchProvider } from "@contexts/SearchContext";
+import { SettingsProvider } from "@contexts/SettingsContext";
 import { RootNavigator } from "@navigation/RootNavigator";
+import React from "react";
+import { StatusBar, useColorScheme } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 function App(): React.JSX.Element {
 	const colorScheme = useColorScheme();

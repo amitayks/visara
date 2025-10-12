@@ -26,10 +26,12 @@ export function MainNavigator() {
 			screenOptions={{
 				...tabNavigationOptions,
 				tabBarStyle: {
-					...(typeof tabNavigationOptions.tabBarStyle === 'object' ? tabNavigationOptions.tabBarStyle : {}),
+					...(typeof tabNavigationOptions.tabBarStyle === "object"
+						? tabNavigationOptions.tabBarStyle
+						: {}),
 					backgroundColor: colors.surface,
-					borderTopColor: colors.border,
-					borderTopWidth: 1,
+					// borderTopColor: colors.border,
+					borderTopWidth: 0,
 					elevation: 8,
 					shadowColor: "#000",
 					shadowOffset: { width: 0, height: -2 },
@@ -37,6 +39,7 @@ export function MainNavigator() {
 					shadowRadius: 4,
 					paddingBottom: Platform.OS === "ios" ? 20 : 8,
 					height: Platform.OS === "ios" ? 88 : 64,
+					width: "95%",
 				},
 				tabBarActiveTintColor: colors.buttonPrimary,
 				tabBarInactiveTintColor: colors.textSecondary,

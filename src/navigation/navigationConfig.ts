@@ -29,7 +29,6 @@ export const tabNavigationOptions: BottomTabNavigationOptions = {
 			position: "absolute",
 			bottom: 0,
 			elevation: 0,
-			borderTopWidth: 1,
 		},
 	}),
 	...(Platform.OS === "android" && {

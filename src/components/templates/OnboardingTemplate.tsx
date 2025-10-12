@@ -44,11 +44,14 @@ export function OnboardingTemplate({
 	const isLastScreen = currentIndex === screens.length - 1;
 	const canSkip = showSkip && currentIndex > 0 && !isLastScreen;
 
-	const handleScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
-		const offsetX = event.nativeEvent.contentOffset.x;
-		const index = Math.round(offsetX / screenWidth);
-		setCurrentIndex(index);
-	}, [screenWidth]);
+	const handleScroll = useCallback(
+		(event: NativeSyntheticEvent<NativeScrollEvent>) => {
+			const offsetX = event.nativeEvent.contentOffset.x;
+			const index = Math.round(offsetX / screenWidth);
+			setCurrentIndex(index);
+		},
+		[screenWidth],
+	);
 
 	const handleNext = useCallback(() => {
 		if (isLastScreen) {
@@ -61,18 +64,21 @@ export function OnboardingTemplate({
 	}, [currentIndex, isLastScreen, onComplete]);
 
 	const handleSkip = useCallback(() => {
-		if (onSkip) {
-			onSkip();
-		}
-	}, [onSkip]);
+		const lastIndex = screens.length - 1;
+		flatListRef.current?.scrollToIndex({ index: lastIndex, animated: true });
+		setCurrentIndex(lastIndex);
+	}, [screens.length]);
 
-	const renderItem: ListRenderItem<OnboardingScreen> = useCallback(({ item }) => {
-		return (
-			<View style={[styles.screenContainer, { width: screenWidth }]}>
-				{item.content}
-			</View>
-		);
-	}, [screenWidth]);
+	const renderItem: ListRenderItem<OnboardingScreen> = useCallback(
+		({ item }) => {
+			return (
+				<View style={[styles.screenContainer, { width: screenWidth }]}>
+					{item.content}
+				</View>
+			);
+		},
+		[screenWidth],
+	);
 
 	const keyExtractor = useCallback((item: OnboardingScreen) => item.id, []);
 
@@ -107,9 +113,10 @@ export function OnboardingTemplate({
 							style={[
 								styles.dot,
 								{
-									backgroundColor: index === currentIndex
-										? colors.buttonPrimary
-										: colors.border,
+									backgroundColor:
+										index === currentIndex
+											? colors.buttonPrimary
+											: colors.border,
 								},
 								index === currentIndex && styles.activeDot,
 							]}
@@ -153,6 +160,7 @@ const styles = StyleSheet.create({
 	},
 	screenContainer: {
 		flex: 1,
+		marginTop: 40,
 		justifyContent: "center",
 		alignItems: "center",
 		paddingHorizontal: Spacing.xl,

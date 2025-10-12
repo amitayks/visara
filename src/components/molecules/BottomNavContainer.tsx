@@ -47,7 +47,9 @@ export function BottomNavContainer({
 							name={button.icon}
 							size="medium"
 							color={
-								button.active ? colors.navigationActive : colors.navigationInactive
+								button.active
+									? colors.navigationActive
+									: colors.navigationInactive
 							}
 						/>
 					}
@@ -62,7 +64,8 @@ export function BottomNavContainer({
 const styles = StyleSheet.create({
 	container: {
 		position: "absolute",
-		bottom: Spacing.sm + Spacing.xs / 2, // 10px
+		bottom: 300, // 10px
+		// bottom: Spacing.sm + Spacing.xs / 2, // 10px
 		left: Spacing.md,
 		right: Spacing.md,
 		flexDirection: "row",
@@ -70,7 +73,7 @@ const styles = StyleSheet.create({
 		justifyContent: "space-around",
 		paddingVertical: Spacing.sm,
 		paddingHorizontal: Spacing.md,
-		borderTopWidth: 1,
+		// borderTopWidth: 1,
 		borderRadius: BorderRadius.xl,
 	},
 	button: {
