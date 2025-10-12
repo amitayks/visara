@@ -195,18 +195,18 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 - [x] T089 [P] Create OnboardingScreen2 (AI Capabilities) in src/screens/Onboarding/OnboardingScreen2.tsx
 - [x] T090 [P] Create OnboardingScreen3 (Privacy) in src/screens/Onboarding/OnboardingScreen3.tsx
 - [x] T091 [P] Create OnboardingScreen4 (Permissions) in src/screens/Onboarding/OnboardingScreen4.tsx
-- [ ] T092 Create GalleryScreen in src/screens/Gallery/GalleryScreen.tsx consuming GalleryContext and rendering PhotoGrid
-- [ ] T093 Create AlbumsScreen in src/screens/Albums/AlbumsScreen.tsx consuming GalleryContext and rendering AlbumList
-- [ ] T094 Create SearchScreen in src/screens/Search/SearchScreen.tsx consuming SearchContext
-- [ ] T095 Create SettingsScreen in src/screens/Settings/SettingsScreen.tsx consuming SettingsContext and rendering SettingsDrawer
+- [m] T092 Create GalleryScreen in src/screens/Gallery/GalleryScreen.tsx consuming GalleryContext and rendering PhotoGrid
+- [m] T093 Create AlbumsScreen in src/screens/Albums/AlbumsScreen.tsx consuming GalleryContext and rendering AlbumList
+- [m] T094 Create SearchScreen in src/screens/Search/SearchScreen.tsx consuming SearchContext
+- [m] T095 Create SettingsScreen in src/screens/Settings/SettingsScreen.tsx consuming SettingsContext and rendering SettingsDrawer
 
 ## Phase 3.8: Navigation
 
-- [ ] T096 Create RootNavigator in src/navigation/RootNavigator.tsx with conditional onboarding check
-- [ ] T097 Create OnboardingNavigator in src/navigation/OnboardingNavigator.tsx with stack navigator for 4 screens
-- [ ] T098 Create MainNavigator in src/navigation/MainNavigator.tsx with bottom tabs (Gallery, Albums, Search, Settings)
-- [ ] T099 Create ModalNavigator in src/navigation/ModalNavigator.tsx for PhotoViewerModal with stack presentation
-- [ ] T100 Configure platform-specific navigation in src/navigation/navigationConfig.ts (iOS: tab bar, Android: drawer + bottom nav)
+- [x] T096 Create RootNavigator in src/navigation/RootNavigator.tsx with conditional onboarding check
+- [x] T097 Create OnboardingNavigator in src/navigation/OnboardingNavigator.tsx with stack navigator for 4 screens
+- [x] T098 Create MainNavigator in src/navigation/MainNavigator.tsx with bottom tabs (Gallery, Albums, Search, Settings)
+- [x] T099 Create ModalNavigator in src/navigation/ModalNavigator.tsx for PhotoViewerModal with stack presentation
+- [x] T100 Configure platform-specific navigation in src/navigation/navigationConfig.ts (iOS: tab bar, Android: drawer + bottom nav)
 
 ## Phase 3.9: Background Processing Integration
 

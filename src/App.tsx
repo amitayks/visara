@@ -1,60 +1,36 @@
 import React from "react";
-import {
-	StatusBar,
-	StyleSheet,
-	Text,
-	useColorScheme,
-	View,
-} from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar, useColorScheme } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SettingsProvider } from "@contexts/SettingsContext";
+import { GalleryProvider } from "@contexts/GalleryContext";
+import { ProcessingProvider } from "@contexts/ProcessingContext";
+import { SearchProvider } from "@contexts/SearchContext";
+import { RootNavigator } from "@navigation/RootNavigator";
 
 function App(): React.JSX.Element {
-	const isDarkMode = useColorScheme() === "dark";
-
-	const backgroundStyle = {
-		backgroundColor: isDarkMode ? "#1a1a1a" : "#ffffff",
-		flex: 1,
-	};
+	const colorScheme = useColorScheme();
 
 	return (
-		<SafeAreaView style={backgroundStyle}>
-			<StatusBar
-				barStyle={isDarkMode ? "light-content" : "dark-content"}
-				backgroundColor={backgroundStyle.backgroundColor}
-			/>
-			<View style={styles.container}>
-				<Text
-					style={[styles.title, { color: isDarkMode ? "#ffffff" : "#000000" }]}
-				>
-					Visara
-				</Text>
-				<Text
-					style={[
-						styles.subtitle,
-						{ color: isDarkMode ? "#cccccc" : "#666666" },
-					]}
-				>
-					Intelligent Photo Gallery
-				</Text>
-			</View>
-		</SafeAreaView>
+		<GestureHandlerRootView style={{ flex: 1 }}>
+			<SafeAreaProvider>
+				<SettingsProvider>
+					<GalleryProvider>
+						<ProcessingProvider>
+							<SearchProvider>
+								<StatusBar
+									barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
+									backgroundColor="transparent"
+									translucent
+								/>
+								<RootNavigator />
+							</SearchProvider>
+						</ProcessingProvider>
+					</GalleryProvider>
+				</SettingsProvider>
+			</SafeAreaProvider>
+		</GestureHandlerRootView>
 	);
 }
-
-const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		justifyContent: "center",
-		alignItems: "center",
-	},
-	title: {
-		fontSize: 32,
-		fontWeight: "bold",
-		marginBottom: 8,
-	},
-	subtitle: {
-		fontSize: 16,
-	},
-});
 
 export default App;

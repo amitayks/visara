@@ -13,7 +13,7 @@ import Animated, {
 	withSpring,
 } from "react-native-reanimated";
 
-export type ButtonVariant = "primary" | "secondary" | "text" | "icon";
+export type ButtonVariant = "primary" | "secondary" | "text" | "icon" | "ghost";
 export type ButtonSize = "small" | "medium" | "large";
 
 interface ButtonProps {
@@ -66,6 +66,7 @@ export function Button({
 				return colors.buttonSecondary;
 			case "text":
 			case "icon":
+			case "ghost":
 				return "transparent";
 			default:
 				return colors.buttonPrimary;
@@ -83,6 +84,8 @@ export function Button({
 				return colors.accent;
 			case "icon":
 				return colors.text;
+			case "ghost":
+				return colors.textSecondary;
 			default:
 				return colors.buttonPrimaryText;
 		}

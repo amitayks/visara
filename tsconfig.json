@@ -28,7 +28,8 @@
       "@utils/*": ["./src/utils/*"],
       "@types/*": ["./src/types/*"],
       "@native-modules/*": ["./src/native-modules/*"],
-      "@theme/*": ["./src/theme/*"]
+      "@theme/*": ["./src/theme/*"],
+      "@navigation/*": ["./src/navigation/*"]
     }
   },
   "include": ["src/**/*"],
