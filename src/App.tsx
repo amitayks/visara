@@ -19,7 +19,9 @@ function App(): React.JSX.Element {
 						<ProcessingProvider>
 							<SearchProvider>
 								<StatusBar
-									barStyle={colorScheme === "dark" ? "light-content" : "dark-content"}
+									barStyle={
+										colorScheme === "dark" ? "light-content" : "dark-content"
+									}
 									backgroundColor="transparent"
 									translucent
 								/>

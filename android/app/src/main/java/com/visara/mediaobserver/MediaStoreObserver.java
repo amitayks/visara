@@ -100,9 +100,7 @@ public class MediaStoreObserver extends ContentObserver {
             MediaStore.MediaColumns.DATE_ADDED,
             MediaStore.MediaColumns.DATE_MODIFIED,
             MediaStore.MediaColumns.WIDTH,
-            MediaStore.MediaColumns.HEIGHT,
-            MediaStore.MediaColumns.LATITUDE,
-            MediaStore.MediaColumns.LONGITUDE
+            MediaStore.MediaColumns.HEIGHT
         };
 
         try (Cursor cursor = contentResolver.query(uri, projection, null, null, null)) {
@@ -115,8 +113,6 @@ public class MediaStoreObserver extends ContentObserver {
                 int dateModifiedColumn = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_MODIFIED);
                 int widthColumn = cursor.getColumnIndex(MediaStore.MediaColumns.WIDTH);
                 int heightColumn = cursor.getColumnIndex(MediaStore.MediaColumns.HEIGHT);
-                int latColumn = cursor.getColumnIndex(MediaStore.MediaColumns.LATITUDE);
-                int lonColumn = cursor.getColumnIndex(MediaStore.MediaColumns.LONGITUDE);
 
                 WritableMap change = Arguments.createMap();
                 change.putString("action", "modified");
@@ -140,12 +136,8 @@ public class MediaStoreObserver extends ContentObserver {
                 change.putDouble("creationDate", cursor.getLong(dateAddedColumn) * 1000);
                 change.putDouble("modificationDate", cursor.getLong(dateModifiedColumn) * 1000);
 
-                if (latColumn >= 0 && !cursor.isNull(latColumn)) {
-                    change.putDouble("latitude", cursor.getDouble(latColumn));
-                }
-                if (lonColumn >= 0 && !cursor.isNull(lonColumn)) {
-                    change.putDouble("longitude", cursor.getDouble(lonColumn));
-                }
+                // Note: GPS location data removed - deprecated in Android API 29+
+                // Location data can be extracted from EXIF metadata if needed in the future
 
                 return change;
             }
