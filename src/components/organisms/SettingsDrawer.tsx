@@ -1,6 +1,11 @@
 import { Button } from "@components/atoms/Button";
 import { Icon } from "@components/atoms/Icon";
-import { BorderRadius, Spacing, Typography } from "@theme/colors";
+import {
+	BorderRadius,
+	Spacing,
+	Typography,
+	SpringConfigs,
+} from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
 import { useCallback, useEffect } from "react";
 import {
@@ -76,14 +81,20 @@ export function SettingsDrawer({
 
 	useEffect(() => {
 		if (visible) {
-			translateY.value = withSpring(snapPoints.full, { damping: 20, stiffness: 300 });
+			translateY.value = withSpring(snapPoints.full, {
+				...SpringConfigs.gentle,
+			});
 		} else {
-			translateY.value = withSpring(snapPoints.closed, { damping: 20, stiffness: 300 });
+			translateY.value = withSpring(snapPoints.closed, {
+				...SpringConfigs.snappy,
+			});
 		}
 	}, [visible, translateY, snapPoints.full, snapPoints.closed]);
 
 	const handleClose = useCallback(() => {
-		translateY.value = withSpring(snapPoints.closed, { damping: 20, stiffness: 300 });
+		translateY.value = withSpring(snapPoints.closed, {
+			...SpringConfigs.snappy,
+		});
 		setTimeout(() => {
 			onClose();
 		}, 300);
@@ -102,7 +113,7 @@ export function SettingsDrawer({
 						onClearCache();
 					},
 				},
-			]
+			],
 		);
 	}, [onClearCache]);
 
@@ -119,7 +130,7 @@ export function SettingsDrawer({
 						onDeleteAllData();
 					},
 				},
-			]
+			],
 		);
 	}, [onDeleteAllData]);
 
@@ -135,7 +146,9 @@ export function SettingsDrawer({
 			if (event.translationY > 100 || event.velocityY > 500) {
 				runOnJS(handleClose)();
 			} else {
-				translateY.value = withSpring(snapPoints.full, { damping: 20, stiffness: 300 });
+				translateY.value = withSpring(snapPoints.full, {
+					...SpringConfigs.gentle,
+				});
 			}
 		});
 
@@ -168,8 +181,13 @@ export function SettingsDrawer({
 
 				{/* Header */}
 				<View style={styles.header}>
-					<Text style={[styles.headerTitle, { color: colors.text }]}>Settings</Text>
-					<TouchableOpacity onPress={handleClose} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+					<Text style={[styles.headerTitle, { color: colors.text }]}>
+						Settings
+					</Text>
+					<TouchableOpacity
+						onPress={handleClose}
+						hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+					>
 						<Icon name="close" size="medium" color={colors.text} />
 					</TouchableOpacity>
 				</View>
@@ -178,34 +196,56 @@ export function SettingsDrawer({
 				<ScrollView style={styles.content} showsVerticalScrollIndicator={true}>
 					{/* Processing Settings Section */}
 					<View style={styles.section}>
-						<Text style={[styles.sectionTitle, { color: colors.text }]}>Processing</Text>
+						<Text style={[styles.sectionTitle, { color: colors.text }]}>
+							Processing
+						</Text>
 
 						<View style={styles.settingRow}>
 							<View style={styles.settingInfo}>
-								<Text style={[styles.settingLabel, { color: colors.text }]}>Battery Saver Mode</Text>
-								<Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+								<Text style={[styles.settingLabel, { color: colors.text }]}>
+									Battery Saver Mode
+								</Text>
+								<Text
+									style={[
+										styles.settingDescription,
+										{ color: colors.textSecondary },
+									]}
+								>
 									Pause processing when device is not charging
 								</Text>
 							</View>
 							<Switch
 								value={batterySaverMode}
 								onValueChange={onBatterySaverToggle}
-								trackColor={{ false: colors.border, true: colors.buttonPrimary }}
+								trackColor={{
+									false: colors.border,
+									true: colors.buttonPrimary,
+								}}
 								thumbColor={colors.surface}
 							/>
 						</View>
 
 						<View style={styles.settingRow}>
 							<View style={styles.settingInfo}>
-								<Text style={[styles.settingLabel, { color: colors.text }]}>Night Processing</Text>
-								<Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+								<Text style={[styles.settingLabel, { color: colors.text }]}>
+									Night Processing
+								</Text>
+								<Text
+									style={[
+										styles.settingDescription,
+										{ color: colors.textSecondary },
+									]}
+								>
 									Only process during 00:00-06:00 time window
 								</Text>
 							</View>
 							<Switch
 								value={nightProcessingMode}
 								onValueChange={onNightProcessingToggle}
-								trackColor={{ false: colors.border, true: colors.buttonPrimary }}
+								trackColor={{
+									false: colors.border,
+									true: colors.buttonPrimary,
+								}}
 								thumbColor={colors.surface}
 							/>
 						</View>
@@ -213,7 +253,9 @@ export function SettingsDrawer({
 
 					{/* Appearance Section */}
 					<View style={styles.section}>
-						<Text style={[styles.sectionTitle, { color: colors.text }]}>Appearance</Text>
+						<Text style={[styles.sectionTitle, { color: colors.text }]}>
+							Appearance
+						</Text>
 
 						<View style={styles.themeButtons}>
 							<Button
@@ -248,7 +290,9 @@ export function SettingsDrawer({
 
 					{/* Data Management Section */}
 					<View style={styles.section}>
-						<Text style={[styles.sectionTitle, { color: colors.text }]}>Data Management</Text>
+						<Text style={[styles.sectionTitle, { color: colors.text }]}>
+							Data Management
+						</Text>
 
 						<Button
 							variant="secondary"
@@ -275,31 +319,62 @@ export function SettingsDrawer({
 
 					{/* Legal Section */}
 					<View style={[styles.section, styles.lastSection]}>
-						<Text style={[styles.sectionTitle, { color: colors.text }]}>Legal</Text>
+						<Text style={[styles.sectionTitle, { color: colors.text }]}>
+							Legal
+						</Text>
 
 						{onPrivacyPolicyPress && (
-							<TouchableOpacity style={styles.legalRow} onPress={onPrivacyPolicyPress}>
-								<Text style={[styles.legalLabel, { color: colors.text }]}>Privacy Policy</Text>
-								<Icon name="chevron-right" size="small" color={colors.textSecondary} />
+							<TouchableOpacity
+								style={styles.legalRow}
+								onPress={onPrivacyPolicyPress}
+							>
+								<Text style={[styles.legalLabel, { color: colors.text }]}>
+									Privacy Policy
+								</Text>
+								<Icon
+									name="chevron-right"
+									size="small"
+									color={colors.textSecondary}
+								/>
 							</TouchableOpacity>
 						)}
 
 						{onTermsOfServicePress && (
-							<TouchableOpacity style={styles.legalRow} onPress={onTermsOfServicePress}>
-								<Text style={[styles.legalLabel, { color: colors.text }]}>Terms of Service</Text>
-								<Icon name="chevron-right" size="small" color={colors.textSecondary} />
+							<TouchableOpacity
+								style={styles.legalRow}
+								onPress={onTermsOfServicePress}
+							>
+								<Text style={[styles.legalLabel, { color: colors.text }]}>
+									Terms of Service
+								</Text>
+								<Icon
+									name="chevron-right"
+									size="small"
+									color={colors.textSecondary}
+								/>
 							</TouchableOpacity>
 						)}
 
 						{onLicensesPress && (
-							<TouchableOpacity style={styles.legalRow} onPress={onLicensesPress}>
-								<Text style={[styles.legalLabel, { color: colors.text }]}>Open Source Licenses</Text>
-								<Icon name="chevron-right" size="small" color={colors.textSecondary} />
+							<TouchableOpacity
+								style={styles.legalRow}
+								onPress={onLicensesPress}
+							>
+								<Text style={[styles.legalLabel, { color: colors.text }]}>
+									Open Source Licenses
+								</Text>
+								<Icon
+									name="chevron-right"
+									size="small"
+									color={colors.textSecondary}
+								/>
 							</TouchableOpacity>
 						)}
 
 						<View style={styles.versionRow}>
-							<Text style={[styles.versionLabel, { color: colors.textSecondary }]}>
+							<Text
+								style={[styles.versionLabel, { color: colors.textSecondary }]}
+							>
 								Version {appVersion}
 							</Text>
 						</View>

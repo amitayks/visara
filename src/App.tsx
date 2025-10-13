@@ -1,4 +1,5 @@
 import { GalleryProvider } from "@contexts/GalleryContext";
+import { NavigationProvider } from "@contexts/NavigationContext";
 import { ProcessingProvider } from "@contexts/ProcessingContext";
 import { SearchProvider } from "@contexts/SearchContext";
 import { SettingsProvider } from "@contexts/SettingsContext";
@@ -15,20 +16,22 @@ function App(): React.JSX.Element {
 		<GestureHandlerRootView style={{ flex: 1 }}>
 			<SafeAreaProvider>
 				<SettingsProvider>
-					<GalleryProvider>
-						<ProcessingProvider>
-							<SearchProvider>
-								<StatusBar
-									barStyle={
-										colorScheme === "dark" ? "light-content" : "dark-content"
-									}
-									backgroundColor="transparent"
-									translucent
-								/>
-								<RootNavigator />
-							</SearchProvider>
-						</ProcessingProvider>
-					</GalleryProvider>
+					<NavigationProvider>
+						<GalleryProvider>
+							<ProcessingProvider>
+								<SearchProvider>
+									<StatusBar
+										barStyle={
+											colorScheme === "dark" ? "light-content" : "dark-content"
+										}
+										backgroundColor="transparent"
+										translucent
+									/>
+									<RootNavigator />
+								</SearchProvider>
+							</ProcessingProvider>
+						</GalleryProvider>
+					</NavigationProvider>
 				</SettingsProvider>
 			</SafeAreaProvider>
 		</GestureHandlerRootView>

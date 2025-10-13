@@ -227,7 +227,7 @@ export const AnimationTimings = {
 // Spring configs (for Reanimated)
 export const SpringConfigs = {
 	gentle: {
-		damping: 20,
+		damping: 30,
 		stiffness: 200,
 	},
 	snappy: {

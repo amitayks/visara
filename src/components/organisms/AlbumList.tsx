@@ -10,7 +10,11 @@ import {
 	View,
 	type ViewStyle,
 } from "react-native";
-import { DropProvider, Sortable, SortableItem } from "react-native-reanimated-dnd";
+import {
+	DropProvider,
+	Sortable,
+	SortableItem,
+} from "react-native-reanimated-dnd";
 import type { SharedValue } from "react-native-reanimated";
 
 export interface AlbumData {
@@ -52,26 +56,30 @@ export function AlbumList({
 		setLocalAlbums(albums);
 	}, [albums]);
 
-	const handleMove = useCallback((_itemId: string, fromIndex: number, toIndex: number) => {
-		const newAlbums = [...localAlbums];
-		const [movedAlbum] = newAlbums.splice(fromIndex, 1);
-		newAlbums.splice(toIndex, 0, movedAlbum);
+	const handleMove = useCallback(
+		(_itemId: string, fromIndex: number, toIndex: number) => {
+			const newAlbums = [...localAlbums];
+			const [movedAlbum] = newAlbums.splice(fromIndex, 1);
+			newAlbums.splice(toIndex, 0, movedAlbum);
 
-		setLocalAlbums(newAlbums);
-		if (onAlbumReorder) {
-			onAlbumReorder(newAlbums);
-		}
-	}, [localAlbums, onAlbumReorder]);
+			setLocalAlbums(newAlbums);
+			if (onAlbumReorder) {
+				onAlbumReorder(newAlbums);
+			}
+		},
+		[localAlbums, onAlbumReorder],
+	);
 
-	const renderSortableItem = useCallback(({ item, id, positions, itemsCount }: SortableRenderItemProps) => {
-		return (
-			<SortableItem
-				id={id}
-				data={item}
-				positions={positions}
-				itemsCount={itemsCount}
-				onMove={handleMove}
-			>
+	const renderSortableItem = useCallback(
+		({ item, id, positions, itemsCount }: SortableRenderItemProps) => {
+			return (
+				// <SortableItem
+				// 	id={id}
+				// 	data={item}
+				// 	positions={positions}
+				// 	itemsCount={itemsCount}
+				// 	onMove={handleMove}
+				// >
 				<View style={styles.albumCardWrapper}>
 					<AlbumCard
 						coverImageUri={item.coverImageUri}
@@ -81,9 +89,11 @@ export function AlbumList({
 						style={styles.albumCard}
 					/>
 				</View>
-			</SortableItem>
-		);
-	}, [onAlbumPress, handleMove]);
+				// </SortableItem>
+			);
+		},
+		[onAlbumPress, handleMove],
+	);
 
 	const renderEmpty = () => (
 		<View style={styles.emptyContainer}>

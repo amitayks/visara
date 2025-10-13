@@ -3,9 +3,8 @@ import type { Album } from "@models/Album";
 import { Spacing, Typography } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
 import { useCallback, useState } from "react";
-import { StyleSheet, Text, View, Pressable } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Icon } from "@components/atoms/Icon";
 
 export function AlbumsScreen() {
 	const { colors } = useTheme();
@@ -77,32 +76,22 @@ export function AlbumsScreen() {
 		console.log("Albums reordered");
 	}, []);
 
-	// Handle back navigation
-	const handleBackPress = useCallback(() => {
-		// TODO: Navigate back to gallery
-		console.log("Back pressed");
-	}, []);
-
 	return (
 		<SafeAreaView
 			style={[styles.container, { backgroundColor: colors.background }]}
 			edges={["top", "bottom"]}
 		>
-			{/* Header */}
-			<View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-				<Pressable
-					onPress={handleBackPress}
-					style={styles.backButton}
-					hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-				>
-					<Icon name="arrow-left" size="medium" color={colors.text} />
-				</Pressable>
-
-				<Text style={[styles.headerTitle, { color: colors.text }]}>
-					Albums
-				</Text>
-
-				<View style={styles.headerRight} />
+			{/* Simple Header */}
+			<View
+				style={[
+					styles.header,
+					{
+						backgroundColor: colors.surface,
+						borderBottomColor: colors.border,
+					},
+				]}
+			>
+				<Text style={[styles.headerTitle, { color: colors.text }]}>Albums</Text>
 			</View>
 
 			{/* Albums List */}
@@ -124,20 +113,14 @@ const styles = StyleSheet.create({
 	header: {
 		flexDirection: "row",
 		alignItems: "center",
-		justifyContent: "space-between",
+		justifyContent: "center",
 		paddingHorizontal: Spacing.md,
 		paddingVertical: Spacing.sm,
 		borderBottomWidth: 1,
 	},
-	backButton: {
-		padding: Spacing.xs,
-	},
 	headerTitle: {
 		fontSize: Typography.fontSize.xxl,
 		fontWeight: Typography.fontWeight.bold,
-	},
-	headerRight: {
-		width: 40, // Balance for back button
 	},
 	albumList: {
 		flex: 1,

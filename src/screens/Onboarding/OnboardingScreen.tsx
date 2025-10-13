@@ -364,10 +364,11 @@ export function OnboardingScreen() {
 	const handleComplete = async () => {
 		// Request permissions before completing onboarding
 		try {
-			const permissionsGranted =
-				await MediaDiscoveryService.requestPermissions();
+			// const permissionsGranted =
+			// 	await MediaDiscoveryService.requestPermissions();
 
-			if (permissionsGranted) {
+			if (true) {
+				// if (permissionsGranted) {
 				// Permissions granted, complete onboarding
 				dispatch({ type: "SET_ONBOARDING_COMPLETED", payload: true });
 			} else {

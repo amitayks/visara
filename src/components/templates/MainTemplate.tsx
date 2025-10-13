@@ -1,6 +1,5 @@
 import { Icon } from "@components/atoms/Icon";
 import { ProgressBar } from "@components/atoms/ProgressBar";
-import { BottomNavContainer } from "@components/molecules/BottomNavContainer";
 import { PhotoGrid } from "@components/organisms/PhotoGrid";
 import type { MediaFile } from "@models/MediaFile";
 import { BorderRadius, Spacing, Typography } from "@theme/colors";
@@ -35,10 +34,10 @@ interface MainTemplateProps {
 
 	// Bottom navigation
 	activeNavButton?: "search" | "documents" | "albums" | "settings" | null;
-	onSearchPress: () => void;
-	onDocumentsPress: () => void;
-	onAlbumsPress: () => void;
-	onSettingsPress: () => void;
+	// onSearchPress?: () => void;
+	// onDocumentsPress?: () => void;
+	// onAlbumsPress?: () => void;
+	// onSettingsPress?: () => void;
 
 	style?: ViewStyle;
 	testID?: string;
@@ -55,24 +54,38 @@ export function MainTemplate({
 	onMediaPress,
 	onZoomChange,
 	activeNavButton,
-	onSearchPress,
-	onDocumentsPress,
-	onAlbumsPress,
-	onSettingsPress,
+	// onSearchPress,
+	// onDocumentsPress,
+	// onAlbumsPress,
+	// onSettingsPress,
 	style,
 	testID,
 }: MainTemplateProps) {
 	const { colors } = useTheme();
 
 	return (
-		<SafeAreaView style={[styles.container, { backgroundColor: colors.background }, style]} testID={testID}>
+		<SafeAreaView
+			style={[styles.container, { backgroundColor: colors.background }, style]}
+			testID={testID}
+		>
 			{/* Header */}
-			<View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+			<View
+				style={[
+					styles.header,
+					{ backgroundColor: colors.surface, borderBottomColor: colors.border },
+				]}
+			>
 				<View style={styles.headerLeft}>
 					{logoSource ? (
-						<Image source={logoSource} style={styles.logo} resizeMode="contain" />
+						<Image
+							source={logoSource}
+							style={styles.logo}
+							resizeMode="contain"
+						/>
 					) : (
-						<Text style={[styles.logoText, { color: colors.text }]}>Visara</Text>
+						<Text style={[styles.logoText, { color: colors.text }]}>
+							Visara
+						</Text>
 					)}
 				</View>
 
@@ -88,9 +101,15 @@ export function MainTemplate({
 			{/* Progress Bar */}
 			{isProcessing && (
 				<View style={styles.progressContainer}>
-					<ProgressBar progress={processingProgress} height={4} style={styles.progressBar} />
+					<ProgressBar
+						progress={processingProgress}
+						height={4}
+						style={styles.progressBar}
+					/>
 					{processingCount && (
-						<Text style={[styles.progressText, { color: colors.textSecondary }]}>
+						<Text
+							style={[styles.progressText, { color: colors.textSecondary }]}
+						>
 							Processing {processingCount}
 						</Text>
 					)}
@@ -109,7 +128,7 @@ export function MainTemplate({
 			</View>
 
 			{/* Bottom Navigation */}
-			<BottomNavContainer
+			{/* <BottomNavContainer
 				buttons={[
 					{
 						icon: "magnify",
@@ -137,7 +156,7 @@ export function MainTemplate({
 					},
 				]}
 				style={styles.bottomNav}
-			/>
+			/> */}
 		</SafeAreaView>
 	);
 }
