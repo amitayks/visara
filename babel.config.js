@@ -15,7 +15,7 @@ module.exports = {
           '@models': './src/models',
           '@hooks': './src/hooks',
           '@utils': './src/utils',
-          '@types': './src/types',
+          '@shared-types': './src/shared-types',
           '@native-modules': './src/native-modules',
           '@theme': './src/theme',
           '@navigation': './src/navigation',

@@ -2,8 +2,7 @@ import { Badge } from "@components/atoms/Badge";
 import { Button } from "@components/atoms/Button";
 import { Icon } from "@components/atoms/Icon";
 import { LabelTag } from "@components/atoms/LabelTag";
-import type { Label } from "@models/Label";
-import type { OcrText } from "@models/OcrText";
+import type { DisplayLabel, DisplayOcrText } from "@shared-types/display";
 import { BorderRadius, Spacing, Typography } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
 import { useCallback, useEffect } from "react";
@@ -27,8 +26,8 @@ type SnapPoint = "closed" | "peek" | "half" | "full";
 
 interface InfoDrawerProps {
 	visible: boolean;
-	labels?: Label[];
-	ocrText?: OcrText | null;
+	labels?: DisplayLabel[];
+	ocrText?: DisplayOcrText | null;
 	processingFailed?: boolean;
 	onClose: () => void;
 	onDelete?: () => void;
