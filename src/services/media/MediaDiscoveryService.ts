@@ -38,28 +38,24 @@ export class MediaDiscoveryService {
 	private static eventEmitter: NativeEventEmitter | null = null;
 	private static mediaBatchListener: EmitterSubscription | null = null;
 	private static scanCompleteListener: EmitterSubscription | null = null;
-	private static isNativeModuleAvailable =
-		MediaDiscoveryService.initializeNativeModule();
+	private static isNativeModuleAvailable = false;
 
-	/**
-	 * Initialize native module availability
-	 * Returns true if native module is available, false otherwise
-	 */
-	private static initializeNativeModule(): boolean {
+	static {
+		// Check if native module is available
 		try {
 			if (MediaObserverModule) {
+				this.isNativeModuleAvailable = true;
 				this.eventEmitter = new NativeEventEmitter(
 					MediaObserverModule as unknown as {
 						addListener: (eventType: string) => void;
 						removeListeners: (count: number) => void;
 					},
 				);
-				return true;
 			}
 		} catch (error) {
 			console.warn("Native MediaObserver not available, using fallback", error);
+			this.isNativeModuleAvailable = false;
 		}
-		return false;
 	}
 
 	/**
@@ -407,100 +403,16 @@ export class MediaDiscoveryService {
 	static async requestPermissions(): Promise<boolean> {
 		try {
 			if (Platform.OS === "android") {
-				const { PermissionsAndroid } = await import("react-native");
-				const { Camera } = await import("react-native-vision-camera");
-				const notifee = await import("@notifee/react-native");
-
-				// Android 13+ (API 33+) uses granular media permissions
-				const androidVersion = Platform.Version;
-
-				// Type-safe permission handling for Android 13+ granular permissions
-				// These may not be in older type definitions, so we use string literals
-				type MediaPermission =
-					| typeof PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE
-					| "android.permission.READ_MEDIA_IMAGES"
-					| "android.permission.READ_MEDIA_VIDEO";
-
-				let mediaPermissions: MediaPermission[] = [];
-
-				if (androidVersion >= 33) {
-					// Android 13+ granular permissions
-					// Using string literals as these permissions exist at runtime but may not in type definitions
-					mediaPermissions = [
-						"android.permission.READ_MEDIA_IMAGES" as MediaPermission,
-						"android.permission.READ_MEDIA_VIDEO" as MediaPermission,
-					];
-				} else {
-					// Android 12 and below use READ_EXTERNAL_STORAGE
-					mediaPermissions = [
-						PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-					];
-				}
-
-				// Request photo library permissions
-				// Cast is justified: runtime permissions exist but may not be in type definitions for Android 13+
-				const mediaResults = await PermissionsAndroid.requestMultiple(
-					mediaPermissions as (typeof PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE)[],
-				);
-				const mediaGranted = Object.values(mediaResults).every(
-					(result) => result === PermissionsAndroid.RESULTS.GRANTED,
-				);
-
-				if (!mediaGranted) {
-					console.warn("Media permissions not granted");
-					return false;
-				}
-
-				// Request optional camera permission
-				try {
-					const cameraPermission = await Camera.requestCameraPermission();
-					console.log("Camera permission:", cameraPermission);
-				} catch (error) {
-					console.warn("Camera permission request failed:", error);
-					// Camera is optional, continue even if denied
-				}
-
-				// Request optional notification permission
-				try {
-					await notifee.default.requestPermission();
-					console.log("Notification permission requested");
-				} catch (error) {
-					console.warn("Notification permission request failed:", error);
-					// Notifications are optional, continue even if denied
-				}
-
+				// On Android 13+, need READ_MEDIA_IMAGES and READ_MEDIA_VIDEO
+				// Permissions are handled in AndroidManifest.xml
+				// CameraRoll will automatically request when needed
 				return true;
 			}
-
 			if (Platform.OS === "ios") {
-				const { Camera } = await import("react-native-vision-camera");
-				const notifee = await import("@notifee/react-native");
-
-				// iOS photos permission is automatically requested by CameraRoll
-				// We'll let it request when first accessed for better UX
-				// Just request optional permissions here
-
-				// Request optional camera permission
-				try {
-					const cameraPermission = await Camera.requestCameraPermission();
-					console.log("Camera permission:", cameraPermission);
-				} catch (error) {
-					console.warn("Camera permission request failed:", error);
-					// Camera is optional, continue even if denied
-				}
-
-				// Request optional notification permission
-				try {
-					await notifee.default.requestPermission();
-					console.log("Notification permission requested");
-				} catch (error) {
-					console.warn("Notification permission request failed:", error);
-					// Notifications are optional, continue even if denied
-				}
-
+				// iOS permissions are in Info.plist
+				// CameraRoll will automatically request when needed
 				return true;
 			}
-
 			return false;
 		} catch (error) {
 			console.error("MediaDiscoveryService.requestPermissions error:", error);
