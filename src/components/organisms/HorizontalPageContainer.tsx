@@ -1,12 +1,13 @@
 import { useNavigation, type PageIndex } from "@contexts/NavigationContext";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useEffect } from "react";
 import { Dimensions, StyleSheet, View, type ViewStyle } from "react-native";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
+import PagerView from "react-native-pager-view";
 import Animated, {
-	useAnimatedStyle,
 	useSharedValue,
 	withSpring,
 	runOnJS,
+	useAnimatedStyle,
 } from "react-native-reanimated";
 
 interface HorizontalPageContainerProps {
@@ -14,144 +15,202 @@ interface HorizontalPageContainerProps {
 	mainPage: React.ReactNode;
 	/** Content for page 1 (Albums) */
 	albumsPage: React.ReactNode;
-	/** Callback when edge swipe left is detected (Main page → Search mode) */
-	onEdgeSwipeLeft?: () => void;
-	/** Callback when edge swipe right is detected (Albums page → Settings drawer) */
-	onEdgeSwipeRight?: () => void;
+	/** Callback when swipe right from Main page is detected → Search mode */
+	onMainPageSwipeRight?: () => void;
+	/** Callback when swipe left from Albums page is detected → Settings drawer */
+	onAlbumsPageSwipeLeft?: () => void;
 	style?: ViewStyle;
 	testID?: string;
 }
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const EDGE_SWIPE_THRESHOLD = SCREEN_WIDTH * 0.3; // 30% of screen width
+const EDGE_DETECTION_ZONE = 50; // 50px from edge as per UI guide
+const SWIPE_VELOCITY_THRESHOLD = 500;
+const SWIPE_DISTANCE_THRESHOLD = 100;
+
+// Spring configuration for smooth physics-based animations
 const SPRING_CONFIG = {
-	damping: 20,
-	stiffness: 90,
-	mass: 0.2,
+	damping: 15,      // Controls bounce (lower = more oscillation)
+	mass: 0.5,        // Affects momentum (higher = heavier feel)
+	stiffness: 100,   // Speed of response (higher = faster)
+	overshootClamping: false, // Allow natural spring overshoot
 };
 
 export function HorizontalPageContainer({
 	mainPage,
 	albumsPage,
-	onEdgeSwipeLeft,
-	onEdgeSwipeRight,
+	onMainPageSwipeRight,
+	onAlbumsPageSwipeLeft,
 	style,
 	testID,
 }: HorizontalPageContainerProps) {
 	const { state, dispatch } = useNavigation();
-	const translateX = useSharedValue(0);
-	const [isDragging, setIsDragging] = useState(false);
-	const contextRef = useRef({ startX: 0 });
+	const pagerRef = useRef<PagerView>(null);
+	const [currentPageLocal, setCurrentPageLocal] = useState(state.currentPage);
 
-	// Update translateX when currentPage changes externally (e.g., from Albums button)
-	const updateTranslateX = useCallback(
-		(page: PageIndex) => {
-			translateX.value = withSpring(-page * SCREEN_WIDTH, SPRING_CONFIG);
-		},
-		[translateX],
-	);
+	// Shared values for edge swipe animations
+	const edgeSwipeTranslateX = useSharedValue(0);
+	const edgeSwipeOpacity = useSharedValue(0);
 
-	// Sync with navigation state
-	if (translateX.value !== -state.currentPage * SCREEN_WIDTH && !isDragging) {
-		updateTranslateX(state.currentPage);
-	}
+	// Sync external navigation state with pager
+	useEffect(() => {
+		if (pagerRef.current && state.currentPage !== currentPageLocal) {
+			pagerRef.current.setPage(state.currentPage);
+			setCurrentPageLocal(state.currentPage);
+		}
+	}, [state.currentPage, currentPageLocal]);
 
-	const panGesture = Gesture.Pan()
-		.onStart(() => {
-			runOnJS(setIsDragging)(true);
-			contextRef.current = { startX: translateX.value };
+	// Main page swipe right gesture: Triggers search mode
+	const mainPageSwipeRightGesture = Gesture.Pan()
+		.activeOffsetX([10, Number.MAX_SAFE_INTEGER]) // Right swipe only
+		.onStart((event) => {
+			'worklet';
+			// Check if we're on Main page and starting from left edge
+			if (event.x < EDGE_DETECTION_ZONE && currentPageLocal === 0) {
+				// Start edge swipe animation
+				edgeSwipeOpacity.value = withSpring(0.3, { duration: 200 });
+			}
 		})
 		.onUpdate((event) => {
-			// Calculate new position
-			const newTranslateX = contextRef.current.startX + event.translationX;
-
-			// Constrain to valid range: 0 (Main) to -SCREEN_WIDTH (Albums)
-			const constrainedX = Math.max(-SCREEN_WIDTH, Math.min(0, newTranslateX));
-
-			translateX.value = constrainedX;
+			'worklet';
+			// Update edge swipe preview if within edge zone
+			if (event.x < EDGE_DETECTION_ZONE && currentPageLocal === 0) {
+				edgeSwipeTranslateX.value = Math.min(event.translationX, 100);
+			}
 		})
 		.onEnd((event) => {
-			runOnJS(setIsDragging)(false);
+			'worklet';
+			// Reset animation values
+			edgeSwipeTranslateX.value = withSpring(0, SPRING_CONFIG);
+			edgeSwipeOpacity.value = withSpring(0, SPRING_CONFIG);
 
-			const velocity = event.velocityX;
-			const currentPage = state.currentPage;
-
-			// Determine target page based on swipe direction and velocity
-			let targetPage: PageIndex = currentPage;
-
-			// Check for edge swipes first
-			if (currentPage === 0 && event.translationX > EDGE_SWIPE_THRESHOLD) {
-				// Main page, swipe right beyond threshold → Search mode
-				if (onEdgeSwipeLeft) {
-					runOnJS(onEdgeSwipeLeft)();
+			// Check if this is a valid edge swipe right from Main page
+			if (
+				event.x < EDGE_DETECTION_ZONE &&
+				currentPageLocal === 0 &&
+				(event.velocityX > SWIPE_VELOCITY_THRESHOLD || event.translationX > SWIPE_DISTANCE_THRESHOLD)
+			) {
+				if (onMainPageSwipeRight) {
+					runOnJS(onMainPageSwipeRight)();
 				}
-				// Spring back to current page
-				translateX.value = withSpring(0, SPRING_CONFIG);
-				return;
-			}
-
-			if (currentPage === 1 && event.translationX < -EDGE_SWIPE_THRESHOLD) {
-				// Albums page, swipe left beyond threshold → Settings drawer
-				if (onEdgeSwipeRight) {
-					runOnJS(onEdgeSwipeRight)();
-				}
-				// Spring back to current page
-				translateX.value = withSpring(-SCREEN_WIDTH, SPRING_CONFIG);
-				return;
-			}
-
-			// Normal page navigation swipes
-			if (velocity > 500) {
-				// Fast swipe right → go to previous page (Main)
-				targetPage = 0;
-			} else if (velocity < -500) {
-				// Fast swipe left → go to next page (Albums)
-				targetPage = 1;
-			} else {
-				// Slow swipe → determine based on position
-				const threshold = -SCREEN_WIDTH / 2;
-				targetPage = translateX.value < threshold ? 1 : 0;
-			}
-
-			// Animate to target page
-			translateX.value = withSpring(-targetPage * SCREEN_WIDTH, SPRING_CONFIG);
-
-			// Update navigation state if page changed
-			if (targetPage !== currentPage) {
-				runOnJS(dispatch)({ type: "SET_PAGE", payload: targetPage });
 			}
 		});
 
-	const animatedStyle = useAnimatedStyle(() => ({
-		transform: [{ translateX: translateX.value }],
+	// Albums page swipe left gesture: Triggers settings drawer
+	const albumsPageSwipeLeftGesture = Gesture.Pan()
+		.activeOffsetX([Number.MIN_SAFE_INTEGER, -10]) // Left swipe only
+		.onStart((event) => {
+			'worklet';
+			// Check if we're on Albums page and starting from right edge
+			if (event.x > SCREEN_WIDTH - EDGE_DETECTION_ZONE && currentPageLocal === 1) {
+				// Start edge swipe animation
+				edgeSwipeOpacity.value = withSpring(0.3, { duration: 200 });
+			}
+		})
+		.onUpdate((event) => {
+			'worklet';
+			// Update edge swipe preview if within edge zone
+			if (event.x > SCREEN_WIDTH - EDGE_DETECTION_ZONE && currentPageLocal === 1) {
+				edgeSwipeTranslateX.value = Math.max(event.translationX, -100);
+			}
+		})
+		.onEnd((event) => {
+			'worklet';
+			// Reset animation values
+			edgeSwipeTranslateX.value = withSpring(0, SPRING_CONFIG);
+			edgeSwipeOpacity.value = withSpring(0, SPRING_CONFIG);
+
+			// Check if this is a valid edge swipe left from Albums page
+			if (
+				event.x > SCREEN_WIDTH - EDGE_DETECTION_ZONE &&
+				currentPageLocal === 1 &&
+				(event.velocityX < -SWIPE_VELOCITY_THRESHOLD || event.translationX < -SWIPE_DISTANCE_THRESHOLD)
+			) {
+				if (onAlbumsPageSwipeLeft) {
+					runOnJS(onAlbumsPageSwipeLeft)();
+				}
+			}
+		});
+
+	// Combine both edge gestures using Race
+	const composedGesture = Gesture.Race(mainPageSwipeRightGesture, albumsPageSwipeLeftGesture);
+
+	// Handle page selection from PagerView
+	const handlePageSelected = useCallback((event: any) => {
+		const newPage = event.nativeEvent.position as PageIndex;
+		setCurrentPageLocal(newPage);
+
+		// Update navigation state if page changed
+		if (newPage !== state.currentPage) {
+			dispatch({ type: "SET_PAGE", payload: newPage });
+		}
+	}, [state.currentPage, dispatch]);
+
+	// Animated style for edge swipe visual feedback
+	const edgeSwipeStyle = useAnimatedStyle(() => ({
+		transform: [{ translateX: edgeSwipeTranslateX.value }],
+		opacity: edgeSwipeOpacity.value,
 	}));
 
 	return (
-		<GestureDetector gesture={panGesture}>
-			<View style={[styles.container, style]} testID={testID}>
-				<Animated.View style={[styles.pagesContainer, animatedStyle]}>
-					{/* Page 0: Main */}
-					<View style={styles.page}>{mainPage}</View>
+		<GestureHandlerRootView style={[styles.container, style]}>
+			<GestureDetector gesture={composedGesture}>
+				<View style={styles.gestureContainer} testID={testID}>
+					{/* Edge swipe visual feedback overlay */}
+					<Animated.View
+						style={[styles.edgeSwipeOverlay, edgeSwipeStyle]}
+						pointerEvents="none"
+					/>
 
-					{/* Page 1: Albums */}
-					<View style={styles.page}>{albumsPage}</View>
-				</Animated.View>
-			</View>
-		</GestureDetector>
+					{/* Native PagerView for optimal performance */}
+					<PagerView
+						ref={pagerRef}
+						style={styles.pagerView}
+						initialPage={state.currentPage}
+						onPageSelected={handlePageSelected}
+						orientation="horizontal"
+						overScrollMode="never"
+						offscreenPageLimit={1} // Optimize memory by limiting pre-rendered pages
+						pageMargin={0}
+						scrollEnabled={true}
+					>
+						{/* Page 0: Main */}
+						<View key="main" style={styles.page}>
+							{mainPage}
+						</View>
+
+						{/* Page 1: Albums */}
+						<View key="albums" style={styles.page}>
+							{albumsPage}
+						</View>
+					</PagerView>
+				</View>
+			</GestureDetector>
+		</GestureHandlerRootView>
 	);
 }
 
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		overflow: "hidden",
 	},
-	pagesContainer: {
-		flexDirection: "row",
-		height: "100%",
+	gestureContainer: {
+		flex: 1,
+	},
+	pagerView: {
+		flex: 1,
 	},
 	page: {
-		width: SCREEN_WIDTH,
-		height: "100%",
+		flex: 1,
+	},
+	edgeSwipeOverlay: {
+		position: "absolute",
+		top: 0,
+		bottom: 0,
+		left: 0,
+		right: 0,
+		backgroundColor: "rgba(255, 255, 255, 0.1)",
+		zIndex: 10,
+		pointerEvents: "none",
 	},
 });

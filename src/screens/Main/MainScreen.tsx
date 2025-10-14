@@ -5,6 +5,9 @@ import { MainTemplate } from "@components/templates/MainTemplate";
 import { useGallery } from "@contexts/GalleryContext";
 import { useNavigation } from "@contexts/NavigationContext";
 import { useProcessing } from "@contexts/ProcessingContext";
+import { useSearch } from "@contexts/SearchContext";
+import { SearchService } from "@services/search/SearchService";
+import { MediaFileRepository } from "@services/database/MediaFileRepository";
 import type { MediaFile } from "@models/MediaFile";
 import type { DisplayLabel, DisplayOcrText } from "@shared-types/display";
 import {
@@ -20,6 +23,7 @@ import { Alert, BackHandler, StyleSheet } from "react-native";
 export function MainScreen() {
 	const { state: galleryState, dispatch: galleryDispatch } = useGallery();
 	const { state: processingState } = useProcessing();
+	const { state: searchState, dispatch: searchDispatch } = useSearch();
 	const {
 		state: navState,
 		// goToAlbums,
@@ -47,14 +51,80 @@ export function MainScreen() {
 		? `${processingState.currentProgress.current}/${processingState.currentProgress.total}`
 		: undefined;
 
-	// Filter media based on document mode
-	const displayedMedia = navState.documentMode
-		? galleryState.mediaFiles.filter(
-				(file) =>
-					file.mimeType === "application/pdf" ||
-					file.mimeType.startsWith("image/"),
-			)
-		: galleryState.mediaFiles;
+	// Load search index on mount
+	useEffect(() => {
+		const initializeSearch = async () => {
+			const loaded = await SearchService.loadIndex();
+			if (!loaded) {
+				// Index doesn't exist yet, build it
+				await SearchService.index();
+			}
+		};
+
+		initializeSearch();
+	}, []);
+
+	// Perform search when query changes and search mode is active
+	useEffect(() => {
+		if (!navState.searchMode) return;
+
+		const performSearch = async () => {
+			if (!searchState.searchQuery.trim()) {
+				searchDispatch({ type: "SET_SEARCH_RESULTS", payload: [] });
+				return;
+			}
+
+			searchDispatch({ type: "SET_LOADING", payload: true });
+
+			try {
+				// Perform search using SearchService
+				const searchResults = await SearchService.search(searchState.searchQuery);
+
+				// Get full MediaFile objects for the results
+				const mediaFiles = await Promise.all(
+					searchResults.map(async (result) => {
+						const mediaFile = await MediaFileRepository.findById(result.id);
+						return mediaFile;
+					}),
+				);
+
+				// Filter out null results and update state
+				const validMediaFiles = mediaFiles.filter(
+					(file): file is MediaFile => file !== null,
+				);
+				searchDispatch({
+					type: "SET_SEARCH_RESULTS",
+					payload: validMediaFiles,
+				});
+			} catch (error) {
+				console.error("Search error:", error);
+				searchDispatch({
+					type: "SET_ERROR",
+					payload: "Failed to perform search",
+				});
+			}
+		};
+
+		performSearch();
+	}, [searchState.searchQuery, navState.searchMode, searchDispatch]);
+
+	// Determine which media to display based on mode
+	let displayedMedia: MediaFile[];
+
+	if (navState.searchMode) {
+		// Search mode: show search results
+		displayedMedia = searchState.searchResults;
+	} else if (navState.documentMode) {
+		// Document mode: filter for documents
+		displayedMedia = galleryState.mediaFiles.filter(
+			(file) =>
+				file.mimeType === "application/pdf" ||
+				file.mimeType.startsWith("image/"),
+		);
+	} else {
+		// Normal mode: show all media
+		displayedMedia = galleryState.mediaFiles;
+	}
 
 	// Handle media press - open viewer modal
 	const handleMediaPress = useCallback(
@@ -148,10 +218,12 @@ export function MainScreen() {
 	}, []);
 
 	// Handle info drawer actions
-	const handleLabelPress = useCallback((_label: string) => {
-		// TODO: Implement search by label
-		console.log("Label pressed:", _label);
-	}, []);
+	const handleLabelPress = useCallback((label: string) => {
+		// Set search query and activate search mode
+		searchDispatch({ type: "SET_SEARCH_QUERY", payload: label });
+		setInfoDrawerVisible(false);
+		// Search will trigger automatically via useEffect
+	}, [searchDispatch]);
 
 	const handleDelete = useCallback(async () => {
 		if (!selectedMedia) return;

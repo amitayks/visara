@@ -4,7 +4,6 @@ import { useNavigation } from "@contexts/NavigationContext";
 import { useSearch } from "@contexts/SearchContext";
 import { HorizontalPageContainer } from "@components/organisms/HorizontalPageContainer";
 import { AnimatedBottomNav } from "@components/molecules/AnimatedBottomNav";
-import { SearchModeOverlay } from "@components/organisms/SearchModeOverlay";
 import { SettingsDrawer } from "@components/organisms/SettingsDrawer";
 import { MainScreen } from "@screens/Main/MainScreen";
 import { AlbumsScreen } from "@screens/Albums/AlbumsScreen";
@@ -17,15 +16,15 @@ import DeviceInfo from "react-native-device-info";
  * Architecture:
  * - HorizontalPageContainer: Swipeable pages (Main ↔ Albums)
  * - AnimatedBottomNav: Bottom navigation with search mode animation
- * - SearchModeOverlay: Search results overlay
  * - SettingsDrawer: Settings overlay drawer
  *
  * Navigation flow:
  * - Main page ← swipe → Albums page
- * - Main page + swipe right → Search mode
- * - Albums page + swipe left → Settings drawer
- * - Document button → Toggles filter (no navigation)
+ * - Main page + swipe right (from left edge) → Search mode (integrated in MainScreen)
+ * - Albums page + swipe left (from right edge) → Settings drawer
+ * - Document button → Toggles filter on Main, navigates to Main from Albums
  * - Albums button → Jump to Albums page
+ * - Search mode now integrated into MainScreen as a filter
  */
 export function MainNavigator() {
 	const {
@@ -42,13 +41,13 @@ export function MainNavigator() {
 	// Get app version for settings
 	const appVersion = DeviceInfo.getVersion();
 
-	// Handle edge swipe left from Main page → Activate search mode
-	const handleEdgeSwipeLeft = useCallback(() => {
+	// Handle swipe right from Main page → Activate search mode
+	const handleMainPageSwipeRight = useCallback(() => {
 		navDispatch({ type: "ACTIVATE_SEARCH_MODE" });
 	}, [navDispatch]);
 
-	// Handle edge swipe right from Albums page → Open settings drawer
-	const handleEdgeSwipeRight = useCallback(() => {
+	// Handle swipe left from Albums page → Open settings drawer
+	const handleAlbumsPageSwipeLeft = useCallback(() => {
 		navDispatch({ type: "OPEN_SETTINGS_DRAWER" });
 	}, [navDispatch]);
 
@@ -62,7 +61,7 @@ export function MainNavigator() {
 
 	// Handle search submit
 	const handleSearchSubmit = useCallback(() => {
-		// Search is automatically triggered by SearchModeOverlay when query changes
+		// Search is automatically triggered by MainScreen when query changes
 		console.log("Search submitted");
 	}, []);
 
@@ -133,7 +132,7 @@ export function MainNavigator() {
 			"hardwareBackPress",
 			() => {
 				// Priority order: Search mode > Settings drawer
-				// Child screens (MainScreen/SearchModeOverlay) handle their own drawers
+				// Child screens (MainScreen) handle their own drawers
 
 				if (navState.searchMode) {
 					// Close search mode
@@ -161,20 +160,10 @@ export function MainNavigator() {
 			<HorizontalPageContainer
 				mainPage={<MainScreen />}
 				albumsPage={<AlbumsScreen />}
-				onEdgeSwipeLeft={handleEdgeSwipeLeft}
-				onEdgeSwipeRight={handleEdgeSwipeRight}
+				onMainPageSwipeRight={handleMainPageSwipeRight}
+				onAlbumsPageSwipeLeft={handleAlbumsPageSwipeLeft}
 				style={styles.pageContainer}
 			/>
-
-			{/* Search Mode Overlay */}
-			{navState.searchMode && (
-				<SearchModeOverlay
-					visible={navState.searchMode}
-					searchQuery={searchState.searchQuery}
-					// onSearch={handleSearchSubmit}
-					style={styles.searchOverlay}
-				/>
-			)}
 
 			{/* Animated Bottom Navigation */}
 			<AnimatedBottomNav
@@ -219,9 +208,6 @@ export function MainNavigator() {
 
 const styles = StyleSheet.create({
 	pageContainer: {
-		flex: 1,
-	},
-	searchOverlay: {
 		flex: 1,
 	},
 	bottomNav: {

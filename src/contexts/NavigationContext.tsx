@@ -19,7 +19,7 @@ export type PageIndex = 0 | 1;
 export interface NavigationState {
 	/** Current page index (0 = Main, 1 = Albums) */
 	currentPage: PageIndex;
-	/** Whether search mode is active */
+	/** Whether search mode is active (search results replace main grid) */
 	searchMode: boolean;
 	/** Whether document filter mode is active */
 	documentMode: boolean;
@@ -88,14 +88,25 @@ function navigationReducer(
 			};
 
 		case "TOGGLE_DOCUMENT_MODE":
+			// If we're on Albums page, navigate to Main and activate document mode
+			// If we're on Main page, just toggle document mode
+			if (state.currentPage === 1) {
+				return {
+					...state,
+					currentPage: 0,
+					documentMode: true,
+				};
+			}
 			return {
 				...state,
 				documentMode: !state.documentMode,
 			};
 
 		case "ACTIVATE_DOCUMENT_MODE":
+			// Always navigate to Main when activating document mode
 			return {
 				...state,
+				currentPage: 0,
 				documentMode: true,
 			};
 
