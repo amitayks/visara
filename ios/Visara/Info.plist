@@ -26,20 +26,21 @@
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>
-	  <!-- Do not change NSAllowsArbitraryLoads to true, or you will risk app rejection! -->
 		<key>NSAllowsArbitraryLoads</key>
 		<false/>
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Visara needs access to your photo library to automatically organize and enable AI-powered search across all your photos. All processing happens on your device - your photos never leave your phone.</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>Visara needs permission to save photos you capture directly within the app to your photo library.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Visara needs camera access to let you capture new photos directly within the app for instant AI processing and organization.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string></string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Visara needs permission to save photos you capture directly within the app to your photo library.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Visara needs access to your photo library to automatically organize and enable AI-powered search across all your photos. All processing happens on your device - your photos never leave your phone.</string>
+	<key>RCTNewArchEnabled</key>
+	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
