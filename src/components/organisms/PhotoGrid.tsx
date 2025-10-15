@@ -156,17 +156,32 @@ export function PhotoGrid({
 		return item.type === "header" ? "sectionHeader" : "row";
 	}, []);
 
+	// Generate stable keys for recycling optimization
+	const keyExtractor = useCallback((item: GridItem, index: number) => {
+		if (item.type === "header") {
+			return `header-${item.label}`;
+		}
+		return `media-${item.data.id}`;
+	}, []);
+
 	return (
 		<GestureDetector gesture={pinchGesture}>
 			<View style={[styles.container, style]} testID={testID}>
 				<FlashList
 					data={groupedData}
 					renderItem={renderItem}
+					keyExtractor={keyExtractor}
 					numColumns={columns}
 					key={`grid-${columns}`}
 					getItemType={getItemType}
 					contentContainerStyle={styles.contentContainer}
 					showsVerticalScrollIndicator={true}
+					// FlashList v2 Performance Optimizations:
+					// - drawDistance: Increase render buffer for smooth scrolling with 10k+ images
+					//   Default is typically screen height, we increase for better prefetching
+					// - estimatedItemSize: NOT USED in v2 (removed in ground-up rewrite)
+					// - Performance relies on proper keyExtractor and memoization
+					drawDistance={1000}
 				/>
 			</View>
 		</GestureDetector>
