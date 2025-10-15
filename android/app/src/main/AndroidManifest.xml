@@ -60,5 +60,10 @@
         android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask"
         android:exported="false"
         android:foregroundServiceType="dataSync" />
+
+      <!-- HeadlessJS service for background media scanning -->
+      <service
+        android:name="com.visara.backgroundtask.BackgroundScanService"
+        android:exported="false" />
     </application>
 </manifest>
