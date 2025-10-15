@@ -1,5 +1,6 @@
 import { Spacing, Typography } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
+import { memo } from "react";
 import { StyleSheet, Text, View, type ViewStyle } from "react-native";
 
 interface DateSectionHeaderProps {
@@ -10,7 +11,11 @@ interface DateSectionHeaderProps {
 	testID?: string;
 }
 
-export function DateSectionHeader({
+/**
+ * DateSectionHeader - Rendered for each date section (~100-200 instances)
+ * Optimized with React.memo - static content doesn't need re-renders
+ */
+export const DateSectionHeader = memo(function DateSectionHeader({
 	label,
 	itemCount,
 	style,
@@ -53,7 +58,7 @@ export function DateSectionHeader({
 			)}
 		</View>
 	);
-}
+});
 
 const styles = StyleSheet.create({
 	container: {

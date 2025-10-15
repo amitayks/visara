@@ -230,7 +230,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 - [x] T112 Implement LRU cache for thumbnails in src/services/media/ThumbnailCache.ts with 50MB memory limit
 - [x] T113 Configure FlashList estimatedItemSize and overrideItemLayout in PhotoGrid for optimal rendering
 - [x] T114 Implement prefetching logic for adjacent photos in PhotoViewerModal
-- [ ] T115 Add React.memo, useMemo, useCallback optimizations to high-frequency render components
+- [x] T115 Add React.memo, useMemo, useCallback optimizations to high-frequency render components
 
 ## Phase 3.12: Error Handling & Resilience
 

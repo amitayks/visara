@@ -1,6 +1,6 @@
 import { BorderRadius } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
-import { useState } from "react";
+import { memo, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import FastImage from "react-native-fast-image";
 
@@ -13,7 +13,11 @@ interface ThumbnailProps {
 	testID?: string;
 }
 
-export function Thumbnail({
+/**
+ * Thumbnail - High-frequency component (10k+ instances in PhotoGrid)
+ * Optimized with React.memo to prevent unnecessary re-renders
+ */
+export const Thumbnail = memo(function Thumbnail({
 	uri,
 	size = 100,
 	aspectRatio = 1,
@@ -68,7 +72,7 @@ export function Thumbnail({
 			)}
 		</View>
 	);
-}
+});
 
 const styles = StyleSheet.create({
 	container: {

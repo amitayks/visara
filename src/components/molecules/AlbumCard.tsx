@@ -1,6 +1,7 @@
 import { Thumbnail } from "@components/atoms/Thumbnail";
 import { BorderRadius, Spacing, Typography } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
+import { memo } from "react";
 import {
 	Pressable,
 	StyleSheet,
@@ -19,7 +20,11 @@ interface AlbumCardProps {
 	testID?: string;
 }
 
-export function AlbumCard({
+/**
+ * AlbumCard - Rendered for each album (~10-20 instances)
+ * Optimized with React.memo to prevent re-renders when other albums change
+ */
+export const AlbumCard = memo(function AlbumCard({
 	coverImageUri,
 	name,
 	itemCount,
@@ -73,7 +78,7 @@ export function AlbumCard({
 			</View>
 		</Pressable>
 	);
-}
+});
 
 const styles = StyleSheet.create({
 	container: {
