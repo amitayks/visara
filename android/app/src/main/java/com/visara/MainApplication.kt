@@ -11,6 +11,7 @@ import com.facebook.react.defaults.DefaultReactHost.getDefaultReactHost
 import com.facebook.react.defaults.DefaultReactNativeHost
 import com.visara.mediaobserver.MediaObserverPackage
 import com.visara.backgroundtask.BackgroundTaskPackage
+import com.visara.MemoryPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -22,6 +23,7 @@ class MainApplication : Application(), ReactApplication {
               // add(MyReactNativePackage())
               add(MediaObserverPackage())
               add(BackgroundTaskPackage())
+              add(MemoryPackage())
             }
 
         override fun getJSMainModuleName(): String = "index"

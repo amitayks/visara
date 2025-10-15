@@ -24,6 +24,7 @@ import { ProcessingQueueRepository } from "@services/database/ProcessingQueueRep
 import { MediaDiscoveryService } from "@services/media/MediaDiscoveryService";
 import { ProcessingService } from "@services/ml/ProcessingService";
 import { SearchService } from "@services/search/SearchService";
+import { MemoryMonitor } from "@services/performance/MemoryMonitor";
 
 export interface OrchestratorConfig {
 	batchSize: number;
@@ -68,6 +69,34 @@ export class ProcessingOrchestrator {
 		this.config = { ...this.config, ...config };
 
 		try {
+			// Initialize memory monitor with 80% threshold
+			MemoryMonitor.initialize({
+				threshold: 0.8,
+				checkInterval: 2000,
+				enableLogging: true,
+			});
+
+			// Set up memory warning callback to pause processing
+			MemoryMonitor.onMemoryWarning(async (memoryInfo) => {
+				console.warn(
+					`Memory threshold exceeded: ${(memoryInfo.usagePercentage * 100).toFixed(1)}% - Pausing processing`,
+				);
+				this.pause();
+
+				// Trigger cleanup
+				await MemoryMonitor.triggerCleanup();
+
+				// Check memory again after cleanup
+				const newMemoryInfo = await MemoryMonitor.getMemoryInfo();
+				if (!newMemoryInfo.isAboveThreshold) {
+					console.log("Memory returned to safe levels - Resuming processing");
+					this.resume();
+				}
+			});
+
+			// Start monitoring
+			MemoryMonitor.startMonitoring();
+
 			// Start initial scan to discover all existing media
 			await this.performInitialScan();
 
@@ -288,6 +317,29 @@ export class ProcessingOrchestrator {
 		queueItem: ProcessingQueue,
 	): Promise<void> {
 		try {
+			// Check memory before processing
+			const isSafeToProcess = await MemoryMonitor.isSafeToProcess();
+			if (!isSafeToProcess) {
+				console.warn(
+					"Memory usage above threshold - Pausing until memory is released",
+				);
+				this.pause();
+
+				// Trigger cleanup and wait
+				await MemoryMonitor.triggerCleanup();
+				await new Promise((resolve) => setTimeout(resolve, 2000));
+
+				// Re-check memory
+				const retryCheck = await MemoryMonitor.isSafeToProcess();
+				if (!retryCheck) {
+					// Still not safe - bail out
+					throw new Error("Memory threshold exceeded - Cannot continue processing");
+				}
+
+				// Safe to continue
+				this.isPaused = false;
+			}
+
 			// Mark as processing
 			await ProcessingQueueRepository.markAsProcessing(queueItem);
 
@@ -447,6 +499,10 @@ export class ProcessingOrchestrator {
 
 		// Stop processing
 		this.stop();
+
+		// Stop memory monitoring
+		MemoryMonitor.stopMonitoring();
+		MemoryMonitor.clearCallbacks();
 
 		// Cleanup native observer
 		if (this.cleanupObserver) {
