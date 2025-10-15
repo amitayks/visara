@@ -219,7 +219,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 ## Phase 3.10: Platform Configuration
 
 - [x] T106 [P] Configure Android build.gradle with NDK filters, ProGuard rules, signing configs
-- [ ] T107 [P] Configure iOS Podfile with pod dependencies, post_install hooks for New Architecture
+- [x] T107 [P] Configure iOS Podfile with pod dependencies, post_install hooks for New Architecture
 - [ ] T108 [P] Create android/app/proguard-rules.pro with WatermelonDB and ML Kit keep rules
 - [ ] T109 [P] Configure Android WorkManager for background processing in android/app/src/main/java/com/visara/BackgroundTaskModule.java
 - [ ] T110 [P] Configure iOS Background Modes in ios/Visara/Info.plist (background fetch, background processing)

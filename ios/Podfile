@@ -38,5 +38,29 @@ target 'Visara' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # Additional optimizations for performance and New Architecture
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |config|
+        # Disable bitcode (deprecated in Xcode 14)
+        config.build_settings['ENABLE_BITCODE'] = 'NO'
+
+        # Set deployment target to iOS 15.5 minimum
+        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.5'
+
+        # Optimize for speed
+        config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-O'
+        config.build_settings['GCC_OPTIMIZATION_LEVEL'] = 's'
+
+        # Enable whole module optimization for Swift
+        config.build_settings['SWIFT_WHOLE_MODULE_OPTIMIZATION'] = 'YES'
+
+        # Dead code stripping
+        config.build_settings['DEAD_CODE_STRIPPING'] = 'YES'
+
+        # Exclude architectures for simulator (keep only x86_64 and arm64)
+        config.build_settings['EXCLUDED_ARCHS[sdk=iphonesimulator*]'] = 'i386'
+      end
+    end
   end
 end
