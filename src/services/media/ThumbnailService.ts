@@ -1,6 +1,7 @@
 import RNFS from "react-native-fs";
 import ImageResizer from "@bam.tech/react-native-image-resizer";
 import { storage } from "@services/storage/mmkv";
+import { ThumbnailCache } from "./ThumbnailCache";
 
 // Constants
 const MEMORY_CACHE_SIZE_MB = 50;
@@ -16,12 +17,6 @@ const THUMBNAIL_DIMENSIONS = {
 
 export type ThumbnailSize = keyof typeof THUMBNAIL_DIMENSIONS;
 
-interface CacheEntry {
-	uri: string;
-	size: number;
-	lastAccessed: number;
-}
-
 interface DiskCacheMetadata {
 	[key: string]: {
 		path: string;
@@ -32,15 +27,13 @@ interface DiskCacheMetadata {
 
 /**
  * ThumbnailService provides 3-tier caching for media thumbnails:
- * 1. Memory cache (50MB, LRU)
+ * 1. Memory cache (50MB, LRU) - Using ThumbnailCache
  * 2. Disk cache (500MB, persistent)
  * 3. On-demand generation (fallback)
  */
 export class ThumbnailService {
-	// Tier 1: Memory cache (LRU)
-	private static memoryCache = new Map<string, CacheEntry>();
-	private static memoryCacheSize = 0;
-	private static accessOrder: string[] = [];
+	// Tier 1: Memory cache (LRU) - Using dedicated ThumbnailCache class
+	private static memoryCache = new ThumbnailCache(MEMORY_CACHE_SIZE_BYTES);
 
 	// Tier 2: Disk cache directory
 	private static diskCacheDir = `${RNFS.CachesDirectoryPath}/thumbnails`;
@@ -123,15 +116,11 @@ export class ThumbnailService {
 	/**
 	 * Tier 1: Get from memory cache
 	 */
-	private static getFromMemoryCache(key: string): CacheEntry | null {
-		const entry = this.memoryCache.get(key);
-		if (!entry) return null;
+	private static getFromMemoryCache(key: string): { uri: string } | null {
+		const uri = this.memoryCache.get(key);
+		if (!uri) return null;
 
-		// Update last accessed time and access order
-		entry.lastAccessed = Date.now();
-		this.updateAccessOrder(key);
-
-		return entry;
+		return { uri };
 	}
 
 	/**
@@ -142,58 +131,7 @@ export class ThumbnailService {
 		uri: string,
 		size: number,
 	): void {
-		// If entry exists, update it
-		if (this.memoryCache.has(key)) {
-			const entry = this.memoryCache.get(key)!;
-			entry.lastAccessed = Date.now();
-			this.updateAccessOrder(key);
-			return;
-		}
-
-		// Evict entries if we exceed memory limit
-		while (
-			this.memoryCacheSize + size > MEMORY_CACHE_SIZE_BYTES &&
-			this.memoryCache.size > 0
-		) {
-			this.evictOldestMemoryEntry();
-		}
-
-		// Add new entry
-		const entry: CacheEntry = {
-			uri,
-			size,
-			lastAccessed: Date.now(),
-		};
-
-		this.memoryCache.set(key, entry);
-		this.accessOrder.push(key);
-		this.memoryCacheSize += size;
-	}
-
-	/**
-	 * Tier 1: Evict oldest entry from memory cache (LRU)
-	 */
-	private static evictOldestMemoryEntry(): void {
-		if (this.accessOrder.length === 0) return;
-
-		const oldestKey = this.accessOrder.shift()!;
-		const entry = this.memoryCache.get(oldestKey);
-
-		if (entry) {
-			this.memoryCacheSize -= entry.size;
-			this.memoryCache.delete(oldestKey);
-		}
-	}
-
-	/**
-	 * Tier 1: Update access order for LRU
-	 */
-	private static updateAccessOrder(key: string): void {
-		const index = this.accessOrder.indexOf(key);
-		if (index > -1) {
-			this.accessOrder.splice(index, 1);
-		}
-		this.accessOrder.push(key);
+		this.memoryCache.set(key, uri, size);
 	}
 
 	/**
@@ -483,8 +421,6 @@ export class ThumbnailService {
 		try {
 			// Clear memory cache
 			this.memoryCache.clear();
-			this.accessOrder = [];
-			this.memoryCacheSize = 0;
 
 			// Clear disk cache
 			const metadata = this.getDiskCacheMetadata();
@@ -522,11 +458,13 @@ export class ThumbnailService {
 			0,
 		);
 
+		const memoryCacheStats = this.memoryCache.getStats();
+
 		return {
 			memoryCache: {
-				count: this.memoryCache.size,
-				sizeBytes: this.memoryCacheSize,
-				sizeMB: this.memoryCacheSize / (1024 * 1024),
+				count: memoryCacheStats.count,
+				sizeBytes: memoryCacheStats.size,
+				sizeMB: memoryCacheStats.size / (1024 * 1024),
 			},
 			diskCache: {
 				count: Object.keys(metadata).length,
@@ -534,6 +472,19 @@ export class ThumbnailService {
 				sizeMB: diskCacheSize / (1024 * 1024),
 			},
 		};
+	}
+
+	/**
+	 * Get detailed memory cache statistics
+	 */
+	static getMemoryCacheStats(): {
+		stats: ReturnType<typeof ThumbnailCache.prototype.getStats>;
+		formatted: string;
+	} {
+		const stats = this.memoryCache.getStats();
+		const formatted = this.memoryCache.getFormattedStats();
+
+		return { stats, formatted };
 	}
 
 	/**

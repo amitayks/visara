@@ -226,8 +226,8 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 
 ## Phase 3.11: Performance Optimization
 
-- [ ] T111 Implement memory monitoring service in src/services/performance/MemoryMonitor.ts with throttling at 80% threshold
-- [ ] T112 Implement LRU cache for thumbnails in src/services/media/ThumbnailCache.ts with 50MB memory limit
+- [x] T111 Implement memory monitoring service in src/services/performance/MemoryMonitor.ts with throttling at 80% threshold
+- [x] T112 Implement LRU cache for thumbnails in src/services/media/ThumbnailCache.ts with 50MB memory limit
 - [ ] T113 Configure FlashList estimatedItemSize and overrideItemLayout in PhotoGrid for optimal rendering
 - [ ] T114 Implement prefetching logic for adjacent photos in PhotoViewerModal
 - [ ] T115 Add React.memo, useMemo, useCallback optimizations to high-frequency render components
