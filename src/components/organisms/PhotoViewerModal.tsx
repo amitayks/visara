@@ -1,7 +1,7 @@
 import type { MediaFile } from "@models/MediaFile";
 import { SpringConfigs } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	Modal,
 	Pressable,
@@ -52,6 +52,9 @@ export function PhotoViewerModal({
 	const savedTranslateX = useSharedValue(0);
 	const savedTranslateY = useSharedValue(0);
 
+	// Track prefetched images to prevent duplicate prefetching
+	const prefetchedIndices = useRef<Set<number>>(new Set());
+
 	// Update current index when media changes
 	useEffect(() => {
 		if (media) {
@@ -61,6 +64,72 @@ export function PhotoViewerModal({
 			}
 		}
 	}, [media, allMedia]);
+
+	/**
+	 * Prefetch adjacent photos for instant display
+	 * Per spec FR-021: "System MUST prefetch adjacent photo information
+	 * for instant display during swipe navigation"
+	 *
+	 * Prefetches:
+	 * - Previous photo (if exists)
+	 * - Next photo (if exists)
+	 * - Next 2 photos (if exists) for smoother scrolling
+	 */
+	const prefetchAdjacentPhotos = useCallback(
+		(index: number) => {
+			const indicesToPrefetch: number[] = [];
+
+			// Previous photo
+			if (index > 0 && !prefetchedIndices.current.has(index - 1)) {
+				indicesToPrefetch.push(index - 1);
+			}
+
+			// Next photo
+			if (
+				index < allMedia.length - 1 &&
+				!prefetchedIndices.current.has(index + 1)
+			) {
+				indicesToPrefetch.push(index + 1);
+			}
+
+			// Next 2 photos for smoother forward navigation
+			if (
+				index < allMedia.length - 2 &&
+				!prefetchedIndices.current.has(index + 2)
+			) {
+				indicesToPrefetch.push(index + 2);
+			}
+
+			// Prefetch images using FastImage
+			indicesToPrefetch.forEach((prefetchIndex) => {
+				const mediaToPreload = allMedia[prefetchIndex];
+				if (mediaToPreload?.uri) {
+					FastImage.preload([
+						{
+							uri: mediaToPreload.uri,
+							priority: FastImage.priority.high,
+						},
+					]);
+					prefetchedIndices.current.add(prefetchIndex);
+				}
+			});
+		},
+		[allMedia],
+	);
+
+	// Prefetch adjacent photos when current index changes
+	useEffect(() => {
+		if (visible && currentIndex >= 0) {
+			prefetchAdjacentPhotos(currentIndex);
+		}
+	}, [currentIndex, visible, prefetchAdjacentPhotos]);
+
+	// Clear prefetch cache when modal closes
+	useEffect(() => {
+		if (!visible) {
+			prefetchedIndices.current.clear();
+		}
+	}, [visible]);
 
 	const resetTransform = useCallback(() => {
 		scale.value = withSpring(1, SpringConfigs.gentle);
