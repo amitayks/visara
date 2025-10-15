@@ -20,11 +20,10 @@ import DeviceInfo from "react-native-device-info";
  *
  * Navigation flow:
  * - Main page ← swipe → Albums page
- * - Main page + swipe right (from left edge) → Search mode (integrated in MainScreen)
- * - Albums page + swipe left (from right edge) → Settings drawer
+ * - Search button → Activates search mode (integrated in MainScreen)
+ * - Settings button → Opens settings drawer
  * - Document button → Toggles filter on Main, navigates to Main from Albums
  * - Albums button → Jump to Albums page
- * - Search mode now integrated into MainScreen as a filter
  */
 export function MainNavigator() {
 	const {
@@ -40,16 +39,6 @@ export function MainNavigator() {
 
 	// Get app version for settings
 	const appVersion = DeviceInfo.getVersion();
-
-	// Handle swipe right from Main page → Activate search mode
-	const handleMainPageSwipeRight = useCallback(() => {
-		navDispatch({ type: "ACTIVATE_SEARCH_MODE" });
-	}, [navDispatch]);
-
-	// Handle swipe left from Albums page → Open settings drawer
-	const handleAlbumsPageSwipeLeft = useCallback(() => {
-		navDispatch({ type: "OPEN_SETTINGS_DRAWER" });
-	}, [navDispatch]);
 
 	// Handle search query change
 	const handleSearchQueryChange = useCallback(
@@ -160,8 +149,6 @@ export function MainNavigator() {
 			<HorizontalPageContainer
 				mainPage={<MainScreen />}
 				albumsPage={<AlbumsScreen />}
-				onMainPageSwipeRight={handleMainPageSwipeRight}
-				onAlbumsPageSwipeLeft={handleAlbumsPageSwipeLeft}
 				style={styles.pageContainer}
 			/>
 

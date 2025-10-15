@@ -216,7 +216,7 @@ export function AnimatedBottomNav({
 							}
 						/>
 					}
-					style={styles.button}
+					// style={{ backgroundColor: "#8f8f8f" }}
 					testID={`${testID}-documents`}
 				/>
 

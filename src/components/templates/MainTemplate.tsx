@@ -72,7 +72,10 @@ export function MainTemplate({
 			<View
 				style={[
 					styles.header,
-					{ backgroundColor: colors.surface, borderBottomColor: colors.border },
+					{
+						backgroundColor: colors.background,
+						// borderBottomColor: colors.border,
+					},
 				]}
 			>
 				<View style={styles.headerLeft}>

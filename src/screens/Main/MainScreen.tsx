@@ -19,6 +19,7 @@ import {
 } from "@utils/photoActions";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, BackHandler, StyleSheet } from "react-native";
+import { useTheme } from "@theme/useTheme";
 
 export function MainScreen() {
 	const { state: galleryState, dispatch: galleryDispatch } = useGallery();
@@ -30,6 +31,7 @@ export function MainScreen() {
 		// toggleDocuments,
 		// toggleSettings,
 	} = useNavigation();
+	const { isDark } = useTheme();
 
 	// Local state for modals/drawers
 	const [viewerVisible, setViewerVisible] = useState(false);
@@ -78,7 +80,9 @@ export function MainScreen() {
 
 			try {
 				// Perform search using SearchService
-				const searchResults = await SearchService.search(searchState.searchQuery);
+				const searchResults = await SearchService.search(
+					searchState.searchQuery,
+				);
 
 				// Get full MediaFile objects for the results
 				const mediaFiles = await Promise.all(
@@ -218,12 +222,15 @@ export function MainScreen() {
 	}, []);
 
 	// Handle info drawer actions
-	const handleLabelPress = useCallback((label: string) => {
-		// Set search query and activate search mode
-		searchDispatch({ type: "SET_SEARCH_QUERY", payload: label });
-		setInfoDrawerVisible(false);
-		// Search will trigger automatically via useEffect
-	}, [searchDispatch]);
+	const handleLabelPress = useCallback(
+		(label: string) => {
+			// Set search query and activate search mode
+			searchDispatch({ type: "SET_SEARCH_QUERY", payload: label });
+			setInfoDrawerVisible(false);
+			// Search will trigger automatically via useEffect
+		},
+		[searchDispatch],
+	);
 
 	const handleDelete = useCallback(async () => {
 		if (!selectedMedia) return;
@@ -371,6 +378,11 @@ export function MainScreen() {
 				// onAlbumsPress={handleAlbumsPress}
 				// onSettingsPress={handleSettingsPress}
 				style={styles.container}
+				// logoSource={
+				// 	isDark
+				// 		? require("src/assets/visara-white-noBackground.png")
+				// 		: require("src/assets/visara-black-noBackground.png")
+				// }
 			/>
 
 			{/* Photo Viewer Modal */}
