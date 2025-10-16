@@ -25,6 +25,10 @@ import { MediaDiscoveryService } from "@services/media/MediaDiscoveryService";
 import { ProcessingService } from "@services/ml/ProcessingService";
 import { SearchService } from "@services/search/SearchService";
 import { MemoryMonitor } from "@services/performance/MemoryMonitor";
+import {
+	getStorageWarningMessage,
+	shouldAllowProcessing as shouldAllowProcessingStorage,
+} from "@utils/device/storage";
 
 export interface OrchestratorConfig {
 	batchSize: number;
@@ -274,6 +278,21 @@ export class ProcessingOrchestrator {
 			return;
 		}
 
+		// Check storage before starting processing
+		const storageCheck = await shouldAllowProcessingStorage();
+		if (!storageCheck.allowed) {
+			console.warn(
+				`Cannot start processing: ${storageCheck.reason}`,
+			);
+			const warningMessage = await getStorageWarningMessage();
+			if (warningMessage) {
+				this.config.onError?.(new Error(warningMessage));
+			}
+			// Pause processing until storage is available
+			this.pause();
+			return;
+		}
+
 		this.isProcessing = true;
 		this.processingAbortController = new AbortController();
 
@@ -317,6 +336,25 @@ export class ProcessingOrchestrator {
 		queueItem: ProcessingQueue,
 	): Promise<void> {
 		try {
+			// Check storage before processing
+			const storageCheck = await shouldAllowProcessingStorage();
+			if (!storageCheck.allowed) {
+				console.warn(
+					`Storage check failed: ${storageCheck.reason} - Pausing processing`,
+				);
+				this.pause();
+
+				// Notify via config callback
+				const warningMessage = await getStorageWarningMessage();
+				if (warningMessage) {
+					this.config.onError?.(new Error(warningMessage));
+				}
+
+				throw new Error(
+					storageCheck.reason || "Insufficient storage - Cannot continue processing",
+				);
+			}
+
 			// Check memory before processing
 			const isSafeToProcess = await MemoryMonitor.isSafeToProcess();
 			if (!isSafeToProcess) {

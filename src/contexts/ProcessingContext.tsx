@@ -30,6 +30,7 @@ export interface ProcessingState {
 	failedFiles: FailedFile[];
 	isProcessing: boolean;
 	lastCheckpoint?: number; // timestamp
+	pauseReason?: string; // Reason for pause (e.g., "Low storage", "Memory threshold")
 }
 
 // Processing actions
@@ -39,6 +40,7 @@ export type ProcessingAction =
 	| { type: "REMOVE_FROM_QUEUE"; payload: string }
 	| { type: "UPDATE_PROGRESS"; payload: ProcessingProgress }
 	| { type: "SET_PAUSED"; payload: boolean }
+	| { type: "PAUSE_WITH_REASON"; payload: string }
 	| { type: "ADD_FAILED_FILE"; payload: FailedFile }
 	| { type: "CLEAR_FAILED_FILES" }
 	| { type: "START_PROCESSING" }
@@ -106,6 +108,14 @@ function processingReducer(
 			return {
 				...state,
 				isPaused: action.payload,
+				pauseReason: action.payload ? state.pauseReason : undefined,
+			};
+
+		case "PAUSE_WITH_REASON":
+			return {
+				...state,
+				isPaused: true,
+				pauseReason: action.payload,
 			};
 
 		case "ADD_FAILED_FILE":
@@ -145,6 +155,7 @@ function processingReducer(
 				...state,
 				isProcessing: true,
 				isPaused: false,
+				pauseReason: undefined,
 			};
 
 		default:
