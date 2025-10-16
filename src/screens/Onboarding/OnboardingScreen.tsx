@@ -8,7 +8,13 @@ import { Icon } from "@components/atoms/Icon";
 import { Spacing, Typography } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
 import { useSettings } from "@contexts/SettingsContext";
-import { MediaDiscoveryService } from "@services/media/MediaDiscoveryService";
+import { useToast } from "@contexts/ToastContext";
+import {
+	requestPermission,
+	PermissionType,
+	PermissionStatus,
+	openSettings,
+} from "@utils/permissions";
 
 // Screen 1: Welcome
 function WelcomeContent({
@@ -302,7 +308,7 @@ function PermissionsContent({
 					/>
 					<View style={styles.permissionContent}>
 						<Text style={[styles.permissionTitle, { color: colors.text }]}>
-							Photo Library Access
+							Storage Access (Required)
 						</Text>
 						<Text
 							style={[
@@ -310,24 +316,7 @@ function PermissionsContent({
 								{ color: colors.textSecondary },
 							]}
 						>
-							Required to discover and organize all your photos
-						</Text>
-					</View>
-				</View>
-
-				<View style={styles.permissionItem}>
-					<Icon name="camera" size="medium" color={colors.buttonPrimary} />
-					<View style={styles.permissionContent}>
-						<Text style={[styles.permissionTitle, { color: colors.text }]}>
-							Camera Access
-						</Text>
-						<Text
-							style={[
-								styles.permissionDescription,
-								{ color: colors.textSecondary },
-							]}
-						>
-							Allows you to capture new photos directly in the app
+							Full access to read and write your photos, videos, and documents
 						</Text>
 					</View>
 				</View>
@@ -340,7 +329,7 @@ function PermissionsContent({
 					/>
 					<View style={styles.permissionContent}>
 						<Text style={[styles.permissionTitle, { color: colors.text }]}>
-							Notifications
+							Notifications (Required)
 						</Text>
 						<Text
 							style={[
@@ -348,7 +337,24 @@ function PermissionsContent({
 								{ color: colors.textSecondary },
 							]}
 						>
-							Shows progress updates for background processing
+							Shows progress updates for background AI processing
+						</Text>
+					</View>
+				</View>
+
+				<View style={styles.permissionItem}>
+					<Icon name="camera" size="medium" color={colors.buttonPrimary} />
+					<View style={styles.permissionContent}>
+						<Text style={[styles.permissionTitle, { color: colors.text }]}>
+							Camera Access (Optional)
+						</Text>
+						<Text
+							style={[
+								styles.permissionDescription,
+								{ color: colors.textSecondary },
+							]}
+						>
+							Allows you to capture new photos directly in the app
 						</Text>
 					</View>
 				</View>
@@ -360,26 +366,90 @@ function PermissionsContent({
 export function OnboardingScreen() {
 	const { colors } = useTheme();
 	const { dispatch } = useSettings();
+	const { showError, showWarning, showInfo } = useToast();
 
 	const handleComplete = async () => {
-		// Request permissions before completing onboarding
+		// Request REQUIRED permissions: Storage Read/Write + Notifications
 		try {
-			// const permissionsGranted =
-			// 	await MediaDiscoveryService.requestPermissions();
+			// 1. Request Storage Read permission (REQUIRED)
+			const storageReadResult = await requestPermission(
+				PermissionType.STORAGE_READ,
+			);
 
-			if (true) {
-				// if (permissionsGranted) {
-				// Permissions granted, complete onboarding
-				dispatch({ type: "SET_ONBOARDING_COMPLETED", payload: true });
-			} else {
-				// Permissions denied - still complete onboarding but show graceful degradation
-				// TODO: Show alert explaining limited functionality
-				dispatch({ type: "SET_ONBOARDING_COMPLETED", payload: true });
+			// Handle BLOCKED (user selected "Never ask again")
+			if (storageReadResult.status === PermissionStatus.BLOCKED) {
+				showError(
+					"Storage permission is permanently blocked. Please enable it in Settings.",
+					{
+						action: { text: "Open Settings", onPress: openSettings },
+					},
+				);
+				return; // Cannot continue without storage access
 			}
+
+			// Handle DENIED (user denied but can ask again)
+			if (storageReadResult.status !== PermissionStatus.GRANTED) {
+				showError("Storage access is required. Please grant permission.");
+				return; // Cannot continue without storage access
+			}
+
+			// 2. Request Storage Write permission (REQUIRED)
+			const storageWriteResult = await requestPermission(
+				PermissionType.STORAGE_WRITE,
+			);
+
+			if (storageWriteResult.status === PermissionStatus.BLOCKED) {
+				showError(
+					"Storage permission is permanently blocked. Please enable it in Settings to use Visara.",
+					{
+						action: { text: "Open Settings", onPress: openSettings },
+					},
+				);
+				return; // Cannot continue without storage access
+			}
+
+			if (storageWriteResult.status !== PermissionStatus.GRANTED) {
+				showError("Storage access is required. Please grant permission.");
+				return; // Cannot continue without storage access
+			}
+
+			// 3. Request Notifications permission (soft-required - warn but continue)
+			const notificationsResult = await requestPermission(
+				PermissionType.NOTIFICATIONS,
+			);
+
+			if (notificationsResult.status === PermissionStatus.BLOCKED) {
+				showWarning(
+					"Notifications are permanently blocked. You won't see processing progress updates.",
+					{
+						action: { text: "Open Settings", onPress: openSettings },
+					},
+				);
+			} else if (notificationsResult.status === PermissionStatus.DENIED) {
+				showInfo(
+					"You won't receive notifications about processing progress, but Visara will work normally.",
+				);
+			}
+
+			// 4. Request Camera permission (OPTIONAL - just inform if not granted)
+			const cameraResult = await requestPermission(
+				PermissionType.CAMERA,
+				false,
+			);
+
+			if (cameraResult.status === PermissionStatus.BLOCKED) {
+				showInfo(
+					"Camera is blocked. You can grant it later in Settings if you want to capture photos in-app.",
+				);
+			} else if (cameraResult.status === PermissionStatus.DENIED) {
+				// Silent - camera is optional, don't spam user
+			}
+
+			// All required permissions granted, complete onboarding
+			dispatch({ type: "SET_ONBOARDING_COMPLETED", payload: true });
 		} catch (error) {
 			console.error("Permission request failed:", error);
-			// Still complete onboarding even if permission request fails
-			dispatch({ type: "SET_ONBOARDING_COMPLETED", payload: true });
+			showError("Failed to request permissions. Please try again.");
 		}
 	};
 

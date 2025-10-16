@@ -3,6 +3,10 @@ import { ImageLabelingService } from "./ImageLabelingService";
 import { TextRecognitionService } from "./TextRecognitionService";
 import type { ImageLabelingResult } from "./ImageLabelingService";
 import type { TextRecognitionResult } from "./TextRecognitionService";
+import {
+	ProcessingErrorHandler,
+	type ProcessingError,
+} from "@services/error/ProcessingErrorHandler";
 
 export interface ProcessingResult {
 	imageLabeling: ImageLabelingResult;
@@ -10,6 +14,7 @@ export interface ProcessingResult {
 	totalProcessingTime: number;
 	success: boolean;
 	error?: string;
+	processingError?: ProcessingError;
 }
 
 export interface QueueItem {
@@ -22,7 +27,8 @@ export interface QueueItem {
 export class ProcessingService {
 	private static queue: QueueItem[] = [];
 	private static isProcessing = false;
-	private static maxRetries = 1;
+	// NO RETRY LOGIC - Constitutional requirement: failed files get badge, no automatic retry
+	private static maxRetries = 0;
 
 	static async processMedia(imageUri: string): Promise<ProcessingResult> {
 		const startTime = Date.now();
@@ -52,6 +58,12 @@ export class ProcessingService {
 
 			const totalProcessingTime = Date.now() - startTime;
 
+			// Use ProcessingErrorHandler to map error and log failed file
+			const processingError = ProcessingErrorHandler.handleError(
+				error instanceof Error ? error : new Error(String(error)),
+				imageUri,
+			);
+
 			return {
 				imageLabeling: imageLabelingResult || {
 					labels: [],
@@ -64,8 +76,8 @@ export class ProcessingService {
 				},
 				totalProcessingTime,
 				success: false,
-				error:
-					error instanceof Error ? error.message : "Unknown processing error",
+				error: processingError.userMessage,
+				processingError,
 			};
 		}
 	}
@@ -102,24 +114,17 @@ export class ProcessingService {
 			try {
 				const result = await this.processMedia(item.imageUri);
 
-				if (!result.success && item.retryCount < this.maxRetries) {
-					// Re-add to queue with incremented retry count
-					this.addToQueue({
-						...item,
-						retryCount: item.retryCount + 1,
-						priority: item.priority - 1, // Lower priority for retries
-					});
+				// NO RETRY - Constitutional requirement
+				// Failed files are logged in ProcessingErrorHandler and marked with badge
+				if (!result.success) {
+					console.warn(
+						`File processing failed (no retry): ${item.imageUri}`,
+						result.error,
+					);
 				}
 			} catch (error) {
 				console.error(`Failed to process queue item ${item.id}:`, error);
-
-				if (item.retryCount < this.maxRetries) {
-					this.addToQueue({
-						...item,
-						retryCount: item.retryCount + 1,
-						priority: item.priority - 1,
-					});
-				}
+				// NO RETRY - file will be marked as failed
 			}
 		}
 
@@ -138,7 +143,14 @@ export class ProcessingService {
 		return this.isProcessing;
 	}
 
-	static setMaxRetries(maxRetries: number): void {
-		this.maxRetries = maxRetries;
+	/**
+	 * @deprecated No retry logic per constitutional requirement
+	 * This method is kept for backward compatibility but has no effect
+	 */
+	static setMaxRetries(_maxRetries: number): void {
+		console.warn(
+			"ProcessingService.setMaxRetries is deprecated: No retry logic per constitutional requirement",
+		);
+		// maxRetries is always 0 - no retries allowed
 	}
 }

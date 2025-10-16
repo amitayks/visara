@@ -234,15 +234,15 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 
 ## Phase 3.12: Error Handling & Resilience
 
-- [ ] T116 [P] Create ErrorBoundary component in src/components/ErrorBoundary.tsx with fallback UI and retry logic
-- [ ] T117 [P] Create GalleryErrorBoundary in src/screens/Gallery/GalleryErrorBoundary.tsx with skeleton screen fallback
-- [ ] T118 [P] Create ProcessingErrorHandler in src/services/error/ProcessingErrorHandler.ts logging failed files without retry
-- [ ] T119 Implement graceful degradation for denied permissions in src/utils/permissions.ts with user-facing messages
+- [x] T116 [P] Create ErrorBoundary component in src/components/ErrorBoundary.tsx with fallback UI and retry logic
+- [x] T117 [P] Create GalleryErrorBoundary in src/screens/main/GalleryErrorBoundary.tsx with skeleton screen fallback
+- [x] T118 [P] Create ProcessingErrorHandler in src/services/error/ProcessingErrorHandler.ts logging failed files without retry
+- [x] T119 Implement graceful degradation for denied permissions in src/utils/permissions.ts with user-facing messages
 - [ ] T120 Implement storage check before processing in ProcessingOrchestrator with pause on low storage
 
 ## Phase 3.13: Animations & Transitions
 
-- [ ] T121 [P] Create spring animation config in src/utils/animations/springConfig.ts for modal open/close
+- [ ] T121 [P] Create spring animation config in src/utils/animations/springConfig.ts for modal open/close [found in src\theme\colors.ts as SpringConfigs]
 - [ ] T122 [P] Implement shared element transitions for thumbnail → full image in PhotoViewerModal using Reanimated
 - [ ] T123 [P] Implement grid zoom transition animation in PhotoGrid with layout animation
 - [ ] T124 [P] Implement drawer slide-in animations for InfoDrawer and SettingsDrawer
@@ -250,7 +250,7 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 
 ## Phase 3.14: Polish & Final Integration
 
-- [ ] T126 [P] Create loading skeleton screens in src/components/skeletons/ for Gallery, Albums, Settings
+- [ ] T126 [P] Create loading skeleton screens in src/components/skeletons/ for main, Albums, Settings
 - [ ] T127 [P] Implement empty states for: no photos, no search results, no albums in src/components/empty-states/
 - [ ] T128 [P] Create confirmation dialogs for Delete All Data and permanent deletion in src/components/dialogs/
 - [ ] T129 Add comprehensive TypeScript types in src/types/index.ts ensuring no `any` types

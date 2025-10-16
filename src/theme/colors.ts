@@ -40,6 +40,14 @@ export const Colors = {
 		info: "#0066FF",
 		processing: "#007AFF",
 
+		// Toast notification colors
+		toastError: "#B00020",
+		toastSuccess: "#4CAF50",
+		toastWarning: "#FF9800",
+		toastInfo: "#2196F3",
+		toastText: "#FFFFFF",
+		toastActionBackground: "rgba(255, 255, 255, 0.2)",
+
 		// Badge colors
 		badgePending: "#FF9500",
 		badgeProcessing: "#0066FF",
@@ -101,6 +109,14 @@ export const Colors = {
 		warning: "#FF9F0A",
 		info: "#0A84FF",
 		processing: "#0A84FF",
+
+		// Toast notification colors
+		toastError: "#CF6679",
+		toastSuccess: "#81C784",
+		toastWarning: "#FFB74D",
+		toastInfo: "#64B5F6",
+		toastText: "#FFFFFF",
+		toastActionBackground: "rgba(255, 255, 255, 0.2)",
 
 		// Badge colors
 		badgePending: "#FF9F0A",
