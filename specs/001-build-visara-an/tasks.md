@@ -238,11 +238,11 @@ Mobile project structure: `src/` at repository root, `android/` and `ios/` for n
 - [x] T117 [P] Create GalleryErrorBoundary in src/screens/main/GalleryErrorBoundary.tsx with skeleton screen fallback
 - [x] T118 [P] Create ProcessingErrorHandler in src/services/error/ProcessingErrorHandler.ts logging failed files without retry
 - [x] T119 Implement graceful degradation for denied permissions in src/utils/permissions.ts with user-facing messages
-- [ ] T120 Implement storage check before processing in ProcessingOrchestrator with pause on low storage
+- [x] T120 Implement storage check before processing in ProcessingOrchestrator with pause on low storage
 
 ## Phase 3.13: Animations & Transitions
 
-- [ ] T121 [P] Create spring animation config in src/utils/animations/springConfig.ts for modal open/close [found in src\theme\colors.ts as SpringConfigs]
+- [x] T121 [P] Create spring animation config in src/utils/animations/springConfig.ts for modal open/close [found in src\theme\colors.ts as SpringConfigs]
 - [ ] T122 [P] Implement shared element transitions for thumbnail → full image in PhotoViewerModal using Reanimated
 - [ ] T123 [P] Implement grid zoom transition animation in PhotoGrid with layout animation
 - [ ] T124 [P] Implement drawer slide-in animations for InfoDrawer and SettingsDrawer

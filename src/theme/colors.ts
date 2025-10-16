@@ -241,20 +241,8 @@ export const AnimationTimings = {
 };
 
 // Spring configs (for Reanimated)
-export const SpringConfigs = {
-	gentle: {
-		damping: 30,
-		stiffness: 200,
-	},
-	snappy: {
-		damping: 15,
-		stiffness: 300,
-	},
-	bouncy: {
-		damping: 10,
-		stiffness: 400,
-	},
-};
+// Re-exported from utils/animations/springConfig.ts for backward compatibility
+export { SpringConfigs } from "@utils/animations/springConfig";
 
 export type ColorScheme = typeof Colors.light;
 export type ThemeMode = "light" | "dark" | "system";
