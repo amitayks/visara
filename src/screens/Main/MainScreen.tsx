@@ -210,16 +210,16 @@ export function MainScreen() {
 	// 	toggleSettings();
 	// }, [toggleSettings]);
 
-	// Handle upload actions
-	const handleSelectFromStorage = useCallback(() => {
-		// TODO: Implement file picker
-		console.log("Select from storage");
-	}, []);
-
-	const handleCaptureFromCamera = useCallback(() => {
-		// TODO: Implement camera capture
-		console.log("Capture from camera");
-	}, []);
+	// Handle upload actions - files selected from gallery or camera
+	const handleFilesSelected = useCallback(
+		(files: Array<{ uri: string; type: string }>) => {
+			console.log("[MainScreen] Files selected:", files);
+			// TODO: Process the selected files
+			// This will be integrated with the processing service later
+			setUploadDrawerVisible(false);
+		},
+		[],
+	);
 
 	// Handle info drawer actions
 	const handleLabelPress = useCallback(
@@ -412,8 +412,7 @@ export function MainScreen() {
 			<UploadDrawer
 				visible={uploadDrawerVisible}
 				onClose={handleUploadDrawerClose}
-				onSelectFromStorage={handleSelectFromStorage}
-				onCaptureFromCamera={handleCaptureFromCamera}
+				onFilesSelected={handleFilesSelected}
 			/>
 		</>
 	);

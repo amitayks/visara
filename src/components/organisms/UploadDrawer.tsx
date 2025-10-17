@@ -1,18 +1,27 @@
-import { Button } from "@components/atoms/Button";
 import { Icon } from "@components/atoms/Icon";
 import { ProgressBar } from "@components/atoms/ProgressBar";
 import { Thumbnail } from "@components/atoms/Thumbnail";
 import { BorderRadius, Spacing, Typography } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
-import { useCallback, useEffect } from "react";
+import {
+	PermissionStatus,
+	PermissionType,
+	requestPermission,
+	showPermissionDeniedAlert,
+} from "@utils/permissions";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
 	ActivityIndicator,
+	Alert,
 	Dimensions,
+	Platform,
 	StyleSheet,
 	Text,
+	TouchableOpacity,
 	View,
 	type ViewStyle,
 } from "react-native";
+import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
 	runOnJS,
@@ -20,6 +29,7 @@ import Animated, {
 	useSharedValue,
 	withSpring,
 } from "react-native-reanimated";
+import { Camera, useCameraDevice } from "react-native-vision-camera";
 
 interface ProcessingFile {
 	uri: string;
@@ -30,8 +40,7 @@ interface ProcessingFile {
 interface UploadDrawerProps {
 	visible: boolean;
 	onClose: () => void;
-	onSelectFromStorage: () => void;
-	onCaptureFromCamera: () => void;
+	onFilesSelected?: (files: Array<{ uri: string; type: string }>) => void;
 	// Processing overlay state
 	isProcessing?: boolean;
 	processingFile?: ProcessingFile | null;
@@ -42,21 +51,42 @@ interface UploadDrawerProps {
 export function UploadDrawer({
 	visible,
 	onClose,
-	onSelectFromStorage,
-	onCaptureFromCamera,
+	onFilesSelected,
 	isProcessing = false,
 	processingFile = null,
 	testID,
 }: UploadDrawerProps) {
 	const { colors, shadows } = useTheme();
 	const screenHeight = Dimensions.get("window").height;
+	const [showCamera, setShowCamera] = useState(false);
+	const [contentHeight, setContentHeight] = useState(0);
+	const device = useCameraDevice("back");
+	const cameraRef = useRef<Camera>(null);
+
+	// Calculate drawer height: content + handle + extra padding for safety
+	const HANDLE_HEIGHT = 40; // Handle container height
+	const EXTRA_PADDING = 260; // Extra padding for visual comfort
+	const drawerHeight =
+		contentHeight > 0
+			? contentHeight - HANDLE_HEIGHT - EXTRA_PADDING
+			: screenHeight * 0.3;
 
 	const snapPoints = {
 		closed: screenHeight,
-		peek: screenHeight * 0.55, // 55% visible
+		peek: screenHeight - drawerHeight,
 	};
 
 	const translateY = useSharedValue(snapPoints.closed);
+
+	// Update translateY when contentHeight changes
+	useEffect(() => {
+		if (visible && contentHeight > 0) {
+			translateY.value = withSpring(snapPoints.peek, {
+				damping: 20,
+				stiffness: 300,
+			});
+		}
+	}, [contentHeight, visible, translateY, snapPoints.peek]);
 
 	useEffect(() => {
 		if (visible) {
@@ -69,6 +99,7 @@ export function UploadDrawer({
 				damping: 20,
 				stiffness: 300,
 			});
+			setShowCamera(false);
 		}
 	}, [visible, translateY, snapPoints.peek, snapPoints.closed]);
 
@@ -82,15 +113,85 @@ export function UploadDrawer({
 		}, 300);
 	}, [onClose, translateY, snapPoints.closed]);
 
-	const handleSelectFromStorage = useCallback(() => {
-		onSelectFromStorage();
-		// Keep drawer open to show processing overlay
-	}, [onSelectFromStorage]);
+	const handleSelectFromStorage = useCallback(async () => {
+		try {
+			// Request photo library permission
+			const photoLibraryPermission = await requestPermission(
+				PermissionType.PHOTO_LIBRARY,
+			);
 
-	const handleCaptureFromCamera = useCallback(() => {
-		onCaptureFromCamera();
-		// Keep drawer open to show processing overlay
-	}, [onCaptureFromCamera]);
+			if (photoLibraryPermission.status !== PermissionStatus.GRANTED) {
+				showPermissionDeniedAlert(PermissionType.PHOTO_LIBRARY);
+				return;
+			}
+
+			// Get photos from camera roll
+			const result = await CameraRoll.getPhotos({
+				first: 1,
+				assetType: "All", // Get both photos and videos
+			});
+
+			if (result.edges.length > 0 && onFilesSelected) {
+				const files = result.edges.map((edge) => ({
+					uri: edge.node.image.uri,
+					type: edge.node.type,
+				}));
+				onFilesSelected(files);
+			}
+		} catch (error) {
+			console.error("[UploadDrawer] Gallery selection error:", error);
+			Alert.alert("Error", "Failed to access gallery. Please try again.", [
+				{ text: "OK" },
+			]);
+		}
+	}, [onFilesSelected]);
+
+	const handleCaptureFromCamera = useCallback(async () => {
+		try {
+			// Request camera permission
+			const cameraPermission = await requestPermission(PermissionType.CAMERA);
+
+			if (cameraPermission.status !== PermissionStatus.GRANTED) {
+				showPermissionDeniedAlert(PermissionType.CAMERA);
+				return;
+			}
+
+			// Show camera view
+			setShowCamera(true);
+		} catch (error) {
+			console.error("[UploadDrawer] Camera launch error:", error);
+			Alert.alert("Error", "Failed to access camera. Please try again.", [
+				{ text: "OK" },
+			]);
+		}
+	}, []);
+
+	const handleTakePhoto = useCallback(async () => {
+		if (!cameraRef.current) return;
+
+		try {
+			const photo = await cameraRef.current.takePhoto({
+				flash: "auto",
+			});
+
+			if (onFilesSelected && photo.path) {
+				onFilesSelected([
+					{
+						uri:
+							Platform.OS === "android" ? `file://${photo.path}` : photo.path,
+						type: "image",
+					},
+				]);
+			}
+
+			setShowCamera(false);
+		} catch (error) {
+			console.error("[UploadDrawer] Photo capture error:", error);
+			Alert.alert("Error", "Failed to capture photo. Please try again.", [
+				{ text: "OK" },
+			]);
+		}
+	}, [onFilesSelected]);
 
 	// Pan gesture for dragging down to close
 	const pan = Gesture.Pan()
@@ -188,31 +289,82 @@ export function UploadDrawer({
 					</View>
 				) : (
 					// Upload Options
-					<View style={styles.optionsContainer}>
-						<Text style={[styles.title, { color: colors.text }]}>
-							Add Photos
-						</Text>
+					<View
+						style={styles.optionsContainer}
+						onLayout={(event) => {
+							const { height } = event.nativeEvent.layout;
+							setContentHeight(height);
+						}}
+					>
+						<View style={styles.header}>
+							<Text style={[styles.title, { color: colors.text }]}>
+								Upload Document
+							</Text>
+						</View>
 
-						<View style={styles.buttonContainer}>
-							<Button
-								variant="primary"
-								size="large"
-								onPress={handleSelectFromStorage}
-								icon={<Icon name="folder-image" size="medium" />}
-								style={styles.optionButton}
-							>
-								Select from Storage
-							</Button>
+						<View style={styles.content}>
+							<Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+								Choose or upload a document to scan
+							</Text>
 
-							<Button
-								variant="secondary"
-								size="large"
-								onPress={handleCaptureFromCamera}
-								icon={<Icon name="camera" size="medium" />}
-								style={styles.optionButton}
+							<View style={styles.optionsGrid}>
+								<TouchableOpacity
+									style={[
+										styles.optionCard,
+										{ backgroundColor: colors.surfaceSecondary },
+									]}
+									onPress={handleSelectFromStorage}
+									activeOpacity={0.7}
+								>
+									<View style={styles.optionIconContainer}>
+										<Icon
+											name="image-multiple"
+											size="large"
+											color={colors.accent}
+										/>
+									</View>
+									<Text style={[styles.optionTitle, { color: colors.text }]}>
+										Gallery
+									</Text>
+								</TouchableOpacity>
+
+								<TouchableOpacity
+									style={[
+										styles.optionCard,
+										{ backgroundColor: colors.surfaceSecondary },
+									]}
+									onPress={handleCaptureFromCamera}
+									activeOpacity={0.7}
+								>
+									<View style={styles.optionIconContainer}>
+										<Icon
+											name="camera-outline"
+											size="large"
+											color={colors.accent}
+										/>
+									</View>
+									<Text style={[styles.optionTitle, { color: colors.text }]}>
+										Camera
+									</Text>
+								</TouchableOpacity>
+							</View>
+
+							<View
+								style={[
+									styles.tipContainer,
+									{ backgroundColor: colors.surfaceSecondary },
+								]}
 							>
-								Capture from Camera
-							</Button>
+								<Icon
+									name="information-outline"
+									size="medium"
+									color={colors.textTertiary}
+								/>
+								<Text style={[styles.tipText, { color: colors.textSecondary }]}>
+									For best results, ensure the document is well-lit and clearly
+									visible
+								</Text>
+							</View>
 						</View>
 					</View>
 				)}
@@ -224,10 +376,9 @@ export function UploadDrawer({
 const styles = StyleSheet.create({
 	container: {
 		position: "absolute",
-		top: 0,
 		left: 0,
 		right: 0,
-		bottom: 0,
+		height: "100%",
 		borderTopLeftRadius: BorderRadius.xl,
 		borderTopRightRadius: BorderRadius.xl,
 		borderTopWidth: 1,
@@ -243,20 +394,61 @@ const styles = StyleSheet.create({
 	},
 	optionsContainer: {
 		flex: 1,
-		paddingHorizontal: Spacing.md,
-		paddingTop: Spacing.md,
-		paddingBottom: Spacing.xl,
+		paddingHorizontal: Spacing.lg,
+		paddingBottom: Spacing.lg,
+	},
+	header: {
+		alignItems: "center",
+		paddingBottom: Spacing.md,
+		borderBottomWidth: 1,
+		borderBottomColor: "rgba(0, 0, 0, 0.1)",
+		marginBottom: Spacing.md,
 	},
 	title: {
-		fontSize: Typography.fontSize.xxl,
-		fontWeight: Typography.fontWeight.bold,
-		marginBottom: Spacing.lg,
+		fontSize: Typography.fontSize.xl,
+		fontWeight: Typography.fontWeight.semibold,
 	},
-	buttonContainer: {
+	content: {
+		flexDirection: "column",
+		gap: Spacing.lg,
+		paddingTop: Spacing.md,
+	},
+	subtitle: {
+		fontSize: Typography.fontSize.md,
+		textAlign: "center",
+		lineHeight: Typography.lineHeight.normal * Typography.fontSize.md,
+	},
+	optionsGrid: {
+		flexDirection: "row",
 		gap: Spacing.md,
 	},
-	optionButton: {
-		width: "100%",
+	optionCard: {
+		flex: 1,
+		borderRadius: BorderRadius.lg,
+		padding: Spacing.xl,
+		gap: Spacing.lg,
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	optionIconContainer: {
+		alignItems: "center",
+		justifyContent: "center",
+	},
+	optionTitle: {
+		fontSize: Typography.fontSize.md,
+		fontWeight: Typography.fontWeight.semibold,
+	},
+	tipContainer: {
+		flexDirection: "row",
+		alignItems: "center",
+		padding: Spacing.md,
+		borderRadius: BorderRadius.lg,
+		gap: Spacing.sm,
+	},
+	tipText: {
+		flex: 1,
+		fontSize: Typography.fontSize.sm,
+		lineHeight: Typography.lineHeight.relaxed * Typography.fontSize.sm,
 	},
 	processingContainer: {
 		flex: 1,
