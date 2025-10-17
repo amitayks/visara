@@ -1,4 +1,5 @@
-import { TurboModule, TurboModuleRegistry } from "react-native";
+import type { TurboModule } from "react-native";
+import { TurboModuleRegistry } from "react-native";
 
 export interface MediaChange {
 	action: "added" | "modified" | "deleted";
@@ -23,4 +24,4 @@ export interface Spec extends TurboModule {
 	removeListeners(count: number): void;
 }
 
-export default TurboModuleRegistry.getEnforcing<Spec>("MediaObserver");
+export default TurboModuleRegistry.get<Spec>("MediaObserver");

@@ -3,19 +3,25 @@
  *
  * Connects ProcessingOrchestrator with ProcessingContext for UI updates.
  * This hook:
- * 1. Initializes the ProcessingOrchestrator on mount
+ * 1. Initializes the ProcessingOrchestrator on mount (when shouldInitialize=true)
  * 2. Sets up callbacks to update ProcessingContext state
  * 3. Provides control methods (pause/resume/stop)
  * 4. Cleans up on unmount
  *
+ * IMPORTANT: Only initialize after:
+ * - Onboarding is complete
+ * - Storage permissions are granted
+ * - Database is ready
+ *
  * Usage:
  * ```tsx
  * function App() {
- *   const { isInitialized, pause, resume, stop } = useProcessingOrchestrator();
+ *   const shouldInit = onboardingComplete && dbReady;
+ *   useProcessingOrchestrator(shouldInit);
  *
  *   // Access processing state from context
  *   const { state } = useProcessing();
- *   console.log(state.currentProgress); // { current: 5, total: 100, currentFileName: "photo.jpg" }
+ *   console.log(state.currentProgress);
  * }
  * ```
  */
@@ -34,8 +40,12 @@ export interface UseProcessingOrchestratorReturn {
 
 /**
  * Hook to connect ProcessingOrchestrator with ProcessingContext
+ *
+ * @param shouldInitialize - Whether to initialize (waits for permissions + onboarding)
  */
-export function useProcessingOrchestrator(): UseProcessingOrchestratorReturn {
+export function useProcessingOrchestrator(
+	shouldInitialize = true,
+): UseProcessingOrchestratorReturn {
 	const { dispatch } = useProcessing();
 	const isInitializedRef = useRef(false);
 
@@ -65,12 +75,15 @@ export function useProcessingOrchestrator(): UseProcessingOrchestratorReturn {
 	}, [dispatch]);
 
 	/**
-	 * Initialize orchestrator on mount
+	 * Initialize orchestrator on mount (only if shouldInitialize is true)
 	 */
 	useEffect(() => {
-		if (isInitializedRef.current) {
+		// Don't initialize if flag is false or already initialized
+		if (!shouldInitialize || isInitializedRef.current) {
 			return;
 		}
+
+		console.log("🔄 ProcessingOrchestrator: Initializing...");
 
 		const initializeOrchestrator = async () => {
 			try {
@@ -126,7 +139,7 @@ export function useProcessingOrchestrator(): UseProcessingOrchestratorReturn {
 				isInitializedRef.current = false;
 			}
 		};
-	}, [dispatch]);
+	}, [shouldInitialize, dispatch]);
 
 	/**
 	 * Poll for queue updates
