@@ -277,7 +277,6 @@ export class ThumbnailService {
 
 			const dimensions = THUMBNAIL_DIMENSIONS[size];
 			const cacheKey = this.getCacheKey(originalUri, size);
-			const outputPath = `${this.diskCacheDir}/${cacheKey}.jpg`;
 
 			// Ensure disk cache directory exists
 			const dirExists = await RNFS.exists(this.diskCacheDir);
@@ -286,6 +285,8 @@ export class ThumbnailService {
 			}
 
 			// Use ImageResizer to create thumbnail
+			// NOTE: We don't pass outputPath - ImageResizer manages its own temp directory
+			// and we'll move the result to our cache directory after
 			// - mode: 'contain' maintains aspect ratio and fits within dimensions
 			// - compressFormat: 'JPEG' for smaller file sizes
 			// - quality: 80 provides good balance between quality and size
@@ -298,7 +299,7 @@ export class ThumbnailService {
 				"JPEG",
 				80, // quality
 				0, // rotation
-				outputPath,
+				undefined, // Let ImageResizer manage output path
 				false, // keepMeta
 				{
 					mode: "contain",
@@ -306,8 +307,22 @@ export class ThumbnailService {
 				},
 			);
 
-			// Return the generated thumbnail path
-			return response.uri;
+			// Move the resized image to our cache directory with predictable name
+			const finalPath = `${this.diskCacheDir}/${cacheKey}.jpg`;
+			const tempPath = response.uri.replace("file://", "");
+
+			// Copy to our cache directory
+			await RNFS.copyFile(tempPath, finalPath);
+
+			// Delete the temp file created by ImageResizer
+			try {
+				await RNFS.unlink(tempPath);
+			} catch (unlinkError) {
+				// Ignore unlink errors - temp file may be auto-cleaned
+			}
+
+			// Return the final path with file:// prefix
+			return `file://${finalPath}`;
 		} catch (error) {
 			console.error("ThumbnailService.generateThumbnail error:", error);
 			// Fallback to original URI if resizing fails

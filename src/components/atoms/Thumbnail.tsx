@@ -1,8 +1,9 @@
 import { BorderRadius } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
 import FastImage from "react-native-fast-image";
+import { ThumbnailService, type ThumbnailSize } from "@services/media/ThumbnailService";
 
 interface ThumbnailProps {
 	uri?: string;
@@ -16,6 +17,7 @@ interface ThumbnailProps {
 /**
  * Thumbnail - High-frequency component (10k+ instances in PhotoGrid)
  * Optimized with React.memo to prevent unnecessary re-renders
+ * Uses ThumbnailService for 3-tier caching (memory/disk/on-demand)
  */
 export const Thumbnail = memo(function Thumbnail({
 	uri,
@@ -27,6 +29,42 @@ export const Thumbnail = memo(function Thumbnail({
 	const { colors } = useTheme();
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(false);
+	const [thumbnailUri, setThumbnailUri] = useState<string | undefined>(undefined);
+
+	// Load thumbnail from ThumbnailService (3-tier cache)
+	useEffect(() => {
+		if (!uri) {
+			setThumbnailUri(undefined);
+			setLoading(false);
+			return;
+		}
+
+		let isCancelled = false;
+		setLoading(true);
+
+		// Determine thumbnail size based on component size
+		let thumbnailSize: ThumbnailSize = "medium";
+		if (size <= 200) thumbnailSize = "small";
+		else if (size >= 600) thumbnailSize = "large";
+
+		ThumbnailService.getThumbnail(uri, thumbnailSize)
+			.then((thumbUri) => {
+				if (!isCancelled) {
+					setThumbnailUri(thumbUri);
+				}
+			})
+			.catch((err) => {
+				console.warn("Failed to load thumbnail:", err);
+				if (!isCancelled) {
+					// Fallback to original URI if thumbnail generation fails
+					setThumbnailUri(uri);
+				}
+			});
+
+		return () => {
+			isCancelled = true;
+		};
+	}, [uri, size]);
 
 	const handleLoadStart = () => {
 		setLoading(true);
@@ -50,9 +88,9 @@ export const Thumbnail = memo(function Thumbnail({
 
 	return (
 		<View style={[styles.container, containerStyle]} testID={testID}>
-			{uri && !error ? (
+			{thumbnailUri && !error ? (
 				<FastImage
-					source={{ uri, priority: FastImage.priority.normal }}
+					source={{ uri: thumbnailUri, priority: FastImage.priority.normal }}
 					style={styles.image}
 					resizeMode={FastImage.resizeMode.cover}
 					onLoadStart={handleLoadStart}

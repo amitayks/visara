@@ -54,7 +54,11 @@ export function useMediaLoader(shouldLoad = true) {
 			.observe()
 			.subscribe({
 				next: (mediaFiles) => {
-					console.log(`📸 MediaLoader: Loaded ${mediaFiles.length} media files`);
+					// Only log when count changes significantly (every 100 files) to reduce spam
+					const shouldLog = mediaFiles.length % 100 === 0 || mediaFiles.length < 100;
+					if (shouldLog) {
+						console.log(`📸 MediaLoader: Loaded ${mediaFiles.length} media files`);
+					}
 
 					// Update GalleryContext with new files
 					dispatch({ type: "SET_MEDIA_FILES", payload: mediaFiles });

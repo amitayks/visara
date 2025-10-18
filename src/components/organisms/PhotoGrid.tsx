@@ -141,7 +141,7 @@ export function PhotoGrid({
 					style={[styles.mediaItem, { width: itemSize, height: itemSize }]}
 				>
 					<Thumbnail
-						uri={item.data.thumbnailUri}
+						uri={item.data.uri}
 						size={itemSize}
 						aspectRatio={1}
 						showLoader={true}

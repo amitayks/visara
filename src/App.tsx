@@ -10,11 +10,12 @@ import { useDatabase } from "@hooks/useDatabase";
 import { useMediaLoader } from "@hooks/useMediaLoader";
 import { useProcessingOrchestrator } from "@hooks/useProcessingOrchestrator";
 import { RootNavigator } from "@navigation/RootNavigator";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { StatusBar, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import Toast from "react-native-toast-message";
+import { ThumbnailService } from "@services/media/ThumbnailService";
 
 /**
  * AppContent - Initializes hooks after providers are ready
@@ -26,6 +27,21 @@ function AppContent(): React.JSX.Element {
 
 	const { isReady: dbReady } = useDatabase();
 	const shouldInitialize = state.preferences.onboardingCompleted && dbReady;
+
+	// Initialize ThumbnailService once on app start
+	const thumbnailServiceInitializedRef = useRef(false);
+	useEffect(() => {
+		if (!thumbnailServiceInitializedRef.current) {
+			ThumbnailService.initialize()
+				.then(() => {
+					console.log("✅ ThumbnailService initialized");
+				})
+				.catch((error) => {
+					console.error("❌ Failed to initialize ThumbnailService:", error);
+				});
+			thumbnailServiceInitializedRef.current = true;
+		}
+	}, []);
 
 	useMediaLoader(shouldInitialize);
 	useProcessingOrchestrator(shouldInitialize);

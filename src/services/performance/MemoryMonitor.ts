@@ -69,6 +69,8 @@ export class MemoryMonitor {
 	private static monitoringTimer: NodeJS.Timeout | null = null;
 	private static warningCallbacks: Set<MemoryWarningCallback> = new Set();
 	private static lastMemoryInfo: MemoryInfo | null = null;
+	private static isCleaningUp = false; // Flag to prevent concurrent cleanups
+	private static lastCleanupTime = 0; // Timestamp of last cleanup
 
 	/**
 	 * Initialize the memory monitor with configuration
@@ -352,9 +354,31 @@ export class MemoryMonitor {
 	 * 1. Running CleanupService to free orphaned thumbnails, temp files, and old cache
 	 * 2. Suggesting JavaScript garbage collection (if available)
 	 * 3. Requesting native garbage collection (platform-specific)
+	 *
+	 * IMPORTANT: Debounced to prevent multiple concurrent cleanups
 	 */
 	static async triggerCleanup(): Promise<void> {
 		try {
+			// Prevent concurrent cleanups
+			if (this.isCleaningUp) {
+				if (this.enableLogging) {
+					console.log("MemoryMonitor: Cleanup already in progress, skipping...");
+				}
+				return;
+			}
+
+			// Debounce: Don't cleanup more than once every 5 seconds
+			const timeSinceLastCleanup = Date.now() - this.lastCleanupTime;
+			if (timeSinceLastCleanup < 5000) {
+				if (this.enableLogging) {
+					console.log(`MemoryMonitor: Cleanup debounced (${Math.floor(timeSinceLastCleanup / 1000)}s since last cleanup)`);
+				}
+				return;
+			}
+
+			this.isCleaningUp = true;
+			this.lastCleanupTime = Date.now();
+
 			if (this.enableLogging) {
 				console.log("MemoryMonitor: Starting aggressive cleanup...");
 			}
@@ -429,6 +453,8 @@ export class MemoryMonitor {
 			}
 		} catch (error) {
 			console.error("MemoryMonitor.triggerCleanup error:", error);
+		} finally {
+			this.isCleaningUp = false;
 		}
 	}
 
