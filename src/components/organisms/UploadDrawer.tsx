@@ -1,7 +1,13 @@
 import { Icon } from "@components/atoms/Icon";
 import { ProgressBar } from "@components/atoms/ProgressBar";
 import { Thumbnail } from "@components/atoms/Thumbnail";
-import { BorderRadius, Spacing, Typography } from "@theme/colors";
+import { CameraRoll } from "@react-native-camera-roll/camera-roll";
+import {
+	BorderRadius,
+	Spacing,
+	Typography,
+	SpringConfigs,
+} from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
 import {
 	PermissionStatus,
@@ -21,7 +27,6 @@ import {
 	View,
 	type ViewStyle,
 } from "react-native";
-import { CameraRoll } from "@react-native-camera-roll/camera-roll";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
 	runOnJS,
@@ -82,8 +87,7 @@ export function UploadDrawer({
 	useEffect(() => {
 		if (visible && contentHeight > 0) {
 			translateY.value = withSpring(snapPoints.peek, {
-				damping: 20,
-				stiffness: 300,
+				...SpringConfigs.gentle,
 			});
 		}
 	}, [contentHeight, visible, translateY, snapPoints.peek]);
@@ -91,13 +95,11 @@ export function UploadDrawer({
 	useEffect(() => {
 		if (visible) {
 			translateY.value = withSpring(snapPoints.peek, {
-				damping: 20,
-				stiffness: 300,
+				...SpringConfigs.gentle,
 			});
 		} else {
 			translateY.value = withSpring(snapPoints.closed, {
-				damping: 20,
-				stiffness: 300,
+				...SpringConfigs.gentle,
 			});
 			setShowCamera(false);
 		}
@@ -105,8 +107,7 @@ export function UploadDrawer({
 
 	const handleClose = useCallback(() => {
 		translateY.value = withSpring(snapPoints.closed, {
-			damping: 20,
-			stiffness: 300,
+			...SpringConfigs.snappy,
 		});
 		setTimeout(() => {
 			onClose();
