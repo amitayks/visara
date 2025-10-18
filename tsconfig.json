@@ -28,6 +28,7 @@
       "@utils/*": ["./src/utils/*"],
       "@shared-types/*": ["./src/shared-types/*"],
       "@native-modules/*": ["./src/native-modules/*"],
+      "@specs/*": ["./src/specs/*"],
       "@theme/*": ["./src/theme/*"],
       "@navigation/*": ["./src/navigation/*"]
     }

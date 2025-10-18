@@ -1,0 +1,30 @@
+import type { TurboModule } from "react-native";
+import { TurboModuleRegistry } from "react-native";
+
+// Event payload interfaces
+export interface MediaChange {
+	action: "added" | "modified" | "deleted";
+	uri: string;
+	filename: string;
+	mimeType: string;
+	width: number;
+	height: number;
+	fileSize: number;
+	creationDate: number;
+	modificationDate: number;
+	latitude?: number;
+	longitude?: number;
+}
+
+// TurboModule spec interface
+export interface Spec extends TurboModule {
+	startInitialScan(): void;
+	getChangesSince(timestamp: number): void;
+	startObserver(throttleMs: number): void;
+	stopObserver(): void;
+	addListener(eventName: string): void;
+	removeListeners(count: number): void;
+}
+
+// Export default for codegen
+export default TurboModuleRegistry.get<Spec>("MediaObserver");

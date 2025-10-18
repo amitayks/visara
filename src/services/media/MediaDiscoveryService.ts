@@ -1,11 +1,10 @@
-/** biome-ignore-all lint/complexity/noStaticOnlyClass: its bother me */
-import MediaObserverModule, {
-	type MediaChange,
-} from "@native-modules/NativeMediaObserver";
 import {
 	CameraRoll,
 	type PhotoIdentifier,
 } from "@react-native-camera-roll/camera-roll";
+import MediaObserverModule, {
+	type MediaChange,
+} from "@specs/NativeMediaObserver";
 import {
 	type EmitterSubscription,
 	NativeEventEmitter,
@@ -65,7 +64,7 @@ export class MediaDiscoveryService {
 		onBatch: (changes: MediaChange[]) => void,
 		onComplete: (total: number) => void,
 	): () => void {
-		if (!this.isNativeModuleAvailable || !this.eventEmitter) {
+		if (!this.isNativeModuleAvailable || !this.eventEmitter || !MediaObserverModule) {
 			console.warn("Native module not available, cannot start native scan");
 			return () => {};
 		}
@@ -105,7 +104,7 @@ export class MediaDiscoveryService {
 		onBatch: (changes: MediaChange[]) => void,
 		onComplete: (total: number) => void,
 	): () => void {
-		if (!this.isNativeModuleAvailable || !this.eventEmitter) {
+		if (!this.isNativeModuleAvailable || !this.eventEmitter || !MediaObserverModule) {
 			console.warn("Native module not available, cannot get changes");
 			return () => {};
 		}
@@ -144,7 +143,7 @@ export class MediaDiscoveryService {
 		throttleMs: number,
 		onBatch: (changes: MediaChange[]) => void,
 	): () => void {
-		if (!this.isNativeModuleAvailable || !this.eventEmitter) {
+		if (!this.isNativeModuleAvailable || !this.eventEmitter || !MediaObserverModule) {
 			console.warn("Native module not available, cannot start observer");
 			return () => {};
 		}
@@ -165,8 +164,8 @@ export class MediaDiscoveryService {
 
 		// Return cleanup function
 		return () => {
-			MediaObserverModule.stopObserver();
-			MediaObserverModule.removeListeners(1);
+			MediaObserverModule?.stopObserver();
+			MediaObserverModule?.removeListeners(1);
 			this.mediaBatchListener?.remove();
 			this.mediaBatchListener = null;
 		};

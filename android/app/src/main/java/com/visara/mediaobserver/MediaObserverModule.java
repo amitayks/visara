@@ -12,20 +12,17 @@ import androidx.annotation.Nullable;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-import com.facebook.react.turbomodule.core.interfaces.TurboModule;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
-public class MediaObserverModule extends ReactContextBaseJavaModule implements TurboModule {
-    public static final String NAME = "MediaObserver";
+@ReactModule(name = NativeMediaObserverSpec.NAME)
+public class MediaObserverModule extends NativeMediaObserverSpec {
 
     private static final int BATCH_SIZE = 100;
     private static final String EVENT_MEDIA_BATCH = "media_batch";
@@ -41,12 +38,6 @@ public class MediaObserverModule extends ReactContextBaseJavaModule implements T
         super(reactContext);
         this.reactContext = reactContext;
         this.throttleHandler = new Handler(Looper.getMainLooper());
-    }
-
-    @Override
-    @NonNull
-    public String getName() {
-        return NAME;
     }
 
     @ReactMethod

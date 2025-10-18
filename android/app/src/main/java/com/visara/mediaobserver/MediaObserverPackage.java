@@ -17,7 +17,7 @@ public class MediaObserverPackage extends TurboReactPackage {
 
     @Override
     public NativeModule getModule(String name, @NonNull ReactApplicationContext reactContext) {
-        if (name.equals(MediaObserverModule.NAME)) {
+        if (name.equals(NativeMediaObserverSpec.NAME)) {
             return new MediaObserverModule(reactContext);
         }
         return null;
@@ -28,9 +28,9 @@ public class MediaObserverPackage extends TurboReactPackage {
         return () -> {
             Map<String, ReactModuleInfo> moduleInfos = new HashMap<>();
             moduleInfos.put(
-                    MediaObserverModule.NAME,
+                    NativeMediaObserverSpec.NAME,
                     new ReactModuleInfo(
-                            MediaObserverModule.NAME,
+                            NativeMediaObserverSpec.NAME,
                             MediaObserverModule.class.getName(),
                             false, // canOverrideExistingModule
                             false, // needsEagerInit

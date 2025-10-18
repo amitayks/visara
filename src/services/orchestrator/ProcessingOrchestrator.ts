@@ -18,7 +18,7 @@
  */
 
 import type { ProcessingQueue } from "@models/ProcessingQueue";
-import type { MediaChange } from "@native-modules/NativeMediaObserver";
+import type { MediaChange } from "@specs/NativeMediaObserver";
 import { MediaFileRepository } from "@services/database/MediaFileRepository";
 import { ProcessingQueueRepository } from "@services/database/ProcessingQueueRepository";
 import { MediaDiscoveryService } from "@services/media/MediaDiscoveryService";
@@ -281,9 +281,7 @@ export class ProcessingOrchestrator {
 		// Check storage before starting processing
 		const storageCheck = await shouldAllowProcessingStorage();
 		if (!storageCheck.allowed) {
-			console.warn(
-				`Cannot start processing: ${storageCheck.reason}`,
-			);
+			console.warn(`Cannot start processing: ${storageCheck.reason}`);
 			const warningMessage = await getStorageWarningMessage();
 			if (warningMessage) {
 				this.config.onError?.(new Error(warningMessage));
@@ -351,7 +349,8 @@ export class ProcessingOrchestrator {
 				}
 
 				throw new Error(
-					storageCheck.reason || "Insufficient storage - Cannot continue processing",
+					storageCheck.reason ||
+						"Insufficient storage - Cannot continue processing",
 				);
 			}
 
@@ -371,7 +370,9 @@ export class ProcessingOrchestrator {
 				const retryCheck = await MemoryMonitor.isSafeToProcess();
 				if (!retryCheck) {
 					// Still not safe - bail out
-					throw new Error("Memory threshold exceeded - Cannot continue processing");
+					throw new Error(
+						"Memory threshold exceeded - Cannot continue processing",
+					);
 				}
 
 				// Safe to continue

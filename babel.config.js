@@ -2,6 +2,7 @@ module.exports = {
   presets: ['module:@react-native/babel-preset'],
   plugins: [
     ['@babel/plugin-proposal-decorators', { legacy: true }],
+    '@babel/plugin-transform-class-static-block',
     [
       'module-resolver',
       {
@@ -17,6 +18,7 @@ module.exports = {
           '@utils': './src/utils',
           '@shared-types': './src/shared-types',
           '@native-modules': './src/native-modules',
+          '@specs': './src/specs',
           '@theme': './src/theme',
           '@navigation': './src/navigation',
         },
