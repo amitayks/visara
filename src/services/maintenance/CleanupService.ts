@@ -206,6 +206,13 @@ export class CleanupService {
 		try {
 			const tempDir = RNFS.TemporaryDirectoryPath;
 
+			// Check if directory exists
+			const exists = await RNFS.exists(tempDir);
+			if (!exists) {
+				this.log("Temp directory does not exist");
+				return { count, bytesFreed };
+			}
+
 			// Get all temp files
 			const files = await RNFS.readDir(tempDir);
 
@@ -239,6 +246,13 @@ export class CleanupService {
 
 		try {
 			const cacheDir = RNFS.CachesDirectoryPath;
+
+			// Check if directory exists
+			const exists = await RNFS.exists(cacheDir);
+			if (!exists) {
+				this.log("Cache directory does not exist");
+				return { count, bytesFreed };
+			}
 
 			// Get all cache files
 			const files = await RNFS.readDir(cacheDir);
@@ -363,32 +377,36 @@ export class CleanupService {
 
 			// Count temp files
 			const tempDir = RNFS.TemporaryDirectoryPath;
-			const tempFiles = await RNFS.readDir(tempDir);
-			for (const file of tempFiles) {
-				if (file.name.startsWith("visara_")) {
-					stats.tempFiles++;
-					const stat = await RNFS.stat(file.path);
-					stats.totalBytesFreed += Number(stat.size);
+			if (await RNFS.exists(tempDir)) {
+				const tempFiles = await RNFS.readDir(tempDir);
+				for (const file of tempFiles) {
+					if (file.name.startsWith("visara_")) {
+						stats.tempFiles++;
+						const stat = await RNFS.stat(file.path);
+						stats.totalBytesFreed += Number(stat.size);
+					}
 				}
 			}
 
 			// Count old cache files
 			const cacheDir = RNFS.CachesDirectoryPath;
-			const cacheFiles = await RNFS.readDir(cacheDir);
-			const now = Date.now();
-			const maxAge = this.config.cacheMaxAge;
+			if (await RNFS.exists(cacheDir)) {
+				const cacheFiles = await RNFS.readDir(cacheDir);
+				const now = Date.now();
+				const maxAge = this.config.cacheMaxAge;
 
-			for (const file of cacheFiles) {
-				if (file.isDirectory() && file.name === "thumbnails") {
-					continue;
-				}
+				for (const file of cacheFiles) {
+					if (file.isDirectory() && file.name === "thumbnails") {
+						continue;
+					}
 
-				const stat = await RNFS.stat(file.path);
-				const age = now - new Date(stat.mtime).getTime();
+					const stat = await RNFS.stat(file.path);
+					const age = now - new Date(stat.mtime).getTime();
 
-				if (age > maxAge && file.isFile()) {
-					stats.cacheFiles++;
-					stats.totalBytesFreed += Number(stat.size);
+					if (age > maxAge && file.isFile()) {
+						stats.cacheFiles++;
+						stats.totalBytesFreed += Number(stat.size);
+					}
 				}
 			}
 		} catch (error) {
