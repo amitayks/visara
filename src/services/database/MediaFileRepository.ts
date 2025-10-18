@@ -50,6 +50,42 @@ export class MediaFileRepository {
 		});
 	}
 
+	/**
+	 * Batch create multiple media files in a single database transaction
+	 * This triggers only ONE observable update instead of N updates
+	 * Critical for initial scan performance with 6k+ files
+	 */
+	static async createBatch(dataArray: CreateMediaFileData[]): Promise<MediaFile[]> {
+		return await database.write(async () => {
+			const createdFiles: MediaFile[] = [];
+
+			for (const data of dataArray) {
+				const mediaFile = await database
+					.get<MediaFile>("media_files")
+					.create((record) => {
+						record.uri = data.uri;
+						record.filename = data.filename;
+						record.mimeType = data.mimeType;
+						record.width = data.width;
+						record.height = data.height;
+						record.fileSize = data.fileSize;
+						record.creationDate = data.creationDate;
+						record.modificationDate = data.modificationDate;
+						record.latitude = data.latitude;
+						record.longitude = data.longitude;
+						record.isProcessed = false;
+						record.isFavorite = false;
+						record.isHidden = false;
+						record.thumbnailUri = data.thumbnailUri;
+					});
+
+				createdFiles.push(mediaFile);
+			}
+
+			return createdFiles;
+		});
+	}
+
 	static async findById(id: string): Promise<MediaFile | null> {
 		try {
 			return await database.get<MediaFile>("media_files").find(id);

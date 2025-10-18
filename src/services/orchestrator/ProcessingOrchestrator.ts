@@ -156,53 +156,84 @@ export class ProcessingOrchestrator {
 
 	/**
 	 * Process a batch of media changes from native modules
+	 * Uses batch database operations to prevent UI re-render storm
 	 */
 	private static async processBatch(changes: MediaChange[]): Promise<void> {
-		for (const change of changes) {
-			try {
-				// Convert MediaChange to DiscoveredMedia format
-				const discoveredMedia =
-					MediaDiscoveryService.convertMediaChange(change);
+		try {
+			// Collect new media files to create in batch
+			const newMediaData: typeof import("@services/database/MediaFileRepository").CreateMediaFileData[] = [];
+			const mediaFilesToQueue: string[] = [];
 
-				// Check if media file already exists in database
-				const existingMedia = await MediaFileRepository.findByUri(
-					discoveredMedia.uri,
-				);
+			// First pass: Check which files already exist
+			for (const change of changes) {
+				try {
+					// Convert MediaChange to DiscoveredMedia format
+					const discoveredMedia =
+						MediaDiscoveryService.convertMediaChange(change);
 
-				if (existingMedia) {
-					// Media already exists, check if it needs reprocessing
-					if (change.action === "modified") {
-						// Queue for reprocessing
-						await this.queueForProcessing(existingMedia.id, 5); // Lower priority for modified files
+					// Check if media file already exists in database
+					const existingMedia = await MediaFileRepository.findByUri(
+						discoveredMedia.uri,
+					);
+
+					if (existingMedia) {
+						// Media already exists, check if it needs reprocessing
+						if (change.action === "modified") {
+							// Queue for reprocessing
+							await this.queueForProcessing(existingMedia.id, 5); // Lower priority for modified files
+						}
+						continue;
 					}
-					continue;
+
+					// Collect data for batch creation
+					newMediaData.push({
+						uri: discoveredMedia.uri,
+						filename: discoveredMedia.filename,
+						mimeType: discoveredMedia.mimeType,
+						width: discoveredMedia.width,
+						height: discoveredMedia.height,
+						fileSize: discoveredMedia.fileSize,
+						creationDate: discoveredMedia.creationDate,
+						modificationDate: discoveredMedia.modificationDate,
+						latitude: discoveredMedia.latitude,
+						longitude: discoveredMedia.longitude,
+					});
+				} catch (error) {
+					console.error(
+						`Error preparing media change: ${change.filename}`,
+						error,
+					);
+					this.config.onError?.(
+						error instanceof Error ? error : new Error(String(error)),
+					);
 				}
+			}
 
-				// Create new media file record
-				const mediaFile = await MediaFileRepository.create({
-					uri: discoveredMedia.uri,
-					filename: discoveredMedia.filename,
-					mimeType: discoveredMedia.mimeType,
-					width: discoveredMedia.width,
-					height: discoveredMedia.height,
-					fileSize: discoveredMedia.fileSize,
-					creationDate: discoveredMedia.creationDate,
-					modificationDate: discoveredMedia.modificationDate,
-					latitude: discoveredMedia.latitude,
-					longitude: discoveredMedia.longitude,
-				});
+			// Batch create all new media files in ONE database transaction
+			// This triggers only 1 observable update instead of N updates
+			if (newMediaData.length > 0) {
+				const createdFiles = await MediaFileRepository.createBatch(newMediaData);
 
-				// Add to processing queue
-				await this.queueForProcessing(mediaFile.id, 10); // Normal priority for new files
-			} catch (error) {
-				console.error(
-					`Error processing media change: ${change.filename}`,
-					error,
-				);
-				this.config.onError?.(
-					error instanceof Error ? error : new Error(String(error)),
+				// Collect IDs for batch queue creation
+				mediaFilesToQueue.push(...createdFiles.map((file) => file.id));
+			}
+
+			// Batch add to processing queue
+			if (mediaFilesToQueue.length > 0) {
+				await ProcessingQueueRepository.createBatch(
+					mediaFilesToQueue.map((id) => ({
+						mediaFileId: id,
+						status: "pending" as const,
+						priority: 10,
+						retryCount: 0,
+					})),
 				);
 			}
+		} catch (error) {
+			console.error("Error processing batch:", error);
+			this.config.onError?.(
+				error instanceof Error ? error : new Error(String(error)),
+			);
 		}
 	}
 

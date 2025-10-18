@@ -34,6 +34,34 @@ export class ProcessingQueueRepository {
 		});
 	}
 
+	/**
+	 * Batch create multiple processing queue items in a single database transaction
+	 * This triggers only ONE observable update instead of N updates
+	 */
+	static async createBatch(
+		dataArray: CreateProcessingQueueData[],
+	): Promise<ProcessingQueue[]> {
+		return await database.write(async () => {
+			const createdQueues: ProcessingQueue[] = [];
+
+			for (const data of dataArray) {
+				const queue = await database
+					.get<ProcessingQueue>("processing_queue")
+					.create((record) => {
+						record.mediaFileId = data.mediaFileId;
+						record.status = data.status;
+						record.priority = data.priority;
+						record.retryCount = data.retryCount || 0;
+						record.errorMessage = data.errorMessage;
+					});
+
+				createdQueues.push(queue);
+			}
+
+			return createdQueues;
+		});
+	}
+
 	static async findById(id: string): Promise<ProcessingQueue | null> {
 		try {
 			return await database.get<ProcessingQueue>("processing_queue").find(id);
