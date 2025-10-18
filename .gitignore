@@ -144,3 +144,10 @@ todo.md
 .calude/
 .claude/search_feature
 
+# proveteDocs
+.proveteDocs
+.priveteDocs/ANIMATED_BUTTON_BAR_IMPROVMENT.md
+.priveteDocs/MEDIAOBSERVER_TURBOMODULE_FIX.md
+.priveteDocs/media_observe_reserch.md
+.priveteDocs/NATIVE_OBSERVER_IMPLEMENTATION_NOTES.md
+remaning_bug.md
