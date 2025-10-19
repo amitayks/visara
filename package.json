@@ -17,7 +17,7 @@
 		"apk": "cd android && .\\gradlew.bat assembleRelease",
 		"aab": "npx react-native build-android --mode=release",
 		"ca": "cd android && .\\gradlew.bat clean && cd ..",
-		"cr`": "npx react-native clean",
+		"cr": "npx react-native clean",
 		"typecheck": "tsc --noEmit",
 		"test": "jest",
 		"lint": "biome check .",
