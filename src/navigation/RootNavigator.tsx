@@ -1,10 +1,15 @@
-import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
-import { createStackNavigator, CardStyleInterpolators } from "@react-navigation/stack";
 import { useSettings } from "@contexts/SettingsContext";
-import { OnboardingNavigator } from "./OnboardingNavigator";
+import { NavigationContainer } from "@react-navigation/native";
+import {
+	CardStyleInterpolators,
+	createStackNavigator,
+} from "@react-navigation/stack";
 import { MainNavigator } from "./MainNavigator";
-import { stackNavigationOptions, getPlatformTransition } from "./navigationConfig";
+import {
+	getPlatformTransition,
+	stackNavigationOptions,
+} from "./navigationConfig";
+import { OnboardingNavigator } from "./OnboardingNavigator";
 
 export type RootStackParamList = {
 	Onboarding: undefined;
@@ -39,7 +44,8 @@ export function RootNavigator() {
 						component={MainNavigator}
 						options={{
 							// Enhanced transition for entering main app
-							cardStyleInterpolator: CardStyleInterpolators.forFadeFromBottomAndroid,
+							cardStyleInterpolator:
+								CardStyleInterpolators.forFadeFromBottomAndroid,
 						}}
 					/>
 				)}

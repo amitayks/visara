@@ -1,5 +1,5 @@
-import RNFS from "@dr.pogodin/react-native-fs";
 import ImageResizer from "@bam.tech/react-native-image-resizer";
+import RNFS from "@dr.pogodin/react-native-fs";
 import { storage } from "@services/storage/mmkv";
 
 // Constants
@@ -462,7 +462,7 @@ export class ThumbnailService {
 					delete metadata[key];
 					modified = true;
 				}
-			} catch (error) {
+			} catch (_error) {
 				// If we can't check, assume it's stale
 				delete metadata[key];
 				modified = true;

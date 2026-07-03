@@ -10,8 +10,8 @@ import {
 	View,
 	type ViewStyle,
 } from "react-native";
-import { DropProvider, Sortable } from "react-native-reanimated-dnd";
 import type { SharedValue } from "react-native-reanimated";
+import { DropProvider, Sortable } from "react-native-reanimated-dnd";
 
 export interface AlbumData {
 	id: string; // Required by react-native-reanimated-dnd

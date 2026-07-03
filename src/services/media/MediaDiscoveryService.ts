@@ -1,4 +1,6 @@
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: its bother me */
+
+import RNFS from "@dr.pogodin/react-native-fs";
 import MediaObserverModule, {
 	type MediaChange,
 } from "@native-modules/NativeMediaObserver";
@@ -11,7 +13,6 @@ import {
 	NativeEventEmitter,
 	Platform,
 } from "react-native";
-import RNFS from "@dr.pogodin/react-native-fs";
 
 export interface DiscoveredMedia {
 	uri: string;

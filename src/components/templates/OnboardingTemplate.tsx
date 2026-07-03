@@ -5,11 +5,11 @@ import { useCallback, useRef, useState } from "react";
 import {
 	Dimensions,
 	FlatList,
-	StyleSheet,
-	View,
 	type ListRenderItem,
 	type NativeScrollEvent,
 	type NativeSyntheticEvent,
+	StyleSheet,
+	View,
 	type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";

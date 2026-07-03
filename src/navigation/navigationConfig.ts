@@ -1,6 +1,6 @@
-import { Platform } from "react-native";
-import type { StackNavigationOptions } from "@react-navigation/stack";
 import type { BottomTabNavigationOptions } from "@react-navigation/bottom-tabs";
+import type { StackNavigationOptions } from "@react-navigation/stack";
+import { Platform } from "react-native";
 
 /**
  * Platform-specific navigation configurations

@@ -6,9 +6,13 @@ export function useTheme() {
 	const { state } = useSettings();
 	const systemColorScheme = useColorScheme();
 
-	// Determine effective theme
+	// Determine effective theme ("unspecified"/null system schemes fall back to light)
 	const effectiveTheme =
-		state.theme === "system" ? systemColorScheme || "light" : state.theme;
+		state.theme === "system"
+			? systemColorScheme === "dark"
+				? "dark"
+				: "light"
+			: state.theme;
 
 	const colors: ColorScheme = Colors[effectiveTheme];
 	const shadows = Shadows[effectiveTheme];

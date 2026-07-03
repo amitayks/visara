@@ -1,9 +1,8 @@
-export { RootNavigator } from "./RootNavigator";
-export { OnboardingNavigator } from "./OnboardingNavigator";
 export { MainNavigator } from "./MainNavigator";
+export type { ModalStackParamList } from "./ModalNavigator";
 export { ModalNavigator } from "./ModalNavigator";
 export * from "./navigationConfig";
-
-export type { RootStackParamList } from "./RootNavigator";
 export type { OnboardingStackParamList } from "./OnboardingNavigator";
-export type { ModalStackParamList } from "./ModalNavigator";
+export { OnboardingNavigator } from "./OnboardingNavigator";
+export type { RootStackParamList } from "./RootNavigator";
+export { RootNavigator } from "./RootNavigator";

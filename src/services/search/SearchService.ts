@@ -217,8 +217,10 @@ export class SearchService {
 			const serialized = getItem(STORAGE_KEYS.SEARCH_INDEX);
 			if (!serialized) return false;
 
-			const data = JSON.parse(serialized);
-			const miniSearch = MiniSearch.loadJSON<SearchDocument>(data, {
+			// MiniSearch.loadJSON takes the serialized JSON string itself and
+			// parses internally; pre-parsing here fed it an object and made every
+			// load fail with "Unexpected character: o" ([object Object]).
+			const miniSearch = MiniSearch.loadJSON<SearchDocument>(serialized, {
 				fields: ["filename", "labels", "ocrText"],
 				storeFields: ["filename", "creationDate"],
 				searchOptions: {

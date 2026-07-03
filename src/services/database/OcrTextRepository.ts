@@ -1,6 +1,6 @@
+import { OcrText } from "@models/OcrText";
 import { Q } from "@nozbe/watermelondb";
 import { database } from "./database";
-import { OcrText } from "@models/OcrText";
 
 export interface CreateOcrTextData {
 	mediaFileId: string;

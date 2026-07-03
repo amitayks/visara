@@ -23,6 +23,11 @@ export function Icon({ name, size = "medium", color, testID }: IconProps) {
 	const iconColor = color || colors.text;
 
 	return (
-		<PaperIcon source={name} size={iconSize} color={iconColor} testID={testID} />
+		<PaperIcon
+			source={name}
+			size={iconSize}
+			color={iconColor}
+			testID={testID}
+		/>
 	);
 }

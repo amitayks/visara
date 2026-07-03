@@ -1,4 +1,3 @@
-import React from "react";
 import { OnboardingScreen } from "@screens/Onboarding/OnboardingScreen";
 
 export type OnboardingStackParamList = {

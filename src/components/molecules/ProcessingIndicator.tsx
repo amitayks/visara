@@ -1,7 +1,13 @@
 import { Spacing, Typography } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
 import { useEffect } from "react";
-import { ActivityIndicator, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import {
+	ActivityIndicator,
+	StyleSheet,
+	Text,
+	View,
+	type ViewStyle,
+} from "react-native";
 import Animated, {
 	Easing,
 	useAnimatedStyle,
@@ -51,10 +57,7 @@ export function ProcessingIndicator({
 		<View style={[styles.container, style]} testID={testID}>
 			{/* Circular Progress */}
 			<Animated.View style={animatedStyle}>
-				<ActivityIndicator
-					size={size}
-					color={colors.processing}
-				/>
+				<ActivityIndicator size={size} color={colors.processing} />
 			</Animated.View>
 
 			{/* Progress Text */}

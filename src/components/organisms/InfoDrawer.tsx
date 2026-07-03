@@ -68,18 +68,33 @@ export function InfoDrawer({
 
 	useEffect(() => {
 		if (visible) {
-			translateY.value = withSpring(snapPoints.peek, { damping: 20, stiffness: 300 });
+			translateY.value = withSpring(snapPoints.peek, {
+				damping: 20,
+				stiffness: 300,
+			});
 		} else {
-			translateY.value = withSpring(snapPoints.closed, { damping: 20, stiffness: 300 });
+			translateY.value = withSpring(snapPoints.closed, {
+				damping: 20,
+				stiffness: 300,
+			});
 		}
 	}, [visible, translateY, snapPoints.peek, snapPoints.closed]);
 
-	const snapToPoint = useCallback((point: SnapPoint) => {
-		translateY.value = withSpring(snapPoints[point], { damping: 20, stiffness: 300 });
-	}, [translateY, snapPoints]);
+	const snapToPoint = useCallback(
+		(point: SnapPoint) => {
+			translateY.value = withSpring(snapPoints[point], {
+				damping: 20,
+				stiffness: 300,
+			});
+		},
+		[translateY, snapPoints],
+	);
 
 	const handleClose = useCallback(() => {
-		translateY.value = withSpring(snapPoints.closed, { damping: 20, stiffness: 300 });
+		translateY.value = withSpring(snapPoints.closed, {
+			damping: 20,
+			stiffness: 300,
+		});
 		setTimeout(() => {
 			onClose();
 		}, 300);
@@ -118,7 +133,7 @@ export function InfoDrawer({
 					distance: Math.abs(translateY.value - value),
 				}));
 				const nearest = distances.reduce((min, curr) =>
-					curr.distance < min.distance ? curr : min
+					curr.distance < min.distance ? curr : min,
 				);
 
 				if (nearest.key === "closed") {
@@ -188,7 +203,7 @@ export function InfoDrawer({
 					)}
 
 					{/* OCR Text Section */}
-					{ocrText && ocrText.text && (
+					{ocrText?.text && (
 						<View style={styles.section}>
 							<Text style={[styles.sectionTitle, { color: colors.text }]}>
 								Extracted Text

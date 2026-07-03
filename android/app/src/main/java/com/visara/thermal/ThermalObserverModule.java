@@ -9,14 +9,15 @@ import androidx.annotation.Nullable;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.WritableMap;
+import com.facebook.react.module.annotations.ReactModule;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-import com.facebook.react.turbomodule.core.interfaces.TurboModule;
+import com.visara.specs.NativeThermalObserverSpec;
 
-public class ThermalObserverModule extends ReactContextBaseJavaModule implements TurboModule {
-    public static final String NAME = "ThermalObserver";
+@ReactModule(name = NativeThermalObserverSpec.NAME)
+public class ThermalObserverModule extends NativeThermalObserverSpec {
+    public static final String NAME = NativeThermalObserverSpec.NAME;
 
     private static final String EVENT_THERMAL_STATE_CHANGE = "thermal_state_change";
 
@@ -39,12 +40,6 @@ public class ThermalObserverModule extends ReactContextBaseJavaModule implements
             thermalStatusListener = this::emitThermalState;
             powerManager.addThermalStatusListener(thermalStatusListener);
         }
-    }
-
-    @Override
-    @NonNull
-    public String getName() {
-        return NAME;
     }
 
     @ReactMethod

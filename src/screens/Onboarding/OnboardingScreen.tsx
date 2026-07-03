@@ -1,15 +1,15 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
-import {
-	OnboardingTemplate,
-	type OnboardingScreen as OnboardingScreenType,
-} from "@components/templates/OnboardingTemplate";
 import { Button } from "@components/atoms/Button";
 import { Icon } from "@components/atoms/Icon";
-import { Spacing, Typography } from "@theme/colors";
-import { useTheme } from "@theme/useTheme";
+import {
+	type OnboardingScreen as OnboardingScreenType,
+	OnboardingTemplate,
+} from "@components/templates/OnboardingTemplate";
 import { useSettings } from "@contexts/SettingsContext";
 import { GemmaModelDeliveryService } from "@services/model/GemmaModelDeliveryService";
+import { Spacing, Typography } from "@theme/colors";
+import { useTheme } from "@theme/useTheme";
+import { useCallback, useMemo, useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
 
 // Screen 1: Welcome
 function WelcomeContent({
@@ -453,15 +453,10 @@ export function OnboardingScreen() {
 			// const permissionsGranted =
 			// 	await MediaDiscoveryService.requestPermissions();
 
-			if (true) {
-				// if (permissionsGranted) {
-				// Permissions granted, complete onboarding
-				dispatch({ type: "SET_ONBOARDING_COMPLETED", payload: true });
-			} else {
-				// Permissions denied - still complete onboarding but show graceful degradation
-				// TODO: Show alert explaining limited functionality
-				dispatch({ type: "SET_ONBOARDING_COMPLETED", payload: true });
-			}
+			// Onboarding completes regardless of the permission outcome;
+			// denied permissions degrade gracefully inside the gallery.
+			// TODO: surface an alert explaining limited functionality when denied.
+			dispatch({ type: "SET_ONBOARDING_COMPLETED", payload: true });
 		} catch (error) {
 			console.error("Permission request failed:", error);
 			// Still complete onboarding even if permission request fails

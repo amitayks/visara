@@ -17,6 +17,7 @@ public class MediaObserverPackage extends TurboReactPackage {
 
     @Override
     public NativeModule getModule(String name, @NonNull ReactApplicationContext reactContext) {
+        android.util.Log.d("VisaraHost", "MediaObserverPackage.getModule(" + name + ")");
         if (name.equals(MediaObserverModule.NAME)) {
             return new MediaObserverModule(reactContext);
         }
@@ -26,6 +27,7 @@ public class MediaObserverPackage extends TurboReactPackage {
     @Override
     public ReactModuleInfoProvider getReactModuleInfoProvider() {
         return () -> {
+            android.util.Log.d("VisaraHost", "MediaObserverPackage.getReactModuleInfos() called");
             Map<String, ReactModuleInfo> moduleInfos = new HashMap<>();
             moduleInfos.put(
                     MediaObserverModule.NAME,

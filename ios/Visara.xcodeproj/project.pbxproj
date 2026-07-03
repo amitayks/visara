@@ -35,6 +35,7 @@
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		A3CF8D9BB2DC3D318EAFC4E8 /* VisionTextRecognizerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1D60E5DDD2B6AB61F264A0 /* VisionTextRecognizerModule.swift */; };
+		A4F99A9E8B1D5E66C1C3CD68 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50E97B88979EAC28ECC6283 /* ExpoModulesProvider.swift */; };
 		AE3B17D7F4191547EB57E099 /* MediaObserverModule.m in Sources */ = {isa = PBXBuildFile; fileRef = 1EEF71C8D55AE1B4B96B6A20 /* MediaObserverModule.m */; };
 		D69F9369F7FB85CD77A17F18 /* ThermalObserverModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2744F2A5CACA008C6023B13 /* ThermalObserverModule.swift */; };
 		FEECB2DAA4F36FD94FEC2ADE /* PhotoLibraryObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EF2FB3A5C348D01D0085E5E /* PhotoLibraryObserver.swift */; };
@@ -73,6 +74,7 @@
 		7EF2FB3A5C348D01D0085E5E /* PhotoLibraryObserver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhotoLibraryObserver.swift; path = Visara/MediaObserver/PhotoLibraryObserver.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Visara/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		8CE269E8FFC4B0D52673A402 /* VisionTextRecognizerModule.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = VisionTextRecognizerModule.m; path = Visara/VisionOCR/VisionTextRecognizerModule.m; sourceTree = "<group>"; };
+		A50E97B88979EAC28ECC6283 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Visara/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		AD1D60E5DDD2B6AB61F264A0 /* VisionTextRecognizerModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VisionTextRecognizerModule.swift; path = Visara/VisionOCR/VisionTextRecognizerModule.swift; sourceTree = "<group>"; };
 		E2744F2A5CACA008C6023B13 /* ThermalObserverModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThermalObserverModule.swift; path = Visara/Thermal/ThermalObserverModule.swift; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -91,6 +93,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		062D96940AD67F1B318AD86A /* Visara */ = {
+			isa = PBXGroup;
+			children = (
+				A50E97B88979EAC28ECC6283 /* ExpoModulesProvider.swift */,
+			);
+			name = Visara;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* Visara */ = {
 			isa = PBXGroup;
 			children = (
@@ -153,6 +163,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				B2B3680643A3F3FCC331D2D8 /* ExpoModulesProviders */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -165,6 +176,14 @@
 				13B07F961A680F5B00A75B9A /* Visara.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		B2B3680643A3F3FCC331D2D8 /* ExpoModulesProviders */ = {
+			isa = PBXGroup;
+			children = (
+				062D96940AD67F1B318AD86A /* Visara */,
+			);
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		BBD78D7AC51CEA395F1C20DB /* Pods */ = {
@@ -184,6 +203,7 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "Visara" */;
 			buildPhases = (
 				C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */,
+				27D18E4162DBE1D38ECA4727 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
@@ -279,7 +299,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"$WITH_ENVIRONMENT $REACT_NATIVE_XCODE\"\n";
+			shellScript = "set -e\n\nWITH_ENVIRONMENT=\"$REACT_NATIVE_PATH/scripts/xcode/with-environment.sh\"\nREACT_NATIVE_XCODE=\"$REACT_NATIVE_PATH/scripts/react-native-xcode.sh\"\n\n/bin/sh -c \"\\\"$WITH_ENVIRONMENT\\\" \\\"$REACT_NATIVE_XCODE\\\"\"\n";
 		};
 		00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -297,6 +317,29 @@
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Visara/Pods-Visara-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
+		};
+		27D18E4162DBE1D38ECA4727 /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-Visara/expo-configure-project.sh",
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Pods/Target Support Files/Pods-Visara/ExpoModulesProvider.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-Visara/expo-configure-project.sh\"\n";
 		};
 		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -352,6 +395,7 @@
 				D69F9369F7FB85CD77A17F18 /* ThermalObserverModule.swift in Sources */,
 				2C00B663A09970F3312804EA /* ThermalObserverModule.m in Sources */,
 				FEECB2DAA4F36FD94FEC2ADE /* PhotoLibraryObserver.swift in Sources */,
+				A4F99A9E8B1D5E66C1C3CD68 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -378,10 +422,13 @@
 					"-ObjC",
 					"-lc++",
 				);
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
 				PRODUCT_BUNDLE_IDENTIFIER = com.visara.app;
 				PRODUCT_NAME = Visara;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Debug;
@@ -405,9 +452,12 @@
 					"-ObjC",
 					"-lc++",
 				);
+				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
 				PRODUCT_BUNDLE_IDENTIFIER = com.visara.app;
 				PRODUCT_NAME = Visara;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
@@ -476,6 +526,10 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
@@ -483,10 +537,13 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
+				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
 			};
 			name = Debug;
@@ -547,6 +604,10 @@
 					"\"$(inherited)\"",
 				);
 				MTL_ENABLE_DEBUG_INFO = NO;
+				OTHER_CFLAGS = (
+					"$(inherited)",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
+				);
 				OTHER_CPLUSPLUSFLAGS = (
 					"$(OTHER_CFLAGS)",
 					"-DFOLLY_NO_CONFIG",
@@ -554,10 +615,13 @@
 					"-DFOLLY_USE_LIBCPP=1",
 					"-DFOLLY_CFG_NO_COROUTINES=1",
 					"-DFOLLY_HAVE_CLOCK_GETTIME=1",
+					"-DRCT_REMOVE_LEGACY_ARCH=1",
 				);
+				PODFILE_DIR = "$(SRCROOT)";
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_ENABLE_EXPLICIT_MODULES = NO;
 				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};

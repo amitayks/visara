@@ -1,6 +1,6 @@
+import { AppSettings } from "@models/AppSettings";
 import { Q } from "@nozbe/watermelondb";
 import { database } from "./database";
-import { AppSettings } from "@models/AppSettings";
 
 export class AppSettingsRepository {
 	private static instance: AppSettingsRepository;

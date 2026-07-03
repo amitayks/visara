@@ -254,7 +254,7 @@ export function MainScreen() {
 						setInfoDrawerVisible(false);
 						setViewerVisible(false);
 						Alert.alert("Success", "Photo removed from app");
-					} catch (error) {
+					} catch (_error) {
 						Alert.alert("Error", "Failed to remove photo from app");
 					}
 				},
@@ -272,7 +272,7 @@ export function MainScreen() {
 						setInfoDrawerVisible(false);
 						setViewerVisible(false);
 						Alert.alert("Success", "Photo permanently deleted");
-					} catch (error) {
+					} catch (_error) {
 						Alert.alert("Error", "Failed to delete photo permanently");
 					}
 				},
@@ -285,7 +285,7 @@ export function MainScreen() {
 
 		try {
 			await sharePhoto(selectedMedia);
-		} catch (error) {
+		} catch (_error) {
 			Alert.alert("Error", "Failed to share photo");
 		}
 	}, [selectedMedia]);
@@ -296,7 +296,7 @@ export function MainScreen() {
 			const ocrText = selectedOcrText?.text || null;
 			await copyPhotoMetadata(labels, ocrText);
 			Alert.alert("Success", "Metadata copied to clipboard");
-		} catch (error) {
+		} catch (_error) {
 			Alert.alert("Error", "Failed to copy metadata");
 		}
 	}, [selectedLabels, selectedOcrText]);
@@ -306,7 +306,7 @@ export function MainScreen() {
 
 		try {
 			await openInExternalApp(selectedMedia);
-		} catch (error) {
+		} catch (_error) {
 			Alert.alert(
 				"Not Implemented",
 				"Opening in external app is not yet implemented",

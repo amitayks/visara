@@ -34,9 +34,7 @@ export function LabelTag({
 		color: colors.text,
 	};
 
-	const confidenceText = confidence
-		? ` ${Math.round(confidence * 100)}%`
-		: "";
+	const confidenceText = confidence ? ` ${Math.round(confidence * 100)}%` : "";
 
 	const content = (
 		<>

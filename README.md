@@ -22,12 +22,13 @@ Visara automatically discovers photos and documents on your device, processes th
 
 | Category | Technology |
 |---|---|
-| Framework | React Native 0.81 (New Architecture) |
+| Framework | React Native 0.86 (New Architecture, Hermes V1) |
 | Language | TypeScript 5.9 (strict mode) |
 | UI Components | React Native Paper (Material Design) |
-| Animations | React Native Reanimated 3 |
+| Animations | React Native Reanimated 4 (react-native-worklets) |
 | Gestures | React Native Gesture Handler |
 | Virtualized Lists | Shopify FlashList |
+| Images | expo-image |
 | Database | WatermelonDB (SQLCipher encrypted) |
 | Fast Storage | React Native MMKV |
 | Search | MiniSearch (fuzzy full-text) |

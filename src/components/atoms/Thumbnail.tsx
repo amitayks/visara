@@ -1,8 +1,8 @@
 import { BorderRadius } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
-import { useState } from "react";
+import { Image } from "expo-image";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
-import FastImage from "react-native-fast-image";
 
 interface ThumbnailProps {
 	uri?: string;
@@ -23,6 +23,13 @@ export function Thumbnail({
 	const { colors } = useTheme();
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(false);
+
+	// FlashList recycles this component across different media; reset per-uri
+	// so a recycled cell doesn't inherit a stale loading/error state.
+	useEffect(() => {
+		setLoading(true);
+		setError(false);
+	}, [uri]);
 
 	const handleLoadStart = () => {
 		setLoading(true);
@@ -47,10 +54,11 @@ export function Thumbnail({
 	return (
 		<View style={[styles.container, containerStyle]} testID={testID}>
 			{uri && !error ? (
-				<FastImage
-					source={{ uri, priority: FastImage.priority.normal }}
+				<Image
+					source={{ uri }}
 					style={styles.image}
-					resizeMode={FastImage.resizeMode.cover}
+					contentFit="cover"
+					recyclingKey={uri}
 					onLoadStart={handleLoadStart}
 					onLoadEnd={handleLoadEnd}
 					onError={handleError}
@@ -61,7 +69,7 @@ export function Thumbnail({
 				</View>
 			)}
 
-			{loading && showLoader && (
+			{uri && !error && loading && showLoader && (
 				<View style={styles.loaderContainer}>
 					<ActivityIndicator size="small" color={colors.accent} />
 				</View>
@@ -87,7 +95,7 @@ const styles = StyleSheet.create({
 		justifyContent: "center",
 	},
 	loaderContainer: {
-		...StyleSheet.absoluteFillObject,
+		...StyleSheet.absoluteFill,
 		alignItems: "center",
 		justifyContent: "center",
 		backgroundColor: "rgba(0, 0, 0, 0.1)",

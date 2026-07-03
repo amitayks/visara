@@ -1,7 +1,6 @@
-import React from "react";
-import { View, Text } from "react-native";
-import { createStackNavigator } from "@react-navigation/stack";
 import type { MediaFile } from "@models/MediaFile";
+import { createStackNavigator } from "@react-navigation/stack";
+import { Text, View } from "react-native";
 import { modalNavigationOptions } from "./navigationConfig";
 
 export type ModalStackParamList = {
@@ -30,9 +29,7 @@ function PhotoViewerPlaceholder() {
  */
 export function ModalNavigator() {
 	return (
-		<Stack.Navigator
-			screenOptions={modalNavigationOptions}
-		>
+		<Stack.Navigator screenOptions={modalNavigationOptions}>
 			<Stack.Screen
 				name="PhotoViewer"
 				component={PhotoViewerPlaceholder}

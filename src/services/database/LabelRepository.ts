@@ -1,6 +1,6 @@
+import { Label } from "@models/Label";
 import { Q } from "@nozbe/watermelondb";
 import { database } from "./database";
-import { Label } from "@models/Label";
 
 export interface CreateLabelData {
 	mediaFileId: string;

@@ -1,7 +1,7 @@
-import type { MediaFile } from "@models/MediaFile";
-import { Clipboard, Share } from "react-native";
 import RNFS from "@dr.pogodin/react-native-fs";
+import type { MediaFile } from "@models/MediaFile";
 import { MediaFileRepository } from "@services/database/MediaFileRepository";
+import { Clipboard, Share } from "react-native";
 
 /**
  * Photo Actions Utilities
@@ -99,7 +99,7 @@ export async function copyPhotoMetadata(
 			metadataParts.push(`Labels: ${labels.join(", ")}`);
 		}
 
-		if (ocrText && ocrText.trim()) {
+		if (ocrText?.trim()) {
 			metadataParts.push(`Text: ${ocrText}`);
 		}
 

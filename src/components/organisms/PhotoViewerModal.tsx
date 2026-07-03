@@ -1,6 +1,7 @@
 import type { MediaFile } from "@models/MediaFile";
 import { SpringConfigs } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
+import { Image } from "expo-image";
 import { useCallback, useEffect, useState } from "react";
 import {
 	Modal,
@@ -9,7 +10,6 @@ import {
 	View,
 	type ViewStyle,
 } from "react-native";
-import FastImage from "react-native-fast-image";
 import {
 	Gesture,
 	GestureDetector,
@@ -69,7 +69,14 @@ export function PhotoViewerModal({
 		savedScale.value = 1;
 		savedTranslateX.value = 0;
 		savedTranslateY.value = 0;
-	}, [scale, translateX, translateY, savedScale, savedTranslateX, savedTranslateY]);
+	}, [
+		scale,
+		translateX,
+		translateY,
+		savedScale,
+		savedTranslateX,
+		savedTranslateY,
+	]);
 
 	const handleClose = useCallback(() => {
 		resetTransform();
@@ -199,10 +206,10 @@ export function PhotoViewerModal({
 				<View style={styles.imageContainer} pointerEvents="box-none">
 					<GestureDetector gesture={composed}>
 						<Animated.View style={[styles.imageWrapper, animatedStyle]}>
-							<FastImage
+							<Image
 								source={{ uri: currentMedia.uri }}
 								style={styles.image}
-								resizeMode={FastImage.resizeMode.contain}
+								contentFit="contain"
 							/>
 						</Animated.View>
 					</GestureDetector>
@@ -217,7 +224,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	backdrop: {
-		...StyleSheet.absoluteFillObject,
+		...StyleSheet.absoluteFill,
 	},
 	imageContainer: {
 		flex: 1,

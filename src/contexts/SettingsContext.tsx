@@ -1,7 +1,10 @@
+import { getItem, setItem } from "@services/storage/mmkv";
+import { STORAGE_KEYS } from "@utils/constants/storage-keys";
 import React, {
 	createContext,
 	type ReactNode,
 	useContext,
+	useEffect,
 	useReducer,
 } from "react";
 
@@ -147,9 +150,67 @@ const SettingsContext = createContext<SettingsContextType | undefined>(
 	undefined,
 );
 
+// Hydrate persisted settings synchronously from MMKV (keys pre-dated this
+// wiring in storage-keys.ts; the flag was previously memory-only, so the app
+// re-ran onboarding on every cold start).
+function hydrateInitialState(): SettingsState {
+	try {
+		const theme = getItem(STORAGE_KEYS.THEME);
+		const zoom = Number(getItem(STORAGE_KEYS.GRID_ZOOM_LEVEL));
+		return {
+			...initialState,
+			theme:
+				theme === "light" || theme === "dark" || theme === "system"
+					? theme
+					: initialState.theme,
+			batterySaver: getItem(STORAGE_KEYS.BATTERY_SAVER_ENABLED) === "true",
+			nightProcessing:
+				getItem(STORAGE_KEYS.NIGHT_PROCESSING_ENABLED) === "true",
+			preferences: {
+				...initialState.preferences,
+				gridZoomLevel:
+					zoom === 3 || zoom === 4 || zoom === 11
+						? zoom
+						: initialState.preferences.gridZoomLevel,
+				onboardingCompleted:
+					getItem(STORAGE_KEYS.ONBOARDING_COMPLETED) === "true",
+			},
+		};
+	} catch {
+		return initialState;
+	}
+}
+
 // Provider component
 export function SettingsProvider({ children }: { children: ReactNode }) {
-	const [state, dispatch] = useReducer(settingsReducer, initialState);
+	const [state, dispatch] = useReducer(
+		settingsReducer,
+		undefined,
+		hydrateInitialState,
+	);
+
+	useEffect(() => {
+		setItem(STORAGE_KEYS.THEME, state.theme);
+		setItem(STORAGE_KEYS.BATTERY_SAVER_ENABLED, String(state.batterySaver));
+		setItem(
+			STORAGE_KEYS.NIGHT_PROCESSING_ENABLED,
+			String(state.nightProcessing),
+		);
+		setItem(
+			STORAGE_KEYS.GRID_ZOOM_LEVEL,
+			String(state.preferences.gridZoomLevel),
+		);
+		setItem(
+			STORAGE_KEYS.ONBOARDING_COMPLETED,
+			String(state.preferences.onboardingCompleted),
+		);
+	}, [
+		state.theme,
+		state.batterySaver,
+		state.nightProcessing,
+		state.preferences.gridZoomLevel,
+		state.preferences.onboardingCompleted,
+	]);
 
 	return (
 		<SettingsContext.Provider value={{ state, dispatch }}>

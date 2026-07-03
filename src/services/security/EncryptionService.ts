@@ -1,6 +1,6 @@
+import { storage } from "@services/storage/mmkv";
 import * as Keychain from "react-native-keychain";
 import QuickCrypto from "react-native-quick-crypto";
-import { storage } from "@services/storage/mmkv";
 
 const ENCRYPTION_KEY_ALIAS = "visara_encryption_key";
 const ENCRYPTION_KEY_GENERATED_FLAG = "encryption_key_generated";
@@ -145,7 +145,7 @@ export class EncryptionService {
 			});
 
 			// Remove flag from MMKV
-			storage.delete(ENCRYPTION_KEY_GENERATED_FLAG);
+			storage.remove(ENCRYPTION_KEY_GENERATED_FLAG);
 
 			// Clear cached key
 			this.encryptionKey = null;

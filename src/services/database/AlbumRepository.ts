@@ -1,8 +1,8 @@
-import { Q } from "@nozbe/watermelondb";
-import { database } from "./database";
 import { Album } from "@models/Album";
 import { AlbumMedia } from "@models/AlbumMedia";
 import { MediaFile } from "@models/MediaFile";
+import { Q } from "@nozbe/watermelondb";
+import { database } from "./database";
 
 export interface CreateAlbumData {
 	name: string;

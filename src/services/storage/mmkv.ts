@@ -1,8 +1,10 @@
-import { MMKV } from 'react-native-mmkv';
+import { createMMKV } from "react-native-mmkv";
 
-export const storage = new MMKV({
-	id: 'visara-storage',
-	encryptionKey: 'visara-encryption-key-2024',
+// id and encryptionKey must stay byte-for-byte identical across upgrades:
+// existing on-disk data (AES-128, cropped 16-byte effective key) depends on them.
+export const storage = createMMKV({
+	id: "visara-storage",
+	encryptionKey: "visara-encryption-key-2024",
 });
 
 export const getItem = (key: string): string | undefined => {
@@ -14,7 +16,7 @@ export const setItem = (key: string, value: string): void => {
 };
 
 export const removeItem = (key: string): void => {
-	storage.delete(key);
+	storage.remove(key);
 };
 
 export const clearAll = (): void => {

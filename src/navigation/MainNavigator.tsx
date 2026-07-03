@@ -7,7 +7,7 @@ import { type Theme, useSettings } from "@contexts/SettingsContext";
 import { AlbumsScreen } from "@screens/Albums/AlbumsScreen";
 import { MainScreen } from "@screens/Main/MainScreen";
 import { LibraryReprocessingService } from "@services/orchestrator/LibraryReprocessingService";
-import React, { useCallback, useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { BackHandler, StyleSheet } from "react-native";
 import DeviceInfo from "react-native-device-info";
 

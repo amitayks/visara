@@ -1,4 +1,4 @@
-import { AlbumList, type AlbumData } from "@components/organisms/AlbumList";
+import { type AlbumData, AlbumList } from "@components/organisms/AlbumList";
 import type { Album } from "@models/Album";
 import { Spacing, Typography } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";

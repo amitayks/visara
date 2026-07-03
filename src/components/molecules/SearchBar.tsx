@@ -3,11 +3,7 @@ import { Icon } from "@components/atoms/Icon";
 import { BorderRadius, Spacing } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
 import { useEffect, useRef } from "react";
-import {
-	StyleSheet,
-	TextInput,
-	type ViewStyle,
-} from "react-native";
+import { StyleSheet, TextInput, type ViewStyle } from "react-native";
 import Animated, {
 	useAnimatedStyle,
 	useSharedValue,

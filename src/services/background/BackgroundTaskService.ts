@@ -1,10 +1,15 @@
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: it bother me */
-import BackgroundService from "react-native-background-actions";
-import { AppState, type AppStateStatus, type NativeEventSubscription } from "react-native";
+
 import { ThermalService } from "@services/device/ThermalService";
 import { storage } from "@services/storage/mmkv";
 import { STORAGE_KEYS } from "@utils/constants/storage-keys";
-import { shouldAllowProcessing, getBatteryStatus } from "@utils/device/battery";
+import { getBatteryStatus, shouldAllowProcessing } from "@utils/device/battery";
+import {
+	AppState,
+	type AppStateStatus,
+	type NativeEventSubscription,
+} from "react-native";
+import BackgroundService from "react-native-background-actions";
 
 export interface BackgroundTaskOptions {
 	taskName: string;
@@ -118,9 +123,9 @@ export class BackgroundTaskService {
 			this.currentTask = taskFunction;
 
 			// Create the background task wrapper
-			const veryIntensiveTask = async (
-				taskDataArguments?: { delay: number },
-			) => {
+			const veryIntensiveTask = async (taskDataArguments?: {
+				delay: number;
+			}) => {
 				const { delay } = taskDataArguments || { delay: 100 };
 
 				await new Promise<void>((resolve) => {
@@ -192,9 +197,12 @@ export class BackgroundTaskService {
 				taskTitle: options.taskTitle,
 				taskDesc: options.taskDesc,
 				taskIcon: options.taskIcon || {
-					name: "ic_launcher",
+					name: "visara_launcher",
 					type: "mipmap",
 				},
+				// targetSdk 34+ prohibits starting a FGS with type "none"; must match
+				// the dataSync type declared on the service in AndroidManifest.xml.
+				foregroundServiceType: ["dataSync"],
 				color: options.color || "#FF6347",
 				linkingURI: options.linkingURI,
 				parameters: {
