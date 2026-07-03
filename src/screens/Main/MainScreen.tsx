@@ -6,9 +6,11 @@ import { useGallery } from "@contexts/GalleryContext";
 import { useNavigation } from "@contexts/NavigationContext";
 import { useProcessing } from "@contexts/ProcessingContext";
 import { useSearch } from "@contexts/SearchContext";
-import { SearchService } from "@services/search/SearchService";
-import { MediaFileRepository } from "@services/database/MediaFileRepository";
 import type { MediaFile } from "@models/MediaFile";
+import { MediaFileRepository } from "@services/database/MediaFileRepository";
+import { HybridSearchService } from "@services/search/HybridSearchService";
+import { SearchService } from "@services/search/SearchService";
+import { SemanticSearchService } from "@services/search/SemanticSearchService";
 import type { DisplayLabel, DisplayOcrText } from "@shared-types/display";
 import {
 	copyPhotoMetadata,
@@ -59,6 +61,8 @@ export function MainScreen() {
 				// Index doesn't exist yet, build it
 				await SearchService.index();
 			}
+			// Warm the semantic index so hybrid ranking is available when vectors exist.
+			await SemanticSearchService.loadIndex();
 		};
 
 		initializeSearch();
@@ -77,8 +81,10 @@ export function MainScreen() {
 			searchDispatch({ type: "SET_LOADING", payload: true });
 
 			try {
-				// Perform search using SearchService
-				const searchResults = await SearchService.search(searchState.searchQuery);
+				// Perform hybrid (lexical + semantic) search; degrades to lexical-only.
+				const searchResults = await HybridSearchService.search(
+					searchState.searchQuery,
+				);
 
 				// Get full MediaFile objects for the results
 				const mediaFiles = await Promise.all(
@@ -218,12 +224,15 @@ export function MainScreen() {
 	}, []);
 
 	// Handle info drawer actions
-	const handleLabelPress = useCallback((label: string) => {
-		// Set search query and activate search mode
-		searchDispatch({ type: "SET_SEARCH_QUERY", payload: label });
-		setInfoDrawerVisible(false);
-		// Search will trigger automatically via useEffect
-	}, [searchDispatch]);
+	const handleLabelPress = useCallback(
+		(label: string) => {
+			// Set search query and activate search mode
+			searchDispatch({ type: "SET_SEARCH_QUERY", payload: label });
+			setInfoDrawerVisible(false);
+			// Search will trigger automatically via useEffect
+		},
+		[searchDispatch],
+	);
 
 	const handleDelete = useCallback(async () => {
 		if (!selectedMedia) return;

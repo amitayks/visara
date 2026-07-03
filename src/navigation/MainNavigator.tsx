@@ -1,13 +1,14 @@
-import React, { useCallback, useEffect } from "react";
-import { StyleSheet, BackHandler } from "react-native";
+import { AnimatedBottomNav } from "@components/molecules/AnimatedBottomNav";
+import { HorizontalPageContainer } from "@components/organisms/HorizontalPageContainer";
+import { SettingsDrawer } from "@components/organisms/SettingsDrawer";
 import { useNavigation } from "@contexts/NavigationContext";
 import { useSearch } from "@contexts/SearchContext";
-import { HorizontalPageContainer } from "@components/organisms/HorizontalPageContainer";
-import { AnimatedBottomNav } from "@components/molecules/AnimatedBottomNav";
-import { SettingsDrawer } from "@components/organisms/SettingsDrawer";
-import { MainScreen } from "@screens/Main/MainScreen";
+import { type Theme, useSettings } from "@contexts/SettingsContext";
 import { AlbumsScreen } from "@screens/Albums/AlbumsScreen";
-import { useSettings, type Theme } from "@contexts/SettingsContext";
+import { MainScreen } from "@screens/Main/MainScreen";
+import { LibraryReprocessingService } from "@services/orchestrator/LibraryReprocessingService";
+import React, { useCallback, useEffect } from "react";
+import { BackHandler, StyleSheet } from "react-native";
 import DeviceInfo from "react-native-device-info";
 
 /**
@@ -114,6 +115,16 @@ export function MainNavigator() {
 		}
 	}, [settingsDispatch]);
 
+	// Fire-and-forget model-version-aware reprocess. Idempotent inside the
+	// service: a no-op while a sweep or drain is already active.
+	const handleReRunAnalysis = useCallback(async () => {
+		try {
+			await LibraryReprocessingService.requestReprocess();
+		} catch (error) {
+			console.error("Failed to start re-analysis:", error);
+		}
+	}, []);
+
 	const handlePrivacyPolicyPress = useCallback(() => {
 		console.log("Privacy Policy pressed");
 	}, []);
@@ -152,7 +163,12 @@ export function MainNavigator() {
 		);
 
 		return () => backHandler.remove();
-	}, [navState.searchMode, navState.settingsDrawerOpen, handleSearchClose, handleSettingsClose]);
+	}, [
+		navState.searchMode,
+		navState.settingsDrawerOpen,
+		handleSearchClose,
+		handleSettingsClose,
+	]);
 
 	return (
 		<>
@@ -191,6 +207,7 @@ export function MainNavigator() {
 					nightProcessingMode={settingsState.nightProcessing}
 					onBatterySaverToggle={handleBatterySaverToggle}
 					onNightProcessingToggle={handleNightProcessingToggle}
+					onReRunAnalysis={handleReRunAnalysis}
 					theme={settingsState.theme}
 					onThemeChange={handleThemeChange}
 					onClearCache={handleClearCache}

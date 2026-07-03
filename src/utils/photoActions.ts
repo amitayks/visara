@@ -1,6 +1,6 @@
 import type { MediaFile } from "@models/MediaFile";
 import { Clipboard, Share } from "react-native";
-import RNFS from "react-native-fs";
+import RNFS from "@dr.pogodin/react-native-fs";
 import { MediaFileRepository } from "@services/database/MediaFileRepository";
 
 /**

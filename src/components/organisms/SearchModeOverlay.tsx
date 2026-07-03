@@ -1,30 +1,32 @@
+import { InfoDrawer } from "@components/organisms/InfoDrawer";
 import { PhotoGrid } from "@components/organisms/PhotoGrid";
 import { PhotoViewerModal } from "@components/organisms/PhotoViewerModal";
-import { InfoDrawer } from "@components/organisms/InfoDrawer";
-import { useSearch } from "@contexts/SearchContext";
 import { useGallery } from "@contexts/GalleryContext";
+import { useSearch } from "@contexts/SearchContext";
 import type { MediaFile } from "@models/MediaFile";
-import { SearchService } from "@services/search/SearchService";
 import { MediaFileRepository } from "@services/database/MediaFileRepository";
+import { HybridSearchService } from "@services/search/HybridSearchService";
+import { SearchService } from "@services/search/SearchService";
+import { SemanticSearchService } from "@services/search/SemanticSearchService";
 import type { DisplayLabel, DisplayOcrText } from "@shared-types/display";
-import {
-	deletePhoto,
-	sharePhoto,
-	copyPhotoMetadata,
-	openInExternalApp,
-	loadMediaMetadata,
-} from "@utils/photoActions";
 import { Spacing, Typography } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
-import { useCallback, useState, useEffect } from "react";
+import {
+	copyPhotoMetadata,
+	deletePhoto,
+	loadMediaMetadata,
+	openInExternalApp,
+	sharePhoto,
+} from "@utils/photoActions";
+import { useCallback, useEffect, useState } from "react";
 import {
 	ActivityIndicator,
 	Alert,
+	BackHandler,
 	StyleSheet,
 	Text,
 	View,
 	type ViewStyle,
-	BackHandler,
 } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 
@@ -64,6 +66,8 @@ export function SearchModeOverlay({
 				// Index doesn't exist yet, build it
 				await SearchService.index();
 			}
+			// Warm the semantic index so hybrid ranking is available when vectors exist.
+			await SemanticSearchService.loadIndex();
 		};
 
 		initializeSearch();
@@ -82,8 +86,8 @@ export function SearchModeOverlay({
 			searchDispatch({ type: "SET_LOADING", payload: true });
 
 			try {
-				// Perform search using SearchService
-				const searchResults = await SearchService.search(searchQuery);
+				// Perform hybrid (lexical + semantic) search; degrades to lexical-only.
+				const searchResults = await HybridSearchService.search(searchQuery);
 
 				// Get full MediaFile objects for the results
 				const mediaFiles = await Promise.all(
@@ -235,7 +239,12 @@ export function SearchModeOverlay({
 				},
 			},
 		]);
-	}, [selectedMedia, galleryDispatch, searchDispatch, searchState.searchResults]);
+	}, [
+		selectedMedia,
+		galleryDispatch,
+		searchDispatch,
+		searchState.searchResults,
+	]);
 
 	const handleShare = useCallback(async () => {
 		if (!selectedMedia) return;

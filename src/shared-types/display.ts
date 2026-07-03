@@ -14,6 +14,10 @@ export interface DisplayLabel {
 	label: string;
 	/** Confidence score from 0.0 to 1.0 */
 	confidence: number;
+	/** Provenance of the label (e.g., "mlkit", "gemma") */
+	source?: string;
+	/** Label category (e.g., "tag") */
+	type?: string;
 }
 
 /**
@@ -23,4 +27,15 @@ export interface DisplayLabel {
 export interface DisplayOcrText {
 	/** The extracted text content */
 	text: string;
+}
+
+/**
+ * Display-only Gemma enrichment for UI rendering
+ * Contains the caption/description produced by on-device enrichment
+ */
+export interface DisplayEnrichment {
+	/** Short caption summarizing the media */
+	caption?: string;
+	/** Longer descriptive text for the media */
+	description?: string;
 }

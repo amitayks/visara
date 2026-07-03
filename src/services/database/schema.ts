@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from "@nozbe/watermelondb";
 
 export const schema = appSchema({
-	version: 1,
+	version: 2,
 	tables: [
 		tableSchema({
 			name: "media_files",
@@ -22,6 +22,16 @@ export const schema = appSchema({
 				{ name: "thumbnail_uri", type: "string", isOptional: true },
 				{ name: "created_at", type: "number" },
 				{ name: "updated_at", type: "number" },
+				{ name: "caption", type: "string", isOptional: true },
+				{ name: "description", type: "string", isOptional: true },
+				{ name: "ai_model_version", type: "string", isOptional: true },
+				{ name: "ai_schema_version", type: "number", isOptional: true },
+				{
+					name: "processed_at",
+					type: "number",
+					isOptional: true,
+					isIndexed: true,
+				},
 			],
 		}),
 		tableSchema({
@@ -31,6 +41,9 @@ export const schema = appSchema({
 				{ name: "label", type: "string", isIndexed: true },
 				{ name: "confidence", type: "number" },
 				{ name: "created_at", type: "number" },
+				{ name: "source", type: "string", isIndexed: true },
+				{ name: "type", type: "string", isIndexed: true },
+				{ name: "model_version", type: "string", isOptional: true },
 			],
 		}),
 		tableSchema({
@@ -76,6 +89,8 @@ export const schema = appSchema({
 				{ name: "error_message", type: "string", isOptional: true },
 				{ name: "created_at", type: "number" },
 				{ name: "updated_at", type: "number" },
+				{ name: "task_type", type: "string", isIndexed: true },
+				{ name: "model_version", type: "string", isOptional: true },
 			],
 		}),
 		tableSchema({
@@ -84,6 +99,16 @@ export const schema = appSchema({
 				{ name: "key", type: "string", isIndexed: true },
 				{ name: "value", type: "string" },
 				{ name: "updated_at", type: "number" },
+			],
+		}),
+		tableSchema({
+			name: "embeddings",
+			columns: [
+				{ name: "media_file_id", type: "string", isIndexed: true },
+				{ name: "vector", type: "string" },
+				{ name: "dim", type: "number" },
+				{ name: "model_version", type: "string" },
+				{ name: "created_at", type: "number" },
 			],
 		}),
 	],

@@ -1,9 +1,9 @@
-import { Q } from "@nozbe/watermelondb";
-import { database } from "./database";
-import { MediaFile } from "@models/MediaFile";
 import { Label } from "@models/Label";
+import { MediaFile } from "@models/MediaFile";
 import { OcrText } from "@models/OcrText";
+import { Q } from "@nozbe/watermelondb";
 import type { ProcessingResult } from "@services/ml/ProcessingService";
+import { database } from "./database";
 
 export interface CreateMediaFileData {
 	uri: string;
@@ -25,6 +25,40 @@ export interface UpdateMediaFileData {
 	isHidden?: boolean;
 	thumbnailUri?: string;
 }
+
+/**
+ * AI enrichment schema version stamped as `ai_schema_version` alongside
+ * `is_processed` for the Tier-0 (labels + OCR) write shape.
+ */
+export const TIER0_SCHEMA_VERSION = 1;
+
+/**
+ * AI enrichment schema version stamped as `ai_schema_version` for the Tier-1
+ * (Gemma caption/description/open-vocabulary-tags) write shape.
+ *
+ * POC-DEPENDENT (#4 on-device Gemma POC): its value tracks the finalized
+ * `GemmaEnrichment` output contract and MUST be bumped when that shape changes.
+ */
+export const TIER1_SCHEMA_VERSION = 1;
+
+/**
+ * Provenance stamped in the same write as `is_processed` so change #1's
+ * invariant `is_processed === (processed_at !== null)` holds atomically.
+ * The authoritative source is the analysis engine descriptor; the orchestrator
+ * threads it in. The default below is a defensive fallback that matches the
+ * Tier-0 `labels.source = "mlkit"` provenance already written in this file.
+ */
+export interface ProcessingProvenance {
+	/** Stamped as `ai_model_version` (e.g. the engine descriptor id "mlkit"). */
+	modelVersion: string;
+	/** Stamped as `ai_schema_version`. */
+	schemaVersion: number;
+}
+
+const DEFAULT_PROVENANCE: ProcessingProvenance = {
+	modelVersion: "mlkit",
+	schemaVersion: TIER0_SCHEMA_VERSION,
+};
 
 export class MediaFileRepository {
 	static async create(data: CreateMediaFileData): Promise<MediaFile> {
@@ -170,9 +204,44 @@ export class MediaFileRepository {
 		return await database.get<MediaFile>("media_files").query().fetchCount();
 	}
 
+	/**
+	 * Idempotent discovery entry point: dedupe by `uri`. Updates the mutable
+	 * metadata of an existing row in place (never creating a duplicate) or
+	 * creates a new one. Never touches `is_processed`, so a rescan of an
+	 * already-processed file keeps its processing state.
+	 */
+	static async upsertFromDiscovered(
+		data: CreateMediaFileData,
+	): Promise<{ mediaFile: MediaFile; created: boolean }> {
+		const existing = await this.findByUri(data.uri);
+		if (existing) {
+			const updated = await database.write(async () => {
+				return await existing.update((record) => {
+					record.filename = data.filename;
+					record.mimeType = data.mimeType;
+					record.width = data.width;
+					record.height = data.height;
+					record.fileSize = data.fileSize;
+					record.creationDate = data.creationDate;
+					record.modificationDate = data.modificationDate;
+					record.latitude = data.latitude;
+					record.longitude = data.longitude;
+					if (data.thumbnailUri !== undefined) {
+						record.thumbnailUri = data.thumbnailUri;
+					}
+				});
+			});
+			return { mediaFile: updated, created: false };
+		}
+
+		const created = await this.create(data);
+		return { mediaFile: created, created: true };
+	}
+
 	static async createWithProcessingResult(
 		mediaData: CreateMediaFileData,
 		processingResult: ProcessingResult,
+		provenance: ProcessingProvenance = DEFAULT_PROVENANCE,
 	): Promise<MediaFile> {
 		return await database.write(async () => {
 			// Create media file
@@ -193,6 +262,13 @@ export class MediaFileRepository {
 					record.isFavorite = false;
 					record.isHidden = false;
 					record.thumbnailUri = mediaData.thumbnailUri;
+					// Stamp provenance in the same write as is_processed so the
+					// invariant is_processed === (processed_at !== null) holds.
+					if (processingResult.success) {
+						record.processedAt = new Date();
+						record.aiModelVersion = provenance.modelVersion;
+						record.aiSchemaVersion = provenance.schemaVersion;
+					}
 				});
 
 			// Create labels
@@ -202,6 +278,8 @@ export class MediaFileRepository {
 						label.mediaFileId = mediaFile.id;
 						label.label = labelData.text;
 						label.confidence = labelData.confidence;
+						label.source = "mlkit";
+						label.type = "tag";
 					}),
 			);
 
@@ -221,45 +299,105 @@ export class MediaFileRepository {
 		});
 	}
 
+	/**
+	 * Unified enrichment writer for BOTH tiers, overwrite-in-place. The tier is
+	 * discriminated by `processingResult.gemma`: when present this is a Tier-1
+	 * (Gemma) persist (caption/description + `source = "gemma"` open-vocabulary
+	 * tags); when absent it is the Tier-0 (ML Kit) persist (`source = "mlkit"`
+	 * labels + OCR text).
+	 *
+	 * Label replacement is SOURCE-SCOPED: each tier replaces ONLY its own
+	 * `labels.source` rows and leaves the other tier's rows intact, so a Tier-1
+	 * pass never clobbers Tier-0 `mlkit` labels and a Tier-0 re-run never clobbers
+	 * Tier-1 `gemma` labels. (Previously this deleted ALL labels for the file
+	 * regardless of `source`, which would destroy the other tier's tags.)
+	 *
+	 * Provenance is stamped in the same write as `is_processed` so the change-#1
+	 * invariant `is_processed === (processed_at !== null)` holds atomically.
+	 */
 	static async updateWithProcessingResult(
 		mediaFile: MediaFile,
 		processingResult: ProcessingResult,
+		provenance: ProcessingProvenance = DEFAULT_PROVENANCE,
 	): Promise<MediaFile> {
+		// Tier discriminator: only the Tier-1 Gemma engine attaches `gemma`.
+		const gemma = processingResult.gemma;
+		const isTier1 = gemma !== undefined;
+		const labelSource = isTier1 ? "gemma" : "mlkit";
+
 		return await database.write(async () => {
 			// Update media file
 			const updatedMediaFile = await mediaFile.update((record) => {
 				record.isProcessed = processingResult.success;
+				// Stamp provenance in the same write as is_processed so the
+				// invariant is_processed === (processed_at !== null) holds.
+				if (processingResult.success) {
+					record.processedAt = new Date();
+					record.aiModelVersion = provenance.modelVersion;
+					record.aiSchemaVersion = provenance.schemaVersion;
+					// Tier-1 additionally stamps the multimodal caption/description.
+					if (gemma) {
+						record.caption = gemma.caption;
+						record.description = gemma.description;
+					}
+				} else {
+					// Keep the invariant on a failed re-process: clear processed_at.
+					record.processedAt = undefined;
+				}
 			});
 
-			// Delete existing labels and OCR text
+			// SOURCE-SCOPED replace: delete ONLY this tier's labels so the other
+			// tier's rows survive (a Tier-1 persist preserves `mlkit` labels; a
+			// Tier-0 re-run preserves `gemma` labels).
 			const existingLabels = await database
 				.get<Label>("labels")
-				.query(Q.where("media_file_id", mediaFile.id))
+				.query(
+					Q.where("media_file_id", mediaFile.id),
+					Q.where("source", labelSource),
+				)
 				.fetch();
+			await Promise.all(existingLabels.map((label) => label.markAsDeleted()));
 
-			const existingOcrTexts = await database
-				.get<OcrText>("ocr_texts")
-				.query(Q.where("media_file_id", mediaFile.id))
-				.fetch();
+			if (isTier1) {
+				// Tier-1: Gemma open-vocabulary tags (source = "gemma"). Gemma
+				// produces no OCR, so existing (mlkit) OCR text is left untouched.
+				await Promise.all(
+					(gemma?.tags ?? []).map((tag) =>
+						database.get<Label>("labels").create((label) => {
+							label.mediaFileId = mediaFile.id;
+							label.label = tag.text;
+							// `Label.confidence` is required; Gemma tags may omit it.
+							label.confidence = tag.confidence ?? 1;
+							label.source = "gemma";
+							label.type = "tag";
+							label.modelVersion = provenance.modelVersion;
+						}),
+					),
+				);
+				return updatedMediaFile;
+			}
 
-			await Promise.all([
-				...existingLabels.map((label) => label.markAsDeleted()),
-				...existingOcrTexts.map((ocr) => ocr.markAsDeleted()),
-			]);
-
-			// Create new labels
-			const labelPromises = processingResult.imageLabeling.labels.map(
-				(labelData) =>
+			// Tier-0 (ML Kit): labels (source = "mlkit") + OCR text. Behavior is
+			// unchanged except the label delete above is now source-scoped.
+			await Promise.all(
+				processingResult.imageLabeling.labels.map((labelData) =>
 					database.get<Label>("labels").create((label) => {
 						label.mediaFileId = mediaFile.id;
 						label.label = labelData.text;
 						label.confidence = labelData.confidence;
+						label.source = "mlkit";
+						label.type = "tag";
 					}),
+				),
 			);
 
-			await Promise.all(labelPromises);
+			// Replace this file's OCR text (ML Kit is the only OCR producer).
+			const existingOcrTexts = await database
+				.get<OcrText>("ocr_texts")
+				.query(Q.where("media_file_id", mediaFile.id))
+				.fetch();
+			await Promise.all(existingOcrTexts.map((ocr) => ocr.markAsDeleted()));
 
-			// Create new OCR text
 			if (processingResult.textRecognition.text.trim().length > 0) {
 				await database.get<OcrText>("ocr_texts").create((ocrText) => {
 					ocrText.mediaFileId = mediaFile.id;

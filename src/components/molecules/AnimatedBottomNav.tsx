@@ -97,16 +97,6 @@ export function AnimatedBottomNav({
 		};
 	});
 
-	// Animated styles for button icons (Documents, Albums, Settings fade out)
-	const sideButtonsOpacity = useAnimatedStyle(() => ({
-		opacity: interpolate(
-			animationProgress.value,
-			[0, 1],
-			[1, 0],
-			Extrapolation.CLAMP,
-		),
-	}));
-
 	// Animated styles for search icon (moves and scales)
 	const searchIconStyle = useAnimatedStyle(() => {
 		const translateX = interpolate(
@@ -130,12 +120,6 @@ export function AnimatedBottomNav({
 			[0, 200],
 			Extrapolation.CLAMP,
 		),
-	}));
-
-	// Animated styles for close button (fades in)
-	const closeButtonStyle = useAnimatedStyle(() => ({
-		opacity: animationProgress.value,
-		pointerEvents: animationProgress.value > 0.5 ? "auto" : "none",
 	}));
 
 	// Animated styles for normal mode buttons (fade out when search is active)

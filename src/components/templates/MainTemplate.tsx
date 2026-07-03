@@ -53,7 +53,6 @@ export function MainTemplate({
 	gridColumns,
 	onMediaPress,
 	onZoomChange,
-	activeNavButton,
 	// onSearchPress,
 	// onDocumentsPress,
 	// onAlbumsPress,

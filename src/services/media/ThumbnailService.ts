@@ -1,4 +1,4 @@
-import RNFS from "react-native-fs";
+import RNFS from "@dr.pogodin/react-native-fs";
 import ImageResizer from "@bam.tech/react-native-image-resizer";
 import { storage } from "@services/storage/mmkv";
 

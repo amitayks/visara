@@ -1,14 +1,15 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import {
 	OnboardingTemplate,
 	type OnboardingScreen as OnboardingScreenType,
 } from "@components/templates/OnboardingTemplate";
+import { Button } from "@components/atoms/Button";
 import { Icon } from "@components/atoms/Icon";
 import { Spacing, Typography } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
 import { useSettings } from "@contexts/SettingsContext";
-import { MediaDiscoveryService } from "@services/media/MediaDiscoveryService";
+import { GemmaModelDeliveryService } from "@services/model/GemmaModelDeliveryService";
 
 // Screen 1: Welcome
 function WelcomeContent({
@@ -64,7 +65,7 @@ function WelcomeContent({
 						color={colors.buttonPrimary}
 					/>
 					<Text style={[styles.featureText, { color: colors.text }]}>
-						100% private and secure
+						Your photos never leave your device
 					</Text>
 				</View>
 			</View>
@@ -199,7 +200,7 @@ function PrivacyContent({
 					<Icon name="check" size="medium" color={colors.buttonPrimary} />
 					<View style={styles.guaranteeContent}>
 						<Text style={[styles.guaranteeTitle, { color: colors.text }]}>
-							100% On-Device Processing
+							On-Device Processing
 						</Text>
 						<Text
 							style={[
@@ -207,7 +208,8 @@ function PrivacyContent({
 								{ color: colors.textSecondary },
 							]}
 						>
-							All AI analysis runs locally on your device without internet
+							The AI model downloads once over Wi-Fi, then all analysis runs
+							offline on your device — your photos never leave it
 						</Text>
 					</View>
 				</View>
@@ -357,6 +359,90 @@ function PermissionsContent({
 	);
 }
 
+// Screen 5: Optional on-device model
+function ModelStepContent({
+	colors,
+}: {
+	colors: ReturnType<typeof useTheme>["colors"];
+}) {
+	const [choice, setChoice] = useState<"idle" | "downloading" | "deferred">(
+		"idle",
+	);
+
+	const handleDownload = useCallback(() => {
+		// Fire-and-forget: onboarding NEVER awaits or blocks on the download.
+		void GemmaModelDeliveryService.startDownload();
+		setChoice("downloading");
+	}, []);
+
+	const handleDefer = useCallback(() => {
+		setChoice("deferred");
+	}, []);
+
+	return (
+		<View style={styles.container}>
+			<View
+				style={[
+					styles.iconContainer,
+					{ backgroundColor: colors.buttonPrimary },
+				]}
+			>
+				<Icon
+					name="download-circle-outline"
+					size={64}
+					color={colors.buttonPrimaryText}
+				/>
+			</View>
+
+			<View>
+				<Text style={[styles.title, { color: colors.text }]}>
+					On-Device AI Model
+				</Text>
+
+				<Text style={[styles.description, { color: colors.textSecondary }]}>
+					For advanced analysis, Visara can download an optional on-device AI
+					model (a few gigabytes) once over Wi-Fi. After that it works fully
+					offline — your photos never leave your device. It is optional; the app
+					works without it, and you can manage it anytime in Settings.
+				</Text>
+			</View>
+
+			<View style={styles.modelActions}>
+				{choice === "downloading" ? (
+					<Text style={[styles.modelStatus, { color: colors.success }]}>
+						The download will run over Wi-Fi. You can pause or cancel it in
+						Settings.
+					</Text>
+				) : choice === "deferred" ? (
+					<Text style={[styles.modelStatus, { color: colors.textSecondary }]}>
+						No problem — you can download it later from Settings.
+					</Text>
+				) : (
+					<>
+						<Button
+							variant="primary"
+							size="medium"
+							onPress={handleDownload}
+							icon={<Icon name="wifi" size="small" />}
+							style={styles.modelButton}
+						>
+							Download on Wi-Fi
+						</Button>
+						<Button
+							variant="secondary"
+							size="medium"
+							onPress={handleDefer}
+							style={styles.modelButton}
+						>
+							Maybe later
+						</Button>
+					</>
+				)}
+			</View>
+		</View>
+	);
+}
+
 export function OnboardingScreen() {
 	const { colors } = useTheme();
 	const { dispatch } = useSettings();
@@ -396,6 +482,10 @@ export function OnboardingScreen() {
 			{
 				id: "privacy",
 				content: <PrivacyContent colors={colors} />,
+			},
+			{
+				id: "model",
+				content: <ModelStepContent colors={colors} />,
 			},
 			{
 				id: "permissions",
@@ -535,6 +625,18 @@ const styles = StyleSheet.create({
 	permissionDescription: {
 		fontSize: Typography.fontSize.sm,
 		lineHeight: Typography.lineHeight.relaxed * Typography.fontSize.sm,
+	},
+	modelActions: {
+		width: "100%",
+		gap: Spacing.md,
+	},
+	modelButton: {
+		width: "100%",
+	},
+	modelStatus: {
+		fontSize: Typography.fontSize.md,
+		textAlign: "center",
+		lineHeight: Typography.lineHeight.relaxed * Typography.fontSize.md,
 	},
 	footerNote: {
 		fontSize: Typography.fontSize.sm,

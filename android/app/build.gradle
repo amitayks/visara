@@ -82,8 +82,16 @@ android {
         applicationId "com.visara.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 20000
-        versionName "2.0.0"
+        versionCode 30000
+        versionName "3.0.0"
+        // Constrain the native ABI to arm64-v8a for the ExecuTorch spike. RNE only
+        // ships arm64-v8a/x86_64 prefab .so slices; without this the per-ABI model
+        // libraries balloon the build and an unsupported armeabi-v7a slice may be
+        // pulled in. Tracked here rather than in the gitignored gradle.properties.
+        // (executorch-runtime-bootstrap, group C)
+        ndk {
+            abiFilters "arm64-v8a"
+        }
     }
     signingConfigs {
         release {

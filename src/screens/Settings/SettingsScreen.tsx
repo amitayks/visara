@@ -1,5 +1,6 @@
 import { SettingsDrawer } from "@components/organisms/SettingsDrawer";
-import { useSettings, type Theme } from "@contexts/SettingsContext";
+import { type Theme, useSettings } from "@contexts/SettingsContext";
+import { LibraryReprocessingService } from "@services/orchestrator/LibraryReprocessingService";
 import { useCallback } from "react";
 import { StyleSheet } from "react-native";
 import DeviceInfo from "react-native-device-info";
@@ -11,19 +12,28 @@ export function SettingsScreen() {
 	const appVersion = DeviceInfo.getVersion();
 
 	// Handle Battery Saver toggle
-	const handleBatterySaverToggle = useCallback((_enabled: boolean) => {
-		settingsDispatch({ type: "TOGGLE_BATTERY_SAVER" });
-	}, [settingsDispatch]);
+	const handleBatterySaverToggle = useCallback(
+		(_enabled: boolean) => {
+			settingsDispatch({ type: "TOGGLE_BATTERY_SAVER" });
+		},
+		[settingsDispatch],
+	);
 
 	// Handle Night Processing toggle
-	const handleNightProcessingToggle = useCallback((_enabled: boolean) => {
-		settingsDispatch({ type: "TOGGLE_NIGHT_PROCESSING" });
-	}, [settingsDispatch]);
+	const handleNightProcessingToggle = useCallback(
+		(_enabled: boolean) => {
+			settingsDispatch({ type: "TOGGLE_NIGHT_PROCESSING" });
+		},
+		[settingsDispatch],
+	);
 
 	// Handle theme change - updates immediately (FR-062)
-	const handleThemeChange = useCallback((theme: Theme) => {
-		settingsDispatch({ type: "SET_THEME", payload: theme });
-	}, [settingsDispatch]);
+	const handleThemeChange = useCallback(
+		(theme: Theme) => {
+			settingsDispatch({ type: "SET_THEME", payload: theme });
+		},
+		[settingsDispatch],
+	);
 
 	// Handle Clear Cache
 	const handleClearCache = useCallback(async () => {
@@ -35,7 +45,7 @@ export function SettingsScreen() {
 			console.log("Clearing cache...");
 
 			// Simulate async operation
-			await new Promise(resolve => setTimeout(resolve, 500));
+			await new Promise((resolve) => setTimeout(resolve, 500));
 
 			console.log("Cache cleared successfully");
 		} catch (error) {
@@ -59,13 +69,23 @@ export function SettingsScreen() {
 			settingsDispatch({ type: "RESET_SETTINGS" });
 
 			// Simulate async operation
-			await new Promise(resolve => setTimeout(resolve, 500));
+			await new Promise((resolve) => setTimeout(resolve, 500));
 
 			console.log("All data deleted successfully");
 		} catch (error) {
 			console.error("Failed to delete data:", error);
 		}
 	}, [settingsDispatch]);
+
+	// Handle Re-run Analysis — fire-and-forget model-version-aware reprocess.
+	// Idempotent inside the service: a no-op while a sweep or drain is active.
+	const handleReRunAnalysis = useCallback(async () => {
+		try {
+			await LibraryReprocessingService.requestReprocess();
+		} catch (error) {
+			console.error("Failed to start re-analysis:", error);
+		}
+	}, []);
 
 	// Handle drawer close
 	const handleDrawerClose = useCallback(() => {
@@ -97,6 +117,7 @@ export function SettingsScreen() {
 			nightProcessingMode={settingsState.nightProcessing}
 			onBatterySaverToggle={handleBatterySaverToggle}
 			onNightProcessingToggle={handleNightProcessingToggle}
+			onReRunAnalysis={handleReRunAnalysis}
 			theme={settingsState.theme}
 			onThemeChange={handleThemeChange}
 			onClearCache={handleClearCache}

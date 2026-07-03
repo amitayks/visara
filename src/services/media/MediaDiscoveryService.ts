@@ -11,7 +11,7 @@ import {
 	NativeEventEmitter,
 	Platform,
 } from "react-native";
-import RNFS from "react-native-fs";
+import RNFS from "@dr.pogodin/react-native-fs";
 
 export interface DiscoveredMedia {
 	uri: string;
@@ -56,6 +56,15 @@ export class MediaDiscoveryService {
 			console.warn("Native MediaObserver not available, using fallback", error);
 			this.isNativeModuleAvailable = false;
 		}
+	}
+
+	/**
+	 * Whether the native MediaObserver TurboModule is available. When false,
+	 * callers fall back to the CameraRoll/RNFS discovery path
+	 * ({@link MediaDiscoveryService.discoverAllMedia}).
+	 */
+	static isNativeAvailable(): boolean {
+		return this.isNativeModuleAvailable;
 	}
 
 	/**

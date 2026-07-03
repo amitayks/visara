@@ -6,7 +6,7 @@ require Pod::Executable.execute_command('node', ['-p',
   )', __dir__]).strip
 
 project 'Visara.xcodeproj'
-platform :ios, '15.5'
+platform :ios, '26.0'
 prepare_react_native_project!
 
 linkage = ENV['USE_FRAMEWORKS']
@@ -38,5 +38,24 @@ target 'Visara' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # fmt 11.0.2 ships a consteval compile-time format-string check that
+    # miscompiles on Xcode 16.3+ AppleClang ("call to consteval function ...
+    # is not a constant expression" in format-inl.h). Force-disable consteval
+    # in fmt's base.h so it uses the supported constexpr check path instead.
+    # base.h defines FMT_USE_CONSTEVAL unconditionally, so a -D override is
+    # ignored — we must patch the header. Idempotent; re-applied every install.
+    fmt_base = File.join(__dir__, 'Pods', 'fmt', 'include', 'fmt', 'base.h')
+    if File.exist?(fmt_base)
+      contents = File.read(fmt_base)
+      unless contents.include?('#undef FMT_USE_CONSTEVAL')
+        contents = contents.sub(
+          "#if FMT_USE_CONSTEVAL\n#  define FMT_CONSTEVAL consteval",
+          "#undef FMT_USE_CONSTEVAL\n#define FMT_USE_CONSTEVAL 0\n#if FMT_USE_CONSTEVAL\n#  define FMT_CONSTEVAL consteval"
+        )
+        File.write(fmt_base, contents)
+        Pod::UI.puts "[Visara] Patched fmt/base.h to disable consteval (Xcode 16.3+ fix)".green
+      end
+    end
   end
 end

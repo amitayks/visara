@@ -10,11 +10,7 @@ import {
 	View,
 	type ViewStyle,
 } from "react-native";
-import {
-	DropProvider,
-	Sortable,
-	SortableItem,
-} from "react-native-reanimated-dnd";
+import { DropProvider, Sortable } from "react-native-reanimated-dnd";
 import type { SharedValue } from "react-native-reanimated";
 
 export interface AlbumData {
@@ -71,15 +67,8 @@ export function AlbumList({
 	);
 
 	const renderSortableItem = useCallback(
-		({ item, id, positions, itemsCount }: SortableRenderItemProps) => {
+		({ item }: SortableRenderItemProps) => {
 			return (
-				// <SortableItem
-				// 	id={id}
-				// 	data={item}
-				// 	positions={positions}
-				// 	itemsCount={itemsCount}
-				// 	onMove={handleMove}
-				// >
 				<View style={styles.albumCardWrapper}>
 					<AlbumCard
 						coverImageUri={item.coverImageUri}
@@ -89,7 +78,6 @@ export function AlbumList({
 						style={styles.albumCard}
 					/>
 				</View>
-				// </SortableItem>
 			);
 		},
 		[onAlbumPress, handleMove],

@@ -1,9 +1,19 @@
-import MiniSearch from "minisearch";
-import { MediaFileRepository } from "@services/database/MediaFileRepository";
+import type { MediaFile } from "@models/MediaFile";
 import { LabelRepository } from "@services/database/LabelRepository";
+import { MediaFileRepository } from "@services/database/MediaFileRepository";
 import { OcrTextRepository } from "@services/database/OcrTextRepository";
-import { getItem, setItem, removeItem } from "@services/storage/mmkv";
+import { getItem, removeItem, setItem } from "@services/storage/mmkv";
 import { STORAGE_KEYS } from "@utils/constants/storage-keys";
+import MiniSearch from "minisearch";
+
+/** The assembled searchable fields of one media file (shared by lexical + semantic). */
+interface SearchableFields {
+	filename: string;
+	labels: string;
+	ocrText: string;
+	caption: string;
+	description: string;
+}
 
 export interface SearchDocument {
 	id: string;
@@ -38,6 +48,54 @@ export class SearchService {
 		return this.miniSearch;
 	}
 
+	/**
+	 * The single source of a file's searchable fields (design D3), so the lexical
+	 * index and the semantic embedding derive from ONE assembly and cannot drift.
+	 * Fetches labels + OCR text and reads the #1 caption/description columns.
+	 */
+	private static async collectSearchableFields(
+		mediaFile: MediaFile,
+	): Promise<SearchableFields> {
+		const labels = await LabelRepository.findByMediaFileId(mediaFile.id);
+		const labelTexts = labels.map((l) => l.label).join(" ");
+
+		const ocrTexts = await OcrTextRepository.findByMediaFileId(mediaFile.id);
+		const ocrText = ocrTexts.map((o) => o.text).join(" ");
+
+		return {
+			filename: mediaFile.filename,
+			labels: labelTexts,
+			ocrText,
+			caption: mediaFile.caption ?? "",
+			description: mediaFile.description ?? "",
+		};
+	}
+
+	/**
+	 * The one-string searchable text for a file (design D3): caption +
+	 * description + labels + OCR + filename, joined. Shared with the semantic
+	 * embedding pass (`EmbeddingService`) so lexical and semantic inputs stay in
+	 * lockstep. NOTE: the lexical MiniSearch document intentionally keeps only its
+	 * existing filename/labels/OCR fields — adding hybrid search must not change
+	 * lexical indexing/serialization — so caption/description feed the embedding
+	 * only.
+	 */
+	static async buildSearchableText(mediaFileId: string): Promise<string> {
+		const mediaFile = await MediaFileRepository.findById(mediaFileId);
+		if (!mediaFile) return "";
+		const fields = await this.collectSearchableFields(mediaFile);
+		return [
+			fields.caption,
+			fields.description,
+			fields.labels,
+			fields.ocrText,
+			fields.filename,
+		]
+			.map((part) => part.trim())
+			.filter((part) => part.length > 0)
+			.join(" ");
+	}
+
 	static async index(): Promise<void> {
 		const miniSearch = this.getMiniSearch();
 
@@ -46,21 +104,12 @@ export class SearchService {
 
 		const documents: SearchDocument[] = await Promise.all(
 			mediaFiles.map(async (mediaFile) => {
-				// Get labels for this media file
-				const labels = await LabelRepository.findByMediaFileId(mediaFile.id);
-				const labelTexts = labels.map((l) => l.label).join(" ");
-
-				// Get OCR text for this media file
-				const ocrTexts = await OcrTextRepository.findByMediaFileId(
-					mediaFile.id,
-				);
-				const ocrText = ocrTexts.map((o) => o.text).join(" ");
-
+				const fields = await this.collectSearchableFields(mediaFile);
 				return {
 					id: mediaFile.id,
-					filename: mediaFile.filename,
-					labels: labelTexts,
-					ocrText: ocrText,
+					filename: fields.filename,
+					labels: fields.labels,
+					ocrText: fields.ocrText,
 					creationDate: mediaFile.creationDate,
 				};
 			}),
@@ -80,18 +129,12 @@ export class SearchService {
 		const mediaFile = await MediaFileRepository.findById(mediaFileId);
 		if (!mediaFile || mediaFile.isHidden) return;
 
-		// Get labels and OCR text
-		const labels = await LabelRepository.findByMediaFileId(mediaFileId);
-		const labelTexts = labels.map((l) => l.label).join(" ");
-
-		const ocrTexts = await OcrTextRepository.findByMediaFileId(mediaFileId);
-		const ocrText = ocrTexts.map((o) => o.text).join(" ");
-
+		const fields = await this.collectSearchableFields(mediaFile);
 		const document: SearchDocument = {
 			id: mediaFile.id,
-			filename: mediaFile.filename,
-			labels: labelTexts,
-			ocrText: ocrText,
+			filename: fields.filename,
+			labels: fields.labels,
+			ocrText: fields.ocrText,
 			creationDate: mediaFile.creationDate,
 		};
 

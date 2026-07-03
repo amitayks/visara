@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: it bother me */
 import BackgroundService from "react-native-background-actions";
 import { AppState, type AppStateStatus, type NativeEventSubscription } from "react-native";
+import { ThermalService } from "@services/device/ThermalService";
 import { storage } from "@services/storage/mmkv";
 import { STORAGE_KEYS } from "@utils/constants/storage-keys";
 import { shouldAllowProcessing, getBatteryStatus } from "@utils/device/battery";
@@ -81,6 +82,11 @@ export class BackgroundTaskService {
 				storage.getBoolean(STORAGE_KEYS.BATTERY_SAVER_ENABLED) ?? false;
 			this.nightProcessingEnabled =
 				storage.getBoolean(STORAGE_KEYS.NIGHT_PROCESSING_ENABLED) ?? false;
+
+			// Prime the thermal cache and subscribe to the OS change stream before
+			// any drain starts, so shouldPauseProcessing can read it synchronously.
+			// Fail-open: a broken/absent module leaves the cached level at nominal.
+			await ThermalService.initialize();
 
 			// Set up app state listener
 			this.setupAppStateListener();
@@ -328,6 +334,13 @@ export class BackgroundTaskService {
 			if (!isNightTime) {
 				return true; // Pause during day
 			}
+		}
+
+		// Thermal pressure — always-on device safety (not a settings toggle),
+		// reading the cached level (no per-tick native round-trip), fail-open.
+		// Protects any heavy pass, Tier-0 included.
+		if (ThermalService.isThrottledForDrain()) {
+			return true;
 		}
 
 		return false;

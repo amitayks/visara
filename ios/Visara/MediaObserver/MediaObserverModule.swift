@@ -196,7 +196,7 @@ class MediaObserverModule: RCTEventEmitter, PhotoLibraryObserverDelegate {
 
     // Required for RN 0.81+ TurboModules
     @objc
-    static func requiresMainQueueSetup() -> Bool {
+    override static func requiresMainQueueSetup() -> Bool {
         return false
     }
 

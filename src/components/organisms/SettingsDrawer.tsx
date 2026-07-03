@@ -1,10 +1,11 @@
 import { Button } from "@components/atoms/Button";
 import { Icon } from "@components/atoms/Icon";
+import { AiModelSection } from "@components/organisms/AiModelSection";
 import {
 	BorderRadius,
 	Spacing,
-	Typography,
 	SpringConfigs,
+	Typography,
 } from "@theme/colors";
 import { useTheme } from "@theme/useTheme";
 import { useCallback, useEffect } from "react";
@@ -37,6 +38,7 @@ interface SettingsDrawerProps {
 	nightProcessingMode: boolean;
 	onBatterySaverToggle: (enabled: boolean) => void;
 	onNightProcessingToggle: (enabled: boolean) => void;
+	onReRunAnalysis: () => void;
 	// Appearance
 	theme: Theme;
 	onThemeChange: (theme: Theme) => void;
@@ -59,6 +61,7 @@ export function SettingsDrawer({
 	nightProcessingMode,
 	onBatterySaverToggle,
 	onNightProcessingToggle,
+	onReRunAnalysis,
 	theme,
 	onThemeChange,
 	onClearCache,
@@ -133,6 +136,22 @@ export function SettingsDrawer({
 			],
 		);
 	}, [onDeleteAllData]);
+
+	const handleReRunAnalysis = useCallback(() => {
+		Alert.alert(
+			"Re-run Analysis",
+			"This re-analyzes your library with the latest on-device models. It runs in the background and may take a while. Your photos and existing metadata are preserved.",
+			[
+				{ text: "Cancel", style: "cancel" },
+				{
+					text: "Re-run",
+					onPress: () => {
+						onReRunAnalysis();
+					},
+				},
+			],
+		);
+	}, [onReRunAnalysis]);
 
 	// Pan gesture for dragging down to close
 	const pan = Gesture.Pan()
@@ -249,7 +268,22 @@ export function SettingsDrawer({
 								thumbColor={colors.surface}
 							/>
 						</View>
+
+						<View style={{ marginTop: Spacing.sm }}>
+							<Button
+								variant="secondary"
+								size="medium"
+								onPress={handleReRunAnalysis}
+								icon={<Icon name="refresh" size="small" />}
+								style={styles.actionButton}
+							>
+								Re-run Analysis
+							</Button>
+						</View>
 					</View>
+
+					{/* AI Model Section (data-driven from GemmaModelDeliveryService) */}
+					<AiModelSection />
 
 					{/* Appearance Section */}
 					<View style={styles.section}>

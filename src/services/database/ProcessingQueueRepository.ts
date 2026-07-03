@@ -1,6 +1,6 @@
+import { ProcessingQueue } from "@models/ProcessingQueue";
 import { Q } from "@nozbe/watermelondb";
 import { database } from "./database";
-import { ProcessingQueue } from "@models/ProcessingQueue";
 
 export interface CreateProcessingQueueData {
 	mediaFileId: string;
@@ -8,6 +8,10 @@ export interface CreateProcessingQueueData {
 	priority: number;
 	retryCount?: number;
 	errorMessage?: string;
+	/** Tier/engine bucket used for per-tier selection (e.g. "tier0_mlkit"). */
+	taskType: string;
+	/** Model/engine id the row targets; used by the version-aware skip guard. */
+	modelVersion?: string;
 }
 
 export interface UpdateProcessingQueueData {
@@ -30,6 +34,9 @@ export class ProcessingQueueRepository {
 					queue.priority = data.priority;
 					queue.retryCount = data.retryCount || 0;
 					queue.errorMessage = data.errorMessage;
+					// Never leave task_type empty (change #1 invariant); default the tier.
+					queue.taskType = data.taskType || "tier0_mlkit";
+					queue.modelVersion = data.modelVersion;
 				});
 		});
 	}
@@ -87,6 +94,39 @@ export class ProcessingQueueRepository {
 			.fetch();
 
 		return pending[0] || null;
+	}
+
+	/**
+	 * Tier-filtered variant of {@link getNextPending}; preserves the
+	 * priority-desc, created_at-asc ordering so a Tier-1 backlog never blocks
+	 * Tier-0 and vice versa.
+	 */
+	static async getNextPendingByTaskType(
+		taskType: string,
+	): Promise<ProcessingQueue | null> {
+		const pending = await database
+			.get<ProcessingQueue>("processing_queue")
+			.query(
+				Q.where("status", "pending"),
+				Q.where("task_type", taskType),
+				Q.sortBy("priority", Q.desc),
+				Q.sortBy("created_at", Q.asc),
+			)
+			.fetch();
+
+		return pending[0] || null;
+	}
+
+	/**
+	 * Crash recovery: return any row stranded in `processing` (a run killed
+	 * mid-item) back to `pending`. Does not increment `retry_count` because an
+	 * interrupted run is not a real failure.
+	 */
+	static async resetStaleProcessing(): Promise<void> {
+		const stale = await this.getProcessing();
+		await Promise.all(
+			stale.map((row) => this.update(row, { status: "pending" })),
+		);
 	}
 
 	static async update(

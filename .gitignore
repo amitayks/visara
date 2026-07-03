@@ -64,6 +64,12 @@ Flipper-Folly/
 *.mobileprovision
 *.keystore
 
+# Google Play deploy secrets (scripts/deploy-play.mjs)
+service-account*.json
+*service-account*.json
+google-play*.json
+play-store*.json
+
 # Fastlane
 ios/fastlane/report.xml
 ios/fastlane/Preview.html
@@ -95,6 +101,7 @@ Desktop.ini
 
 # Environment variables
 .env
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
@@ -144,3 +151,6 @@ todo.md
 .calude/
 .claude/search_feature
 
+
+# Xcode local env (machine-specific node path)
+ios/.xcode.env.local
