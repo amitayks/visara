@@ -22,7 +22,8 @@ class VisionTextRecognizerModule: NSObject {
         return false
     }
 
-    @objc(recognizeText:resolver:rejecter:)
+    // Selector must match the codegen spec exactly (recognizeText:resolve:reject:).
+    @objc(recognizeText:resolve:reject:)
     func recognizeText(
         _ imagePath: String,
         resolver resolve: @escaping RCTPromiseResolveBlock,

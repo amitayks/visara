@@ -36,10 +36,11 @@ class ThermalObserverModule: RCTEventEmitter {
         hasListeners = false
     }
 
-    @objc
+    // Selector must match the codegen spec exactly (getThermalState:reject:).
+    @objc(getThermalState:reject:)
     func getThermalState(
         _ resolve: @escaping RCTPromiseResolveBlock,
-        rejecter reject: @escaping RCTPromiseRejectBlock
+        reject: @escaping RCTPromiseRejectBlock
     ) {
         resolve(ThermalObserverModule.payload(for: ProcessInfo.processInfo.thermalState))
     }

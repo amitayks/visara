@@ -71,6 +71,22 @@ target 'Visara' do
       # :ccache_enabled => true
     )
 
+    # The expo integration injects -fmodule-map-file for ReactCodegen into the
+    # app target's OTHER_CFLAGS. That forces clang to build ReactCodegen as a
+    # module whenever our app-level TurboModule .mm files include the generated
+    # VisaraSpecs headers — and the module build compiles the C++ spec headers
+    # in ObjC context ("'utility' file not found"). Nothing in the app imports
+    # ReactCodegen as a module (Swift never touches it), so strip the flag and
+    # let the headers compile textually in our ObjC++ TUs. Idempotent.
+    Dir.glob(File.join(__dir__, 'Pods', 'Target Support Files', 'Pods-Visara', 'Pods-Visara.*.xcconfig')).each do |xcconfig|
+      contents = File.read(xcconfig)
+      stripped = contents.gsub(/(?:-Xcc\s+)?-fmodule-map-file="\$\{PODS_ROOT\}\/Headers\/Public\/ReactCodegen\/ReactCodegen\.modulemap"\s*/, '')
+      if stripped != contents
+        File.write(xcconfig, stripped)
+        Pod::UI.puts "[Visara] Stripped ReactCodegen module-map flag from #{File.basename(xcconfig)}".green
+      end
+    end
+
     # fmt 11.0.2 ships a consteval compile-time format-string check that
     # miscompiles on Xcode 16.3+ AppleClang ("call to consteval function ...
     # is not a constant expression" in format-inl.h). Force-disable consteval

@@ -35,17 +35,22 @@ export function OrchestratorBridge(): null {
 
 		let cancelled = false;
 		const boot = async () => {
-			// Reconcile persisted delivery state and re-attach any in-flight model
-			// download (change: gemma-model-delivery). RECONCILE/RE-ATTACH ONLY — it
-			// never auto-starts a transfer — and is independent of media permissions,
-			// so it runs fire-and-forget without blocking the Tier-0 pipeline boot.
-			void GemmaModelDeliveryService.initialize();
+			try {
+				// Reconcile persisted delivery state and re-attach any in-flight model
+				// download (change: gemma-model-delivery). RECONCILE/RE-ATTACH ONLY — it
+				// never auto-starts a transfer — and is independent of media permissions,
+				// so it runs fire-and-forget without blocking the Tier-0 pipeline boot.
+				void GemmaModelDeliveryService.initialize();
 
-			const granted = await MediaDiscoveryService.requestPermissions();
-			if (!granted || cancelled) return;
-			await OrchestratorService.initialize();
-			if (cancelled) return;
-			await OrchestratorService.runInitialProcessing();
+				const granted = await MediaDiscoveryService.requestPermissions();
+				if (!granted || cancelled) return;
+				await OrchestratorService.initialize();
+				if (cancelled) return;
+				await OrchestratorService.runInitialProcessing();
+			} catch (e) {
+				// A failed boot previously rejected silently (void boot()) — surface it.
+				console.error("OrchestratorBridge.boot failed:", e);
+			}
 		};
 		void boot();
 
