@@ -1,6 +1,8 @@
 import RNFS from "@dr.pogodin/react-native-fs";
 import type { MediaFile } from "@models/MediaFile";
+import { LabelRepository } from "@services/database/LabelRepository";
 import { MediaFileRepository } from "@services/database/MediaFileRepository";
+import { OcrTextRepository } from "@services/database/OcrTextRepository";
 import { Clipboard, Share } from "react-native";
 
 /**
@@ -182,13 +184,6 @@ export async function loadMediaMetadata(mediaId: string): Promise<{
 	ocrText: string | null;
 }> {
 	try {
-		const { LabelRepository } = await import(
-			"@services/database/LabelRepository"
-		);
-		const { OcrTextRepository } = await import(
-			"@services/database/OcrTextRepository"
-		);
-
 		const labels = await LabelRepository.findByMediaFileId(mediaId);
 		const ocrTexts = await OcrTextRepository.findByMediaFileId(mediaId);
 

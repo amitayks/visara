@@ -82,7 +82,7 @@ android {
         applicationId "com.visara.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 30000
+        versionCode 30001
         versionName "3.0.0"
         // Constrain the native ABI to arm64-v8a for the ExecuTorch spike. RNE only
         // ships arm64-v8a/x86_64 prefab .so slices; without this the per-ABI model
