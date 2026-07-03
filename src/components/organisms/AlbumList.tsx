@@ -69,7 +69,9 @@ export function AlbumList({
 	const renderSortableItem = useCallback(
 		({ item }: SortableRenderItemProps) => {
 			return (
-				<View style={styles.albumCardWrapper}>
+				// key needed here: Sortable's non-virtualized path (useFlatList={false})
+				// maps items without assigning keys to what renderItem returns.
+				<View key={item.id} style={styles.albumCardWrapper}>
 					<AlbumCard
 						coverImageUri={item.coverImageUri}
 						name={item.album.name}
@@ -102,19 +104,25 @@ export function AlbumList({
 	return (
 		<View style={[styles.container, style]} testID={testID}>
 			<DropProvider>
-				<ScrollView
-					contentContainerStyle={styles.contentContainer}
-					showsVerticalScrollIndicator={true}
-				>
-					{onAlbumReorder ? (
-						<View style={styles.grid}>
-							<Sortable
-								data={localAlbums}
-								renderItem={renderSortableItem}
-								itemHeight={180}
-							/>
-						</View>
-					) : (
+				{onAlbumReorder ? (
+					// Sortable scrolls itself — nesting it in the outer ScrollView put a
+					// VirtualizedList inside a same-orientation plain ScrollView (RN 0.86
+					// warns and windowing breaks). useFlatList={false} renders its plain
+					// animated ScrollView instead; album counts are small, virtualization
+					// buys nothing here.
+					<View style={styles.sortableContainer}>
+						<Sortable
+							data={localAlbums}
+							renderItem={renderSortableItem}
+							itemHeight={180}
+							useFlatList={false}
+						/>
+					</View>
+				) : (
+					<ScrollView
+						contentContainerStyle={styles.contentContainer}
+						showsVerticalScrollIndicator={true}
+					>
 						<View style={styles.grid}>
 							{albums.map((item) => (
 								<View key={item.id} style={styles.albumCardWrapper}>
@@ -128,8 +136,8 @@ export function AlbumList({
 								</View>
 							))}
 						</View>
-					)}
-				</ScrollView>
+					</ScrollView>
+				)}
 			</DropProvider>
 		</View>
 	);
@@ -138,6 +146,11 @@ export function AlbumList({
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
+	},
+	sortableContainer: {
+		flex: 1,
+		paddingHorizontal: Spacing.sm,
+		paddingTop: Spacing.sm,
 	},
 	contentContainer: {
 		paddingHorizontal: Spacing.sm,
