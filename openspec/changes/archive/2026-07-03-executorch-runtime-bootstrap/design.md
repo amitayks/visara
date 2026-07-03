@@ -135,6 +135,15 @@ Ordered on a throwaway spike branch (also the `tasks.md` order); each native ste
 
 ### GO / NO-GO decision
 
+> **RECORDED 2026-07-03: GO (de facto, retroactive).** The formal results table above
+> was never filled during a structured human run. The gate's question — does
+> react-native-executorch run Gemma vision inference inside this exact app — was
+> answered affirmatively by the subsequent implementation wave: the Gemma engine,
+> embeddings, orchestrator wiring, and ML Kit retirement all shipped and were
+> archived 2026-07-01..03 (v3.0.0). Metrics table left empty deliberately rather
+> than backfilled.
+
+
 **GO requires ALL of:**
 - **iPad Pro (MLX):** app builds & installs; `gemma4_e2b_multimodal` loads; `sendMessage(image)` returns a **non-empty, semantically-correct** caption/object-list for **≥2 distinct images**; latency ≤ **N s/image** post-load (N set by product — placeholder ~30 s); no OOM/jetsam kill (increased-memory-limit entitlement acceptable if that is what it takes).
 - **Android flagship (Vulkan):** app builds & installs; same model returns a non-empty correct caption for **≥2 images**; no OOM / native crash; latency ≤ N s/image.
