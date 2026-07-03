@@ -1,11 +1,7 @@
 import { type PageIndex, useNavigation } from "@contexts/NavigationContext";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Dimensions, StyleSheet, View, type ViewStyle } from "react-native";
-import {
-	Gesture,
-	GestureDetector,
-	GestureHandlerRootView,
-} from "react-native-gesture-handler";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import PagerView, {
 	type PagerViewOnPageSelectedEvent,
 } from "react-native-pager-view";
@@ -52,35 +48,46 @@ export function HorizontalPageContainer({
 }: HorizontalPageContainerProps) {
 	const { state, dispatch } = useNavigation();
 	const pagerRef = useRef<PagerView>(null);
-	const [currentPageLocal, setCurrentPageLocal] = useState(state.currentPage);
+
+	// NavigationContext is the single source of truth for the page. These
+	// shared values exist only so gesture worklets never read stale JS
+	// closures: `pageShared` mirrors context, `gestureStartX` pins the touch
+	// origin so edge validity is judged from where the swipe STARTED, not
+	// where the finger was released.
+	const pageShared = useSharedValue<PageIndex>(state.currentPage);
+	const gestureStartX = useSharedValue(-1);
 
 	// Shared values for edge swipe animations
 	const edgeSwipeTranslateX = useSharedValue(0);
 	const edgeSwipeOpacity = useSharedValue(0);
 
-	// Sync external navigation state with pager
+	// Single sync point: context → pager + worklet mirror. setPage on the
+	// already-current page is a no-op, so no local guard state is needed.
 	useEffect(() => {
-		if (pagerRef.current && state.currentPage !== currentPageLocal) {
-			pagerRef.current.setPage(state.currentPage);
-			setCurrentPageLocal(state.currentPage);
-		}
-	}, [state.currentPage, currentPageLocal]);
+		pageShared.value = state.currentPage;
+		pagerRef.current?.setPage(state.currentPage);
+	}, [state.currentPage, pageShared]);
 
-	// Main page swipe right gesture: Triggers search mode
+	// Main page swipe right gesture: Triggers search mode.
+	// hitSlop confines RECOGNITION to the left edge strip — everywhere else
+	// the pan never begins, so the native pager keeps horizontal scrolling
+	// (under RNGH 3 an activated detector gesture blocks the pager beneath).
 	const mainPageSwipeRightGesture = Gesture.Pan()
+		.hitSlop({ left: 0, width: EDGE_DETECTION_ZONE })
 		.activeOffsetX([10, Number.MAX_SAFE_INTEGER]) // Right swipe only
-		.onStart((event) => {
+		.onBegin((event) => {
 			"worklet";
-			// Check if we're on Main page and starting from left edge
-			if (event.x < EDGE_DETECTION_ZONE && currentPageLocal === 0) {
-				// Start edge swipe animation
+			gestureStartX.value = event.x;
+		})
+		.onStart(() => {
+			"worklet";
+			if (gestureStartX.value < EDGE_DETECTION_ZONE && pageShared.value === 0) {
 				edgeSwipeOpacity.value = withSpring(0.3, { duration: 200 });
 			}
 		})
 		.onUpdate((event) => {
 			"worklet";
-			// Update edge swipe preview if within edge zone
-			if (event.x < EDGE_DETECTION_ZONE && currentPageLocal === 0) {
+			if (gestureStartX.value < EDGE_DETECTION_ZONE && pageShared.value === 0) {
 				edgeSwipeTranslateX.value = Math.min(event.translationX, 100);
 			}
 		})
@@ -90,10 +97,11 @@ export function HorizontalPageContainer({
 			edgeSwipeTranslateX.value = withSpring(0, SPRING_CONFIG);
 			edgeSwipeOpacity.value = withSpring(0, SPRING_CONFIG);
 
-			// Check if this is a valid edge swipe right from Main page
+			// Valid edge swipe right from Main: judged from the gesture ORIGIN
 			if (
-				event.x < EDGE_DETECTION_ZONE &&
-				currentPageLocal === 0 &&
+				gestureStartX.value >= 0 &&
+				gestureStartX.value < EDGE_DETECTION_ZONE &&
+				pageShared.value === 0 &&
 				(event.velocityX > SWIPE_VELOCITY_THRESHOLD ||
 					event.translationX > SWIPE_DISTANCE_THRESHOLD)
 			) {
@@ -101,28 +109,32 @@ export function HorizontalPageContainer({
 					runOnJS(onMainPageSwipeRight)();
 				}
 			}
+			gestureStartX.value = -1;
 		});
 
-	// Albums page swipe left gesture: Triggers settings drawer
+	// Albums page swipe left gesture: Triggers settings drawer.
+	// Same hitSlop confinement, mirrored to the right edge strip.
 	const albumsPageSwipeLeftGesture = Gesture.Pan()
+		.hitSlop({ right: 0, width: EDGE_DETECTION_ZONE })
 		.activeOffsetX([Number.MIN_SAFE_INTEGER, -10]) // Left swipe only
-		.onStart((event) => {
+		.onBegin((event) => {
 			"worklet";
-			// Check if we're on Albums page and starting from right edge
+			gestureStartX.value = event.x;
+		})
+		.onStart(() => {
+			"worklet";
 			if (
-				event.x > SCREEN_WIDTH - EDGE_DETECTION_ZONE &&
-				currentPageLocal === 1
+				gestureStartX.value > SCREEN_WIDTH - EDGE_DETECTION_ZONE &&
+				pageShared.value === 1
 			) {
-				// Start edge swipe animation
 				edgeSwipeOpacity.value = withSpring(0.3, { duration: 200 });
 			}
 		})
 		.onUpdate((event) => {
 			"worklet";
-			// Update edge swipe preview if within edge zone
 			if (
-				event.x > SCREEN_WIDTH - EDGE_DETECTION_ZONE &&
-				currentPageLocal === 1
+				gestureStartX.value > SCREEN_WIDTH - EDGE_DETECTION_ZONE &&
+				pageShared.value === 1
 			) {
 				edgeSwipeTranslateX.value = Math.max(event.translationX, -100);
 			}
@@ -133,10 +145,10 @@ export function HorizontalPageContainer({
 			edgeSwipeTranslateX.value = withSpring(0, SPRING_CONFIG);
 			edgeSwipeOpacity.value = withSpring(0, SPRING_CONFIG);
 
-			// Check if this is a valid edge swipe left from Albums page
+			// Valid edge swipe left from Albums: judged from the gesture ORIGIN
 			if (
-				event.x > SCREEN_WIDTH - EDGE_DETECTION_ZONE &&
-				currentPageLocal === 1 &&
+				gestureStartX.value > SCREEN_WIDTH - EDGE_DETECTION_ZONE &&
+				pageShared.value === 1 &&
 				(event.velocityX < -SWIPE_VELOCITY_THRESHOLD ||
 					event.translationX < -SWIPE_DISTANCE_THRESHOLD)
 			) {
@@ -144,6 +156,7 @@ export function HorizontalPageContainer({
 					runOnJS(onAlbumsPageSwipeLeft)();
 				}
 			}
+			gestureStartX.value = -1;
 		});
 
 	// Combine both edge gestures using Race
@@ -152,13 +165,10 @@ export function HorizontalPageContainer({
 		albumsPageSwipeLeftGesture,
 	);
 
-	// Handle page selection from PagerView
+	// Pager settled on a page: context is the only state to update.
 	const handlePageSelected = useCallback(
 		(event: PagerViewOnPageSelectedEvent) => {
 			const newPage = event.nativeEvent.position as PageIndex;
-			setCurrentPageLocal(newPage);
-
-			// Update navigation state if page changed
 			if (newPage !== state.currentPage) {
 				dispatch({ type: "SET_PAGE", payload: newPage });
 			}
@@ -173,48 +183,43 @@ export function HorizontalPageContainer({
 	}));
 
 	return (
-		<GestureHandlerRootView style={[styles.container, style]}>
-			<GestureDetector gesture={composedGesture}>
-				<View style={styles.gestureContainer} testID={testID}>
-					{/* Edge swipe visual feedback overlay */}
-					<Animated.View
-						style={[styles.edgeSwipeOverlay, edgeSwipeStyle]}
-						pointerEvents="none"
-					/>
+		<GestureDetector gesture={composedGesture}>
+			<View style={[styles.container, style]} testID={testID}>
+				{/* Edge swipe visual feedback overlay */}
+				<Animated.View
+					style={[styles.edgeSwipeOverlay, edgeSwipeStyle]}
+					pointerEvents="none"
+				/>
 
-					{/* Native PagerView for optimal performance */}
-					<PagerView
-						ref={pagerRef}
-						style={styles.pagerView}
-						initialPage={state.currentPage}
-						onPageSelected={handlePageSelected}
-						orientation="horizontal"
-						overScrollMode="never"
-						offscreenPageLimit={1} // Optimize memory by limiting pre-rendered pages
-						pageMargin={0}
-						scrollEnabled={true}
-					>
-						{/* Page 0: Main */}
-						<View key="main" style={styles.page}>
-							{mainPage}
-						</View>
+				{/* Native PagerView for optimal performance */}
+				<PagerView
+					ref={pagerRef}
+					style={styles.pagerView}
+					initialPage={state.currentPage}
+					onPageSelected={handlePageSelected}
+					orientation="horizontal"
+					overScrollMode="never"
+					offscreenPageLimit={1} // Optimize memory by limiting pre-rendered pages
+					pageMargin={0}
+					scrollEnabled={true}
+				>
+					{/* Page 0: Main */}
+					<View key="main" style={styles.page}>
+						{mainPage}
+					</View>
 
-						{/* Page 1: Albums */}
-						<View key="albums" style={styles.page}>
-							{albumsPage}
-						</View>
-					</PagerView>
-				</View>
-			</GestureDetector>
-		</GestureHandlerRootView>
+					{/* Page 1: Albums */}
+					<View key="albums" style={styles.page}>
+						{albumsPage}
+					</View>
+				</PagerView>
+			</View>
+		</GestureDetector>
 	);
 }
 
 const styles = StyleSheet.create({
 	container: {
-		flex: 1,
-	},
-	gestureContainer: {
 		flex: 1,
 	},
 	pagerView: {

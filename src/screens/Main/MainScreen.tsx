@@ -121,11 +121,10 @@ export function MainScreen() {
 		// Search mode: show search results
 		displayedMedia = searchState.searchResults;
 	} else if (navState.documentMode) {
-		// Document mode: filter for documents
+		// Document mode: actual documents only (the old `|| image/*` branch
+		// matched every photo, making the filter a no-op)
 		displayedMedia = galleryState.mediaFiles.filter(
-			(file) =>
-				file.mimeType === "application/pdf" ||
-				file.mimeType.startsWith("image/"),
+			(file) => file.mimeType === "application/pdf",
 		);
 	} else {
 		// Normal mode: show all media
@@ -193,24 +192,7 @@ export function MainScreen() {
 		setUploadDrawerVisible(false);
 	}, []);
 
-	// Bottom navigation handlers
-	// Note: Search is handled by AnimatedBottomNav and parent component
-	// const handleSearchPress = useCallback(() => {
-	// 	// Search is handled by the parent MainNavigator
-	// 	console.log("Search press delegated to parent");
-	// }, []);
-
-	// const handleDocumentsPress = useCallback(() => {
-	// 	toggleDocuments();
-	// }, [toggleDocuments]);
-
-	// const handleAlbumsPress = useCallback(() => {
-	// 	goToAlbums();
-	// }, [goToAlbums]);
-
-	// const handleSettingsPress = useCallback(() => {
-	// 	toggleSettings();
-	// }, [toggleSettings]);
+	// Bottom navigation lives in AnimatedBottomNav, wired by MainNavigator.
 
 	// Handle upload actions
 	const handleSelectFromStorage = useCallback(() => {

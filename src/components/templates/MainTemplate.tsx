@@ -126,36 +126,7 @@ export function MainTemplate({
 				/>
 			</View>
 
-			{/* Bottom Navigation */}
-			{/* <BottomNavContainer
-				buttons={[
-					{
-						icon: "magnify",
-						label: "Search",
-						onPress: onSearchPress,
-						active: activeNavButton === "search",
-					},
-					{
-						icon: "file-document-outline",
-						label: "Documents",
-						onPress: onDocumentsPress,
-						active: activeNavButton === "documents",
-					},
-					{
-						icon: "folder-multiple-image",
-						label: "Albums",
-						onPress: onAlbumsPress,
-						active: activeNavButton === "albums",
-					},
-					{
-						icon: "cog-outline",
-						label: "Settings",
-						onPress: onSettingsPress,
-						active: activeNavButton === "settings",
-					},
-				]}
-				style={styles.bottomNav}
-			/> */}
+			{/* Bottom navigation is rendered by AnimatedBottomNav (MainNavigator) */}
 		</SafeAreaView>
 	);
 }

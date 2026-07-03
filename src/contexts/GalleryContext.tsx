@@ -24,7 +24,6 @@ export interface GalleryState {
 	loading: boolean;
 	error: string | null;
 	selectedMediaId: string | null; // Currently viewed media in modal
-	isDocumentMode: boolean; // Document filter toggle
 }
 
 // Gallery actions
@@ -38,7 +37,6 @@ export type GalleryAction =
 	| { type: "SET_LOADING"; payload: boolean }
 	| { type: "SET_ERROR"; payload: string | null }
 	| { type: "SET_SELECTED_MEDIA"; payload: string | null }
-	| { type: "TOGGLE_DOCUMENT_MODE" }
 	| { type: "CLEAR_FILTERS" };
 
 // Initial state
@@ -49,7 +47,6 @@ const initialState: GalleryState = {
 	loading: false,
 	error: null,
 	selectedMediaId: null,
-	isDocumentMode: false,
 };
 
 // Reducer function
@@ -98,14 +95,10 @@ function galleryReducer(
 		case "SET_SELECTED_MEDIA":
 			return { ...state, selectedMediaId: action.payload };
 
-		case "TOGGLE_DOCUMENT_MODE":
-			return { ...state, isDocumentMode: !state.isDocumentMode };
-
 		case "CLEAR_FILTERS":
 			return {
 				...state,
 				dateFilters: [],
-				isDocumentMode: false,
 			};
 
 		default:

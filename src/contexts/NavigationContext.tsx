@@ -36,8 +36,6 @@ export type NavigationAction =
 	| { type: "ACTIVATE_SEARCH_MODE" }
 	| { type: "DEACTIVATE_SEARCH_MODE" }
 	| { type: "TOGGLE_DOCUMENT_MODE" }
-	| { type: "ACTIVATE_DOCUMENT_MODE" }
-	| { type: "DEACTIVATE_DOCUMENT_MODE" }
 	| { type: "TOGGLE_SETTINGS_DRAWER" }
 	| { type: "OPEN_SETTINGS_DRAWER" }
 	| { type: "CLOSE_SETTINGS_DRAWER" };
@@ -100,20 +98,6 @@ function navigationReducer(
 			return {
 				...state,
 				documentMode: !state.documentMode,
-			};
-
-		case "ACTIVATE_DOCUMENT_MODE":
-			// Always navigate to Main when activating document mode
-			return {
-				...state,
-				currentPage: 0,
-				documentMode: true,
-			};
-
-		case "DEACTIVATE_DOCUMENT_MODE":
-			return {
-				...state,
-				documentMode: false,
 			};
 
 		case "TOGGLE_SETTINGS_DRAWER":
