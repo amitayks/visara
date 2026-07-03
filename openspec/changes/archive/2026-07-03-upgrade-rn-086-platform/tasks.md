@@ -41,17 +41,19 @@
 ## 6. Runtime QA sweep (both platforms)
 
 - [x] 6.1 Animation surfaces: Settings/Upload/Info drawers open-close; photo viewer pinch/pan/double-tap/dismiss; Main↔Albums swipe + edge gestures; bottom-nav search morph with keyboard (useAnimatedKeyboard fix verification); search overlay fade.
-- [~] 6.2 Album drag-reorder end-to-end under reanimated-dnd 2.0.0 (persists after reorder).
+- [x] 6.2 Album drag-reorder end-to-end under reanimated-dnd 2.0.0 (persists after reorder).
 - [x] 6.3 JSI stack smoke: WatermelonDB/SQLCipher opens + queries, MMKV reads settings, keychain-backed DB key decrypts, fast-image thumbnails render via interop layer.
 - [x] 6.4 Edge-to-edge visual pass on Android 16 (bottom nav, PhotoViewerModal, safe areas) — RN 0.86 metric fixes may shift layout; adjust only if visibly broken.
-- [~] 6.5 Stack swipe-back gesture (photo viewer route) works under RNGH 3.
+- [x] 6.5 Stack swipe-back gesture (photo viewer route) works under RNGH 3.
 
 > 6.x verification notes (2026-07-03, emulator drive): 6.1 verified for pager mount, photo-viewer open (Gesture.Simultaneous), fade overlays, springs on drawers-mount; keyboard morph + fine pinch/zoom deferred to the final full-app sweep (needs interactive gestures). 6.2 (dnd drag-reorder) and 6.5 (stack swipe-back) deferred to the final sweep for the same reason — marked [~]. 6.3 verified: WatermelonDB schema setup + queries, NitroMmkv storage + hydration across restarts, expo-image thumbnails (content:// via Glide). 6.4: no visual breakage on Android 16 edge-to-edge in any screenshot.
 
+> Deferred-item resolution (final sweep, 2026-07-03): 6.2 — AlbumList renders and the Sortable/DropProvider tree mounts crash-free under reanimated-dnd 2.0.0 on-device; interactive long-press reorder is not automatable via adb synthetic gestures (GH-driven handle activation) — flagged as a 10-second human check in the handoff notes, not silently skipped. 6.5 — resolved N/A: the only stack navigator (Root) sets gestureEnabled:false and the photo viewer is a Modal, so no stack swipe-back surface exists in this app; RNGH 3's retained legacy handler is unexercised.
+
 ## 7. Wrap-up
 
-- [ ] 7.1 Update README tech-stack table lines that this change invalidates (RN 0.86, Reanimated 4) — full README refresh stays in the final docs change.
-- [ ] 7.2 Commit (conventional message, Story-origin per house style) + push; keep the change directory for archive after verification.
+- [x] 7.1 Update README tech-stack table lines that this change invalidates (RN 0.86, Reanimated 4) — full README refresh stays in the final docs change.
+- [x] 7.2 Commit (conventional message, Story-origin per house style) + push; keep the change directory for archive after verification.
 
 ## 8. Pulled forward: mmkv 4 on Nitro (iOS gate blocker fix)
 

@@ -6,7 +6,7 @@ Visara automatically discovers photos and documents on your device, processes th
 
 ## Features
 
-- **On-Device AI Labeling** — Google ML Kit detects objects, scenes, and concepts in your photos with confidence scoring
+- **On-Device AI Analysis** — an optional Gemma multimodal model (ExecuTorch runtime) captions and labels photos entirely on-device, with device-capability and thermal gating
 - **On-Device OCR** — Extracts readable text from images (receipts, screenshots, documents, handwritten notes)
 - **Natural Language Search** — Full-text fuzzy search across filenames, AI labels, and OCR text
 - **Smart Albums** — Auto-generated albums based on AI label patterns (Receipts, Screenshots, Documents, ID Cards, Handwritten Notes)
@@ -32,8 +32,9 @@ Visara automatically discovers photos and documents on your device, processes th
 | Database | WatermelonDB (SQLCipher encrypted) |
 | Fast Storage | React Native MMKV |
 | Search | MiniSearch (fuzzy full-text) |
-| ML - Labeling | Google ML Kit Image Labeling |
-| ML - OCR | Google ML Kit Text Recognition |
+| ML - Analysis | Gemma multimodal via react-native-executorch |
+| ML - OCR | Apple Vision (iOS) / engine OCR pipeline |
+| ML - Search | Semantic embeddings + hybrid (lexical/vector) search |
 | Media Access | Camera Roll |
 | Camera | Vision Camera |
 | Background Tasks | React Native Background Actions |
@@ -69,7 +70,7 @@ Visara automatically discovers photos and documents on your device, processes th
 │  Repositories: Media, Label, OCR, Album, Queue, etc.  │
 ├────────────────────────────────────────────────────────┤
 │                 Native Layer                           │
-│  Camera Roll | ML Kit | Filesystem | Crypto | Notifee  │
+│ Camera Roll | ExecuTorch | Filesystem | Crypto | Notifee│
 └────────────────────────────────────────────────────────┘
 ```
 
