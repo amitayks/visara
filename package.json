@@ -47,13 +47,13 @@
 		"react-native-nitro-modules": "0.36.1",
 		"react-native-pager-view": "^8.0.2",
 		"react-native-paper": "^5.14.5",
-		"react-native-quick-crypto": "^0.7.17",
+		"react-native-quick-base64": "^3.0.0",
+		"react-native-quick-crypto": "1.1.5",
 		"react-native-reanimated": "4.5.1",
 		"react-native-reanimated-dnd": "2.0.0",
 		"react-native-safe-area-context": "^5.8.0",
 		"react-native-screens": "^4.25.2",
 		"react-native-vector-icons": "^10.3.0",
-		"react-native-vision-camera": "^4.7.2",
 		"react-native-worklets": "0.10.1"
 	},
 	"codegenConfig": {
