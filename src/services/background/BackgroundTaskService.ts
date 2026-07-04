@@ -435,19 +435,14 @@ export class BackgroundTaskService {
 		batterySaverEnabled?: boolean;
 		nightProcessingEnabled?: boolean;
 	}): void {
+		// Persistence is owned solely by the settings store (ui-state-management
+		// spec: one writer, one type per key); this service only mirrors values
+		// in memory for drain gating and reads the boolean keys at initialize().
 		if (settings.batterySaverEnabled !== undefined) {
 			this.batterySaverEnabled = settings.batterySaverEnabled;
-			storage.set(
-				STORAGE_KEYS.BATTERY_SAVER_ENABLED,
-				settings.batterySaverEnabled,
-			);
 		}
 		if (settings.nightProcessingEnabled !== undefined) {
 			this.nightProcessingEnabled = settings.nightProcessingEnabled;
-			storage.set(
-				STORAGE_KEYS.NIGHT_PROCESSING_ENABLED,
-				settings.nightProcessingEnabled,
-			);
 		}
 	}
 

@@ -1,5 +1,5 @@
+import MDIcon from "@react-native-vector-icons/material-design-icons";
 import { useTheme } from "@theme/useTheme";
-import { Icon as PaperIcon } from "react-native-paper";
 
 export type IconSize = "small" | "medium" | "large";
 
@@ -23,8 +23,9 @@ export function Icon({ name, size = "medium", color, testID }: IconProps) {
 	const iconColor = color || colors.text;
 
 	return (
-		<PaperIcon
-			source={name}
+		// biome-ignore lint/suspicious/noExplicitAny: legacy shim until cutover; glyph names are validated MDI names
+		<MDIcon
+			name={name as any}
 			size={iconSize}
 			color={iconColor}
 			testID={testID}

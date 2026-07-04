@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/complexity/noStaticOnlyClass: matches sibling all-static services */
+import type { MediaFile } from "@models/MediaFile";
 import type { MediaChange } from "@native-modules/NativeMediaObserver";
 import {
 	type BackgroundTaskOptions,
@@ -644,6 +645,15 @@ export class OrchestratorService {
 	private static async removeByUri(uri: string): Promise<void> {
 		const media = await MediaFileRepository.findByUri(uri);
 		if (!media) return;
+		await OrchestratorService.removeMedia(media);
+	}
+
+	/**
+	 * Complete removal — search index, semantic vector, queue rows, DB row.
+	 * Public path for the UI facade (services-ui-facade spec): UI deletions
+	 * must never leave index/queue orphans.
+	 */
+	static async removeMedia(media: MediaFile): Promise<void> {
 		await SearchService.removeFromIndex(media.id);
 		await SemanticSearchService.removeVector(media.id);
 		await ProcessingQueueRepository.deleteByMediaFileId(media.id);

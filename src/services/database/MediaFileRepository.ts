@@ -92,6 +92,15 @@ export class MediaFileRepository {
 		}
 	}
 
+	/** Single batched fetch for id lists (services-ui-facade: no N+1 hydration). */
+	static async findByIds(ids: string[]): Promise<MediaFile[]> {
+		if (ids.length === 0) return [];
+		return await database
+			.get<MediaFile>("media_files")
+			.query(Q.where("id", Q.oneOf(ids)))
+			.fetch();
+	}
+
 	static async findByUri(uri: string): Promise<MediaFile | null> {
 		const results = await database
 			.get<MediaFile>("media_files")

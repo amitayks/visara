@@ -87,6 +87,35 @@ target 'Visara' do
       end
     end
 
+    # react-native-executorch's pod injects SDK-conditional OTHER_LDFLAGS lines
+    # (its .xcframework path) into the Pods-Visara aggregate xcconfigs. An
+    # xcconfig conditional REPLACES the unconditional line for that SDK, which
+    # silently drops CocoaPods' `-ObjC` (and every -l flag) from simulator and
+    # device links. Most pods survive via ld auto-linking + explicit codegen
+    # references, but legacy RCT_EXPORT_MODULE-only classes (e.g. Unistyles'
+    # UnistylesModule, retained solely through +load) get dead-stripped and
+    # their Nitro hybrids never register. Re-append the full unconditional
+    # flag set to every conditional line. Idempotent.
+    Dir.glob(File.join(__dir__, 'Pods', 'Target Support Files', 'Pods-Visara', 'Pods-Visara.*.xcconfig')).each do |xcconfig|
+      lines = File.readlines(xcconfig)
+      base = lines.find { |l| l.start_with?('OTHER_LDFLAGS = ') }
+      next unless base
+      base_flags = base.sub('OTHER_LDFLAGS = ', '').sub('$(inherited)', '').strip
+      changed = false
+      lines = lines.map do |line|
+        if line =~ /^OTHER_LDFLAGS\[sdk=[^\]]+\] = / && !line.include?('-ObjC')
+          changed = true
+          "#{line.rstrip} #{base_flags}\n"
+        else
+          line
+        end
+      end
+      if changed
+        File.write(xcconfig, lines.join)
+        Pod::UI.puts "[Visara] Re-appended -ObjC/libs to SDK-conditional OTHER_LDFLAGS in #{File.basename(xcconfig)}".green
+      end
+    end
+
     # fmt 11.0.2 ships a consteval compile-time format-string check that
     # miscompiles on Xcode 16.3+ AppleClang ("call to consteval function ...
     # is not a constant expression" in format-inl.h). Force-disable consteval

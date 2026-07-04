@@ -6,13 +6,27 @@ import { SearchProvider } from "@contexts/SearchContext";
 import { SettingsProvider } from "@contexts/SettingsContext";
 import { RootNavigator } from "@navigation/RootNavigator";
 import { DevPocLauncher } from "@screens/Dev/DevPocLauncher";
+import { UnistylesSpike } from "@features/dev/UnistylesSpike";
 import React from "react";
 import { StatusBar, useColorScheme } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
+// Phase-0 spike gate (rebuild-ui-foundation task 1.3) — removed at cutover.
+const RUN_UNISTYLES_SPIKE = true;
+
 function App(): React.JSX.Element {
 	const colorScheme = useColorScheme();
+
+	if (__DEV__ && RUN_UNISTYLES_SPIKE) {
+		return (
+			<GestureHandlerRootView style={{ flex: 1 }}>
+				<SafeAreaProvider>
+					<UnistylesSpike />
+				</SafeAreaProvider>
+			</GestureHandlerRootView>
+		);
+	}
 
 	return (
 		<GestureHandlerRootView style={{ flex: 1 }}>

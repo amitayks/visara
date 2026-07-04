@@ -1,0 +1,75 @@
+# Design — rebuild-ui-foundation
+
+## Context
+
+Visara is a bare RN 0.86.0 (New Architecture, Hermes, bridgeless) + React 19.2.3 app with Expo SDK 57 modules grafted via expo-modules-autolinking, a WatermelonDB(v2 schema)/MMKV/ExecuTorch services layer behind static singletons, and three custom TurboModules generated from `src/native-modules/` (codegen inputs — survive the rebuild). The UI layer being deleted is ~6,000 LOC: 5 reducer contexts, a custom pager navigator, 23 atomic-design components, a hand-rolled theme. A 10-agent exploration produced a full map (fragility clusters, dead state, split-brains, exact behavioral invariants) and web-verified tech choices; decision record: change proposal + this doc. Constraints that bind every decision: reanimated 4.5.1 ↔ worklets 0.10.1 exact lockstep with `react-native-worklets/plugin` LAST in babel plugins; GH 3.0.2 declarative API only; path aliases duplicated in tsconfig.json AND babel.config.js; `index.js` must call `initExecutorch` before `registerComponent`; MMKV encryption key string frozen; minSdk 36 / iOS 26 targets; Pixel_10 AVD (16KB pages) + iPhone 17 sim are the verification devices.
+
+## Goals / Non-Goals
+
+**Goals:**
+- Replace the UI layer wholesale with a smaller, faster, owned architecture: Unistyles 3 tokens, Zustand 5 stores, RNav 7 static + native-stack, Visara DS primitives.
+- Preserve every behavioral invariant in `openspec/specs` (edge-gesture semantics, mode semantics, orchestrator contract, onboarding non-blocking model step, POC screen rules) while re-anchoring them to the new architecture.
+- Fix the 15 mapped defects (stale viewer metadata, dead Skip, zoom persistence, MMKV type clash, N+1 search, unwired drag-reorder, mock Albums, stub data actions, StatusBar theme, back-handler fragility, FlashList remount, permission-denied hole, delete-cleanup gap, index-rebuild-from-mount, label-tap search).
+- End 100% working on Android (Pixel_10) and iOS (iPhone 17): build, boot, and all core flows.
+
+**Non-Goals:**
+- Thumbnail generation pipeline (grid prefers `thumbnailUri` when present; generating it is a follow-up).
+- Media import/upload UI (current UploadDrawer is 100% TODO stubs — dropped, not rebuilt; follow-up `media-import` change will add a document picker + import pipeline).
+- notifee replacement, DB encryption adoption, embedding-gate decoupling, index-serialization batching, video support, React Compiler enablement, haptics.
+- Visual redesign beyond the token system — the design language stays "iOS-flavored dark-first photo app"; polish, not rebrand.
+
+## Decisions
+
+### D1. Styling: react-native-unistyles 3.2.5 (spike-gated), not Tamagui/NativeWind/paper
+C++ core writes theme/style updates straight to the Fabric ShadowTree — dark/light flips do not re-render the FlashList tree, which is the single biggest theming cost in a media app. nitro-modules 0.36.1 (already installed, exact-pinned) satisfies its >=0.35.2 requirement; adoption = one babel plugin + pod install. Alternatives rejected: Tamagui (compiler/web-parity buy-in irrelevant to phone-only native), NativeWind (v5 non-production preview, v4 EOL Tailwind-v3), paper (MD3 lock-in, context re-render theming, v6 alpha churn — currently used for ONE icon wrapper). **Gate**: Phase-0 spike (theme flip, insets, hot reload, worklet theme access on RN 0.86, both platforms). Fallback if the spike fails: typed `StyleSheet` token modules with identical token shape — call sites written against our own `useTheme()`/`createStyles()` wrappers either way, so the fallback swaps the engine, not the code. Interop rule (documented Unistyles caveat): never merge a Unistyles style and a Reanimated animated style into one object — keep them separate entries in the style array; enforced in review.
+
+### D2. State: Zustand 5 domain stores; WatermelonDB stays the reactive source of truth
+Store topology (`src/state/`):
+- `settingsStore` — persisted via `persist` + `createJSONStorage` over MMKV. SINGLE owner of `BATTERY_SAVER_ENABLED` / `NIGHT_PROCESSING_ENABLED` keys, boolean-typed, with one-time migration reading legacy string values (`getString === 'true'`) before first write. Holds theme, gridZoomLevel (persisted AND used — fixes the zoom split-brain), onboardingCompleted.
+- `navStore` — currentPage, searchMode, documentMode; transition rules preserved exactly (page-swipe exits search; document persists across swipes; document toggle on Gallery vs redirect-then-activate from Albums; mutual exclusions). Owns the Android back-handling priority chain in one place.
+- `selectionStore` — multi-select `Set<string>`; grid cells subscribe per-id (`useSelectionStore(s => s.has(id))`) so a 10k grid re-renders only flipped cells.
+- `searchStore` — query, status, resultIds + hydrated results; 250ms debounce; monotonic request-id stale guard; hydration via facade `searchMedia`.
+- `processingStore` — snapshot {isProcessing, processed, total, currentFileName, isPaused, failedCount} written by the bootstrap event subscription; progress ALSO mirrored into a Reanimated SharedValue via `subscribe` on the vanilla store (zero-re-render progress bar during drains).
+- `modelStore` — mirror of `GemmaModelDeliveryService.subscribe` (which emits-on-subscribe); enabled flag read from the service, not a local snapshot (fixes AiModelSection drift).
+- `viewerStore` — transient: open({items, startIndex}), current index; PhotoViewer reads items from here (in-memory Model references, no param serialization), keeping viewer paging consistent with whatever dataset launched it (gallery/search/document/album).
+
+Hard rule (the anti-fat-context law): **entity arrays never live in global stores.** Gallery data is subscribed once in the Gallery screen via a `useVisibleMedia()` hook wrapping `MediaFileRepository.observeVisible()` with a 250ms trailing throttle, held in screen state; cells are `React.memo` on reference-stable Model instances. This kills the two-renders-per-processed-photo storm at the architecture level. Alternatives rejected: Jotai (atomWithObservable suspends without initialValue; atomFamily lifecycle for 10k ids), Legend-State (v3 beta for 2 years), MobX (React Compiler incompatible), TanStack Query (DB observables already are the async cache), split contexts (no selector-level subscription).
+
+### D3. Navigation: RNav 7 static API + native-stack; pager stays outside navigation
+Root static tree: `Onboarding` (via `if: !onboardingCompleted`), `Shell`, `PhotoViewer` (`presentation: 'transparentModal'`, fade), `Settings` (standard push), `DevPoc` (`if: __DEV__`). JS stack and bottom-tabs removed. The Shell hosts the pager (pager-view 8.0.3) + morphing bottom bar; the pager is deliberately NOT a navigator — it is the debugged HorizontalPageContainer worklet logic ported verbatim (50px origin-judged edge zones, velocity>500/distance>100, Gesture.Race, single store→sharedValue sync, RNGH3 activated-detector-blocks-pager semantics). Right-edge swipe on Albums triggers `navigation.navigate('Settings')` (replaces the overlay drawer — native back gesture/button then work for free). PhotoViewer zoom: custom ~150-LOC bounds-measured zoom transition on the transparentModal (react-native-screen-transitions adoption deferred until its GH3 support lands; iOS-native zoom transition verifiably buggy). Alternatives rejected: expo-router (requires Expo CLI bundling swap), RNav v8 (alpha), native bottom tabs (can't express the morphing bar or page-swipe).
+
+### D4. Components: owned Visara DS on primitives; TrueSheet for sheets; paper removed
+`src/ui/` primitives (~15, capped — anything more must justify itself against @rn-primitives source as reference): Text, Button, IconButton, Icon (direct `@react-native-vector-icons/material-design-icons`), Pressable(scale/opacity feedback), Sheet (TrueSheet wrapper), Dialog, Menu, Chip, SegmentedControl, Switch row, ListItem/Section, Toast (sonner-native `<Toaster/>` + `toast()` API), Skeleton, EmptyState, ProgressBar (SharedValue-driven). Micro-interactions via Reanimated 4 CSS transitions where declarative suffices; worklets+GH3 for gesture-driven surfaces. Info sheet (photo metadata/labels/OCR) = TrueSheet with proper nested scrolling (kills the hand-rolled scroll-vs-dismiss fight and setTimeout(300) close races). Bottom-bar morph stays fully custom Reanimated per the adopted decision record: stagger (buttons fade 0→0.3 with translateY 20/scale 0.95; search field in 0.7→1.0), ~300ms bezier(0.25,0.1,0.25,1), both states absolutely positioned, pointerEvents driven from state (never from animated styles), container disabled while animating, `useAnimatedKeyboard` translation (protected surface), GPU-only animated props. Alternatives rejected: HeroUI Native (peer-pins GH ^2.28 vs our 3.0.2 — revisit if it ships GH3 support; its Apache-2.0 source is a legitimate parts reference), gluestack (v3→v5 churn, Expo-Router-first), @gorhom/bottom-sheet (GH2/Reanimated-3 internals riding a deprecated compat layer).
+
+### D5. Services wiring: headless bootstrap module + thin facade; orchestrator untouched
+`src/app/bootstrap.ts` exports `startAppServices()/stopAppServices()` (plain TS, invoked from one `useEffect` in the shell): preserves the exact boot order — post-onboarding: fire-and-forget `GemmaModelDeliveryService.initialize()`; `await MediaDiscoveryService.requestPermissions()`; on grant `await OrchestratorService.initialize()` then `runInitialProcessing()`; on deny set `permissionState='denied'` in a store and render a real denied screen state with a re-request/settings-link path (today: silent abort). Always: orchestrator event subscription → processingStore (event map for started/scan-progress/progress/item-failed/paused/resumed/completed preserved verbatim); `MediaDiscoveryService.startObserver(OBSERVER_THROTTLE_MS)` → `enqueueDiscovered`; settings changes → `BackgroundTaskService.updateSettings`. `src/services/facade.ts` adds: `searchMedia(query)` (HybridSearch + single `Q.oneOf` batch hydration preserving fused rank), `removeMedia(id, {permanent})` (full cleanup: DB row + lexical index + semantic vector + queue rows — reusing the `removeByUri` logic via a public path), `ensureSearchIndex()` (index load/rebuild responsibility out of screens). Services internals otherwise untouched; repository/service imports stay top-level (Metro dev lazy-bundle rule).
+
+### D6. Deletion strategy: parallel-build, single cutover commit, then delete
+Old and new trees coexist briefly so the app builds at every commit: (1) add deps + scaffolding under new dirs (`src/ui`, `src/state`, `src/app`, `src/features`) — old app still runs; (2) build DS/stores/facade/features; (3) one cutover commit: `src/App.tsx` renders the new shell, old dirs deleted, aliases updated in tsconfig+babel together; (4) fix/verify/polish. No runtime feature flag — git is the rollback (revert cutover commit). Rationale: keeps typecheck/lint green throughout, bisectable, and avoids a broken-tree window measured in days.
+
+### D7. Test enablement
+Jest gets `transformIgnorePatterns` for the real dep set (react-native, @react-native, expo-*, react-native-gesture-handler, react-native-reanimated, react-native-worklets, @nozbe, @shopify, unistyles, sonner-native, TrueSheet) + setup mocks (reanimated/worklets per current v4 guidance; unistyles mock; MMKV in-memory mock; TurboModule absence). Test targets: store transition logic (navStore semantics table, settings migration), edge-gesture validity math (pure functions extracted for testability), search debounce/stale-guard, facade hydration ordering. Component snapshot tests are NOT a goal; behavior tests are.
+
+## Risks / Trade-offs
+
+- [Unistyles 3 unvalidated on RN 0.86] → Phase-0 spike before any DS code; fallback engine (typed StyleSheet tokens) behind our own wrapper API so call sites don't change; nitro stays 0.36.1.
+- [TrueSheet is a new native pod on an aggressive baseline (static libs, 3 Podfile patches, 16KB pages)] → added in Phase 0 alongside unistyles; verify pod install + both-platform boot before feature work; fallback: one owned Reanimated sheet primitive (we're deleting three hand-rolled ones — worst case we rebuild one, properly).
+- [Pager + RNGH3 + edge gestures is the historical fragility cluster (4 of last 5 fix commits)] → port the debugged worklet logic verbatim rather than rewriting; keep the RNGH declarative API; on-device gesture QA on both platforms is an explicit task.
+- [reanimated-dnd Sortable constraints on rebuilt Albums (must not nest in plain ScrollView; handleMove currently unwired)] → Albums list built around Sortable's own container; wiring + persistence covered by spec scenario; manual on-device reorder check is a task.
+- [Settings-as-screen changes the settings entry animation (was overlay drawer)] → gesture affordance and thresholds preserved; native push is faster and gains back-gesture; accepted UX change recorded in page-navigation-core delta.
+- [MMKV settings migration could mis-read legacy values] → migration reads string keys first, writes booleans once, is idempotent, and is unit-tested; BackgroundTaskService continues reading booleans (its current format) so drain gating never regresses.
+- [Deleting src/screens removes the POC/Dev surfaces the ExecuTorch spec protects] → DevPocLauncher + POC screen are MOVED to `src/features/dev/` functionally intact (still `__DEV__`-gated, `useLLM` direct, file:// contract, iPad-operable).
+- [Model instances in UI couple rendering to WatermelonDB identity] → accepted deliberately (reference stability enables memo); the boundary is documented in ui-state-management; DTO mapping would cost the stability that makes the grid fast.
+- [transparentModal viewer keeps the grid mounted underneath] → acceptable on target hardware (arm64, 16KB images); if low-memory issues appear, switch viewer to `animation:'fade'` push (spec keeps behavior, loses see-through).
+
+## Migration Plan
+
+Phase 0 — Spike & foundations (gate): add unistyles/zustand/native-stack/TrueSheet/sonner-native, remove paper/stack/bottom-tabs, pod install, unistyles smoke on both platforms, Jest config. Abort→fallback path per D1/D4 without changing later phases.
+Phase 1 — Parallel build: `src/ui` tokens+primitives; `src/state` stores (+ tests); `src/services/facade.ts` (+ settings ownership fix + migration); `src/app` bootstrap+navigation; `src/features/*` screens (gallery, viewer, search, albums, settings, onboarding, dev move).
+Phase 2 — Cutover commit: new App.tsx, delete `src/contexts|navigation|screens|components|theme`, alias updates (tsconfig+babel), README nav/state sections updated.
+Phase 3 — Verification: typecheck/lint/tests; Android build+boot+flows on Pixel_10; iOS pod install+build+boot+flows on iPhone 17; on-device gesture QA checklist (edge swipes, morph, viewer gestures, reorder, back priority); fix loop until green.
+Rollback: revert the cutover commit (old tree restored intact; deps additions are backward-compatible with it).
+
+## Open Questions
+
+None blocking — all decisions above are made. Deferred items are listed in Non-Goals with their follow-up changes.

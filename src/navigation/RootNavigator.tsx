@@ -1,14 +1,7 @@
 import { useSettings } from "@contexts/SettingsContext";
 import { NavigationContainer } from "@react-navigation/native";
-import {
-	CardStyleInterpolators,
-	createStackNavigator,
-} from "@react-navigation/stack";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MainNavigator } from "./MainNavigator";
-import {
-	getPlatformTransition,
-	stackNavigationOptions,
-} from "./navigationConfig";
 import { OnboardingNavigator } from "./OnboardingNavigator";
 
 export type RootStackParamList = {
@@ -16,38 +9,30 @@ export type RootStackParamList = {
 	Main: undefined;
 };
 
-const Stack = createStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
+/**
+ * Interim root on native-stack (JS stack removed). Replaced wholesale by the
+ * static-API tree in src/app at cutover.
+ */
 export function RootNavigator() {
 	const { state } = useSettings();
-	const platformTransition = getPlatformTransition();
 
-	// Check if onboarding is completed
 	const isOnboardingCompleted = state.preferences.onboardingCompleted;
 
 	return (
 		<NavigationContainer>
 			<Stack.Navigator
 				screenOptions={{
-					...stackNavigationOptions,
-					gestureEnabled: false, // Disable gesture for root navigation
-					// Add smooth fade-in transition when moving from onboarding to main
-					cardStyleInterpolator: CardStyleInterpolators.forFadeFromCenter,
-					...platformTransition,
+					headerShown: false,
+					gestureEnabled: false,
+					animation: "fade",
 				}}
 			>
 				{!isOnboardingCompleted ? (
 					<Stack.Screen name="Onboarding" component={OnboardingNavigator} />
 				) : (
-					<Stack.Screen
-						name="Main"
-						component={MainNavigator}
-						options={{
-							// Enhanced transition for entering main app
-							cardStyleInterpolator:
-								CardStyleInterpolators.forFadeFromBottomAndroid,
-						}}
-					/>
+					<Stack.Screen name="Main" component={MainNavigator} />
 				)}
 			</Stack.Navigator>
 		</NavigationContainer>

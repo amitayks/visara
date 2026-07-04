@@ -19,6 +19,10 @@
 		"forceConsistentCasingInFileNames": true,
 		"experimentalDecorators": true,
 		"paths": {
+			"@ui/*": ["./src/ui/*"],
+			"@state/*": ["./src/state/*"],
+			"@app/*": ["./src/app/*"],
+			"@features/*": ["./src/features/*"],
 			"@components/*": ["./src/components/*"],
 			"@screens/*": ["./src/screens/*"],
 			"@services/*": ["./src/services/*"],

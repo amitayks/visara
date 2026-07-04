@@ -19,6 +19,10 @@ module.exports = {
 					".json",
 				],
 				alias: {
+					"@ui": "./src/ui",
+					"@state": "./src/state",
+					"@app": "./src/app",
+					"@features": "./src/features",
 					"@components": "./src/components",
 					"@screens": "./src/screens",
 					"@services": "./src/services",
@@ -33,6 +37,8 @@ module.exports = {
 				},
 			},
 		],
+		["react-native-unistyles/plugin", { root: "src" }],
+		// Worklets plugin must stay LAST (reanimated-4-animation-stack spec).
 		"react-native-worklets/plugin",
 	],
 };
