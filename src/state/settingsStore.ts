@@ -1,8 +1,8 @@
-import { create } from "zustand";
-import { subscribeWithSelector } from "zustand/middleware";
 import { storage } from "@services/storage/mmkv";
 import { applyThemeMode, type ThemeMode } from "@ui/theme";
 import { STORAGE_KEYS } from "@utils/constants/storage-keys";
+import { create } from "zustand";
+import { subscribeWithSelector } from "zustand/middleware";
 
 export type GridZoomLevel = 3 | 4 | 11;
 export type PermissionState = "unknown" | "granted" | "denied" | "limited";
@@ -75,7 +75,8 @@ migrateLegacySettingsStorage();
 export const useSettingsStore = create<SettingsState>()(
 	subscribeWithSelector((set) => ({
 		theme: toTheme(storage.getString(STORAGE_KEYS.THEME)),
-		batterySaver: storage.getBoolean(STORAGE_KEYS.BATTERY_SAVER_ENABLED) ?? false,
+		batterySaver:
+			storage.getBoolean(STORAGE_KEYS.BATTERY_SAVER_ENABLED) ?? false,
 		nightProcessing:
 			storage.getBoolean(STORAGE_KEYS.NIGHT_PROCESSING_ENABLED) ?? false,
 		gridZoomLevel: toZoom(storage.getNumber(STORAGE_KEYS.GRID_ZOOM_LEVEL)),

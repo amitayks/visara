@@ -1,7 +1,7 @@
-import { Appearance } from "react-native";
-import { StyleSheet } from "react-native-unistyles";
 import { storage } from "@services/storage/mmkv";
 import { STORAGE_KEYS } from "@utils/constants/storage-keys";
+import { Appearance } from "react-native";
+import { StyleSheet } from "react-native-unistyles";
 import { darkTheme, lightTheme, type ThemeMode } from "./tokens";
 
 const appThemes = {

@@ -4,7 +4,7 @@ import { BareResourceFetcher } from "react-native-executorch-bare-resource-fetch
 import { name as appName } from "./app.json";
 // Unistyles themes must be configured before any component module loads.
 import "./src/ui/theme/unistyles";
-import App from "./src/App";
+import App from "./src/app/App";
 
 // Initialize the ExecuTorch resource fetcher adapter BEFORE the app component is
 // registered, so the first `useLLM` call can never throw

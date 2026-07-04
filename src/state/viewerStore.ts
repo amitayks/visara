@@ -22,7 +22,11 @@ export const useViewerStore = create<ViewerState>()((set) => ({
 	isOpen: false,
 
 	open: (items, index) =>
-		set({ items, index: Math.max(0, Math.min(index, items.length - 1)), isOpen: true }),
+		set({
+			items,
+			index: Math.max(0, Math.min(index, items.length - 1)),
+			isOpen: true,
+		}),
 	setIndex: (index) =>
 		set((s) => ({
 			index: Math.max(0, Math.min(index, Math.max(0, s.items.length - 1))),

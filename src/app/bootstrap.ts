@@ -1,6 +1,6 @@
 import { BackgroundTaskService } from "@services/background/BackgroundTaskService";
-import { requestMediaPermissions } from "@services/media/MediaPermissions";
 import { MediaDiscoveryService } from "@services/media/MediaDiscoveryService";
+import { requestMediaPermissions } from "@services/media/MediaPermissions";
 import { GemmaModelDeliveryService } from "@services/model/GemmaModelDeliveryService";
 import {
 	OBSERVER_THROTTLE_MS,

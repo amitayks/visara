@@ -59,7 +59,9 @@ export const useNavStore = create<NavStore>()(
 		toggleSearch: () => {
 			const s = get();
 			set(
-				s.searchMode ? transitions.deactivateSearch(s) : transitions.activateSearch(s),
+				s.searchMode
+					? transitions.deactivateSearch(s)
+					: transitions.activateSearch(s),
 			);
 		},
 		toggleDocuments: () => set((s) => transitions.toggleDocuments(s)),

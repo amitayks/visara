@@ -1,22 +1,21 @@
+import { beforeEach, describe, expect, it } from "@jest/globals";
 import { PAGE, transitions, useNavStore } from "../navStore";
 
-const base = { currentPage: PAGE.gallery, searchMode: false, documentMode: false };
+const base = {
+	currentPage: PAGE.gallery,
+	searchMode: false,
+	documentMode: false,
+};
 
 describe("navStore transition table (page-navigation-core spec)", () => {
 	it("page change exits search mode", () => {
-		const s = transitions.setPage(
-			{ ...base, searchMode: true },
-			PAGE.albums,
-		);
+		const s = transitions.setPage({ ...base, searchMode: true }, PAGE.albums);
 		expect(s.currentPage).toBe(PAGE.albums);
 		expect(s.searchMode).toBe(false);
 	});
 
 	it("document mode persists across page changes", () => {
-		const s = transitions.setPage(
-			{ ...base, documentMode: true },
-			PAGE.albums,
-		);
+		const s = transitions.setPage({ ...base, documentMode: true }, PAGE.albums);
 		expect(s.documentMode).toBe(true);
 	});
 
@@ -61,9 +60,7 @@ describe("navStore transition table (page-navigation-core spec)", () => {
 });
 
 describe("useNavStore integration", () => {
-	beforeEach(() =>
-		useNavStore.setState({ ...base }),
-	);
+	beforeEach(() => useNavStore.setState({ ...base }));
 
 	it("toggleSearch round-trips", () => {
 		useNavStore.getState().toggleSearch();

@@ -8,7 +8,6 @@ require("react-native-unistyles/mocks");
 // Reanimated 4's bundled mock drags in react-native-worklets' native init,
 // which explodes off-device — a minimal hand mock covers what our code uses.
 jest.mock("react-native-reanimated", () => {
-	const React = require("react");
 	const { View, Text, ScrollView, Image } = require("react-native");
 	const shared = (value) => ({ value });
 	return {
@@ -27,6 +26,10 @@ jest.mock("react-native-reanimated", () => {
 		withSpring: (v) => v,
 		withTiming: (v) => v,
 		withDelay: (_d, v) => v,
+		withRepeat: (v) => v,
+		withSequence: (...v) => v[v.length - 1],
+		cancelAnimation: () => {},
+		clamp: (v, min, max) => Math.min(Math.max(v, min), max),
 		runOnJS: (fn) => fn,
 		runOnUI: (fn) => fn,
 		interpolate: () => 0,
@@ -79,9 +82,28 @@ jest.mock("react-native-mmkv", () => {
 	return { createMMKV: () => new MemoryMMKV(), MMKV: MemoryMMKV };
 });
 
-jest.mock("@lodev09/react-native-true-sheet", () => ({
-	TrueSheet: () => null,
-}));
+// MDI package requires its .ttf at module scope — no ttf transform in the
+// RN jest preset, so mock the whole icon package to a plain Text.
+jest.mock("@react-native-vector-icons/material-design-icons", () => {
+	const React = require("react");
+	const { Text } = require("react-native");
+	const MockIcon = (props) =>
+		React.createElement(Text, { testID: props.testID }, props.name);
+	return { __esModule: true, default: MockIcon };
+});
+
+jest.mock("@lodev09/react-native-true-sheet", () => {
+	const React = require("react");
+	const { View } = require("react-native");
+	const TrueSheet = React.forwardRef((props, ref) => {
+		React.useImperativeHandle(ref, () => ({
+			present: async () => {},
+			dismiss: async () => {},
+		}));
+		return React.createElement(View, null, props.children);
+	});
+	return { TrueSheet };
+});
 
 jest.mock("sonner-native", () => ({
 	Toaster: () => null,

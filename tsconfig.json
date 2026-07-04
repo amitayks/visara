@@ -23,17 +23,11 @@
 			"@state/*": ["./src/state/*"],
 			"@app/*": ["./src/app/*"],
 			"@features/*": ["./src/features/*"],
-			"@components/*": ["./src/components/*"],
-			"@screens/*": ["./src/screens/*"],
 			"@services/*": ["./src/services/*"],
-			"@contexts/*": ["./src/contexts/*"],
 			"@models/*": ["./src/models/*"],
-			"@hooks/*": ["./src/hooks/*"],
 			"@utils/*": ["./src/utils/*"],
 			"@shared-types/*": ["./src/shared-types/*"],
-			"@native-modules/*": ["./src/native-modules/*"],
-			"@theme/*": ["./src/theme/*"],
-			"@navigation/*": ["./src/navigation/*"]
+			"@native-modules/*": ["./src/native-modules/*"]
 		}
 	},
 	"include": ["src/**/*"],
