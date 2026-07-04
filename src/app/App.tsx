@@ -30,6 +30,9 @@ export function App() {
 		applyThemeMode(useSettingsStore.getState().theme);
 		startAppServices();
 		const stopSearchController = startSearchController();
+		if (__DEV__) {
+			void import("./devQaHooks").then((m) => m.installDevQaHooks());
+		}
 		return () => {
 			stopSearchController();
 			stopAppServices();
