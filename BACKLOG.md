@@ -41,3 +41,9 @@ Items here are known, deliberate deferrals — none block the app.
   out of Metaspace at the old 512m with the expo module graph.
 - Dev-mode Metro uses lazy bundles; rapid force-stop cycles can log transient
   `LoadBundleFromServerRequestError` — cosmetic, dev-only.
+
+## Discovered during UI rebuild (rebuild-ui-foundation, 2026-07-04)
+
+- **Emulator OCR failures (non-blocking):** `TextRecognitionService.extractText` throws "Read image error: invalid argument" / "model is currently generating" when processing images on the Android emulator's ML-Kit stack; also a concurrency guard error when tier calls overlap. Services-layer, not UI — surfaces correctly as failed-count in the gallery/settings. Verify on a real device; consider serializing tier-0 OCR calls and demoting the emulator read error to a warn.
+- **iOS Podfile patch #4 (load-bearing):** react-native-executorch injects SDK-conditional `OTHER_LDFLAGS` that REPLACE the unconditional line, dropping CocoaPods' `-ObjC` and dead-stripping `+load`-registered TurboModules (Unistyles). Podfile now re-appends the base flags to every conditional line. Any executorch/pod bump must keep this working.
+- **Metro `lazy=false` (load-bearing):** dev split/lazy bundling defers side-effect module init, so Unistyles' Nitro hybrids weren't registered before first render on Android (red-box). `metro.config.js` rewrites `lazy=true`→`lazy=false`. Release bundles are single-file and unaffected.
