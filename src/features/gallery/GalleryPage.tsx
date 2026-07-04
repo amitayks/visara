@@ -133,7 +133,8 @@ export function GalleryPage() {
 				/>
 			);
 		} else {
-			body = <GalleryGrid items={displayed} />;
+			// Search results are rank-ordered, not date-sorted — render flat.
+			body = <GalleryGrid items={displayed} sectioned={false} />;
 		}
 	} else if (permissionState === "denied") {
 		body = <PermissionDenied />;

@@ -23,7 +23,7 @@ The services facade SHALL expose a UI-facing `searchMedia(query)` operation that
 
 ### Requirement: Complete media removal through one public path
 
-The services facade SHALL expose a UI-facing `removeMedia(id, permanent?)` operation that removes ALL app-side state for a media item in one call: its database row, its lexical search index entry, its semantic vector, and its processing-queue rows. The operation SHALL reuse the orchestrator's existing complete-removal logic through a public path rather than reimplementing it, so UI-initiated and pipeline-initiated removals cannot diverge. Default removal SHALL be app-only: the underlying file remains in device storage. When `permanent` is set, the operation SHALL additionally delete the underlying file from device storage using the platform's file-deletion semantics. After `removeMedia` resolves, the item MUST NOT appear in gallery observations, search results, or subsequent drain work.
+The services facade SHALL expose a UI-facing `removeMedia(media, { permanent })` operation that removes ALL app-side state for a media item in one call: its database row, its lexical search index entry, its semantic vector, and its processing-queue rows. The operation SHALL reuse the orchestrator's existing complete-removal logic through a public path rather than reimplementing it, so UI-initiated and pipeline-initiated removals cannot diverge. When `permanent` is false the removal SHALL be app-only: the underlying file remains in device storage. When `permanent` is true, the operation SHALL additionally delete the underlying file from device storage using the platform's file-deletion semantics. After `removeMedia` resolves, the item MUST NOT appear in gallery observations, search results, or subsequent drain work.
 
 #### Scenario: Removed media stops being searchable
 
@@ -33,7 +33,7 @@ The services facade SHALL expose a UI-facing `removeMedia(id, permanent?)` opera
 
 #### Scenario: Default removal keeps the device file
 
-- **WHEN** `removeMedia` is called without `permanent`
+- **WHEN** `removeMedia` is called with `permanent: false`
 - **THEN** the item disappears from gallery, search, and queue state
 - **AND** the underlying file still exists in device storage
 

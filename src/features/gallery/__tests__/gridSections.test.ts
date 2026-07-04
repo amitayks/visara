@@ -57,6 +57,25 @@ describe("buildGridData", () => {
 		]);
 	});
 
+	it("flat mode (null granularity) emits no headers and unique keys for interleaved dates", () => {
+		// Rank-ordered search results: dates interleave (Today, older, Today).
+		const media = [
+			fakeMedia("a", TODAY),
+			fakeMedia("b", OLDER),
+			fakeMedia("c", TODAY_LATER),
+		];
+
+		const items = buildGridData(media, null, NOW);
+
+		expect(headerLabels(items)).toEqual([]);
+		expect(items.map((item) => item.type)).toEqual(["media", "media", "media"]);
+		const keys = items.map((item) => item.key);
+		expect(new Set(keys).size).toBe(keys.length); // no duplicate/colliding keys
+		expect(items.map((i) => (i.type === "media" ? i.mediaIndex : -1))).toEqual([
+			0, 1, 2,
+		]);
+	});
+
 	it("groups by month-year at month granularity", () => {
 		const media = [
 			fakeMedia("a", TODAY),

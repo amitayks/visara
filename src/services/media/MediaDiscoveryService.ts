@@ -8,6 +8,7 @@ import {
 	CameraRoll,
 	type PhotoIdentifier,
 } from "@react-native-camera-roll/camera-roll";
+import { requestMediaPermissions } from "@services/media/MediaPermissions";
 import {
 	type EmitterSubscription,
 	NativeEventEmitter,
@@ -410,23 +411,13 @@ export class MediaDiscoveryService {
 		}
 	}
 
+	/**
+	 * Delegates to the real permission module (the boot/onboarding seam). Kept
+	 * as a thin alias so spec-referenced call sites resolve to the actual OS
+	 * request instead of the former always-true stub.
+	 */
 	static async requestPermissions(): Promise<boolean> {
-		try {
-			if (Platform.OS === "android") {
-				// On Android 13+, need READ_MEDIA_IMAGES and READ_MEDIA_VIDEO
-				// Permissions are handled in AndroidManifest.xml
-				// CameraRoll will automatically request when needed
-				return true;
-			}
-			if (Platform.OS === "ios") {
-				// iOS permissions are in Info.plist
-				// CameraRoll will automatically request when needed
-				return true;
-			}
-			return false;
-		} catch (error) {
-			console.error("MediaDiscoveryService.requestPermissions error:", error);
-			return false;
-		}
+		const result = await requestMediaPermissions();
+		return result === "granted" || result === "limited";
 	}
 }

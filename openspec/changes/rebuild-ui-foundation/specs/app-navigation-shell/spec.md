@@ -2,7 +2,7 @@
 
 ### Requirement: Root navigator is a single native-stack static tree
 
-The app SHALL define exactly one root navigator: a React Navigation 7 native stack declared with the static API, whose screens are Onboarding (included only while onboarding is not completed), Shell, PhotoViewer (presented as `transparentModal` over the Shell), Settings (standard push presentation), and the dev POC screens (included only in `__DEV__` builds). No JavaScript-stack or bottom-tabs navigator SHALL exist anywhere in the tree.
+The app SHALL define exactly one root navigator: a React Navigation 7 native stack declared with the static API, whose screens are Onboarding (included only while onboarding is not completed), Shell, PhotoViewer (presented as `transparentModal` over the Shell), Settings (standard push presentation), AlbumDetail (standard push presentation, per `albums-experience`), and the dev POC screens (included only in `__DEV__` builds). No JavaScript-stack or bottom-tabs navigator SHALL exist anywhere in the tree.
 
 #### Scenario: Fresh install boots into onboarding
 

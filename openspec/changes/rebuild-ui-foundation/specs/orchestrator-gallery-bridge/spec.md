@@ -24,10 +24,10 @@ The bootstrap SHALL translate orchestrator events into `processingStore` updates
 - **WHEN** the orchestrator emits a `progress` or `scan-progress` event
 - **THEN** the processing store reflects the current processed count, total, and current file name
 
-#### Scenario: A permanent failure is recorded
+#### Scenario: A permanent failure is counted
 
 - **WHEN** the orchestrator emits an `item-failed` event
-- **THEN** the processing store records the failed file with media id, file name, error message, and timestamp
+- **THEN** the processing store increments its failed-item count (surfaced as "N failed" in the UI), consistent with the processing-snapshot shape defined in `ui-state-management`
 
 #### Scenario: Pause, resume, and completion are reflected
 

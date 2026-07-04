@@ -43,8 +43,12 @@ async function flushMicrotasks(rounds = 6): Promise<void> {
 
 function createHarness(overrides: Partial<SearchControllerDeps> = {}) {
 	let listener: ((query: string) => void) | null = null;
+	let modeListener: ((active: boolean) => void) | null = null;
 	const unsubscribe = jest.fn(() => {
 		listener = null;
+	});
+	const unsubscribeMode = jest.fn(() => {
+		modeListener = null;
 	});
 	let nextRequestId = 0;
 	const deps = {
@@ -61,6 +65,10 @@ function createHarness(overrides: Partial<SearchControllerDeps> = {}) {
 		completeRequest: jest.fn<SearchControllerDeps["completeRequest"]>(),
 		failRequest: jest.fn<SearchControllerDeps["failRequest"]>(),
 		clearResults: jest.fn<SearchControllerDeps["clearResults"]>(),
+		subscribeToSearchMode: jest.fn((onChange: (active: boolean) => void) => {
+			modeListener = onChange;
+			return unsubscribeMode;
+		}),
 		debounceMs: SEARCH_DEBOUNCE_MS,
 	};
 	const stop = startSearchController({ ...deps, ...overrides });
@@ -69,7 +77,10 @@ function createHarness(overrides: Partial<SearchControllerDeps> = {}) {
 		stop,
 		/** Emit a query change as the store subscription would. */
 		type: (query: string) => listener?.(query),
+		/** Emit a search-mode change as the nav-store subscription would. */
+		setSearchMode: (active: boolean) => modeListener?.(active),
 		unsubscribe,
+		unsubscribeMode,
 	};
 }
 
@@ -122,6 +133,35 @@ describe("searchController debounce (search-experience spec)", () => {
 		expect(deps.searchMedia).not.toHaveBeenCalled();
 		expect(deps.ensureSearchIndex).not.toHaveBeenCalled();
 		expect(deps.beginRequest).not.toHaveBeenCalled();
+		stop();
+	});
+
+	it("exiting search mode clears the bounded snapshot and drops in-flight work", async () => {
+		const slow = deferred<MediaFile[]>();
+		const searchMedia = jest.fn(() => slow.promise);
+		const { deps, type, setSearchMode, stop } = createHarness({ searchMedia });
+
+		type("beach");
+		await jest.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS); // request now in flight
+		expect(searchMedia).toHaveBeenCalledTimes(1);
+
+		// Any exit path (swipe/cancel/back) flips searchMode false.
+		setSearchMode(false);
+		expect(deps.clearResults).toHaveBeenCalledTimes(1);
+
+		// A late response for the pre-exit request must not land.
+		slow.resolve([media("late")]);
+		await flushMicrotasks();
+		await jest.advanceTimersByTimeAsync(10_000);
+		expect(deps.completeRequest).not.toHaveBeenCalled();
+		stop();
+	});
+
+	it("entering search mode (true) does not clear or dispatch", async () => {
+		const { deps, setSearchMode, stop } = createHarness();
+		setSearchMode(true);
+		expect(deps.clearResults).not.toHaveBeenCalled();
+		expect(deps.searchMedia).not.toHaveBeenCalled();
 		stop();
 	});
 
@@ -262,6 +302,7 @@ describe("searchController against the real searchStore", () => {
 		failRequest: (requestId: number) =>
 			useSearchStore.getState().failRequest(requestId),
 		clearResults: () => useSearchStore.getState().clear(),
+		subscribeToSearchMode: (_onChange: (active: boolean) => void) => () => {},
 	});
 
 	beforeEach(() => {

@@ -35,6 +35,11 @@ import {
 export interface GalleryGridProps {
 	/** The displayed dataset (gallery, document filter, or search results). */
 	items: MediaFile[];
+	/**
+	 * Date-section the grid. False for rank-ordered search results (no date
+	 * headers — the dataset isn't date-sorted). Defaults to true.
+	 */
+	sectioned?: boolean;
 }
 
 const SectionHeader = memo(function SectionHeader({
@@ -54,9 +59,9 @@ const SectionHeader = memo(function SectionHeader({
 	);
 });
 
-export function GalleryGrid({ items }: GalleryGridProps) {
+export function GalleryGrid({ items, sectioned = true }: GalleryGridProps) {
 	const columns = useSettingsStore((s) => s.gridZoomLevel);
-	const granularity = granularityForColumns(columns);
+	const granularity = sectioned ? granularityForColumns(columns) : null;
 
 	const gridData = useMemo(
 		() => buildGridData(items, granularity),

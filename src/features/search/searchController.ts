@@ -10,6 +10,7 @@
 
 import type { MediaFile } from "@models/MediaFile";
 import { ensureSearchIndex, searchMedia } from "@services/facade";
+import { useNavStore } from "@state/navStore";
 import { useSearchStore } from "@state/searchStore";
 
 export const SEARCH_DEBOUNCE_MS = 250;
@@ -24,6 +25,13 @@ export interface SearchControllerDeps {
 	failRequest: (requestId: number) => void;
 	/** Empty-query path: clear results/status without touching the facade. */
 	clearResults: () => void;
+	/**
+	 * Subscribe to search-mode changes; returns unsubscribe. Every exit path
+	 * (cancel, back, page-swipe) flips searchMode false, so clearing here is
+	 * the single place that guarantees the bounded result snapshot is dropped
+	 * on exit (ui-state-management + search-experience specs).
+	 */
+	subscribeToSearchMode: (onChange: (active: boolean) => void) => () => void;
 	debounceMs: number;
 }
 
@@ -39,6 +47,8 @@ function defaultDeps(): SearchControllerDeps {
 		failRequest: (requestId) =>
 			useSearchStore.getState().failRequest(requestId),
 		clearResults: () => useSearchStore.getState().clear(),
+		subscribeToSearchMode: (onChange) =>
+			useNavStore.subscribe((state) => state.searchMode, onChange),
 		debounceMs: SEARCH_DEBOUNCE_MS,
 	};
 }
@@ -108,12 +118,23 @@ export function startSearchController(
 		}, deps.debounceMs);
 	};
 
-	const unsubscribe = deps.subscribeToQuery(onQueryChange);
+	const onSearchModeChange = (active: boolean): void => {
+		if (active) return;
+		// Exiting search (any path) drops the bounded snapshot so re-entry
+		// starts empty; the seq bump discards any in-flight response.
+		cancelPending();
+		dispatchSeq += 1;
+		deps.clearResults();
+	};
+
+	const unsubscribeQuery = deps.subscribeToQuery(onQueryChange);
+	const unsubscribeMode = deps.subscribeToSearchMode(onSearchModeChange);
 
 	return () => {
 		stopped = true;
 		dispatchSeq += 1;
 		cancelPending();
-		unsubscribe();
+		unsubscribeQuery();
+		unsubscribeMode();
 	};
 }

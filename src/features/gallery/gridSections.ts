@@ -98,9 +98,21 @@ function formatDay(
  */
 export function buildGridData(
 	media: readonly MediaFile[],
-	granularity: SectionGranularity,
+	// `null` = flat grid with no section headers, for rank-ordered datasets
+	// (search results): interleaved dates would otherwise emit colliding
+	// header keys and split section counts.
+	granularity: SectionGranularity | null,
 	now: Date = new Date(),
 ): GridItem[] {
+	if (granularity === null) {
+		return media.map((file, mediaIndex) => ({
+			type: "media",
+			key: file.id,
+			media: file,
+			mediaIndex,
+		}));
+	}
+
 	const items: GridItem[] = [];
 	const labelCache = new Map<number, string>();
 	const todayKey = dayKey(now);
