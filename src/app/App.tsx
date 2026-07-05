@@ -50,7 +50,7 @@ export function App() {
 			<SafeAreaProvider>
 				<RootNavigation />
 				<AppToaster />
-				{/* Dev-only ExecuTorch POC entry; stripped from production builds. */}
+				{/* Dev-only Gemma backend smoke entry; stripped from production builds. */}
 				{__DEV__ ? <DevPocLauncher /> : null}
 			</SafeAreaProvider>
 		</GestureHandlerRootView>

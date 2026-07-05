@@ -1,5 +1,5 @@
+import type { MediaRow as MediaFile } from "@backend/types";
 import { beforeEach, describe, expect, it } from "@jest/globals";
-import type { MediaFile } from "@models/MediaFile";
 import { useSearchStore } from "../searchStore";
 
 const media = (id: string) => ({ id }) as unknown as MediaFile;

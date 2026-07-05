@@ -7,7 +7,7 @@
  */
 
 import { navigate } from "@app/navigation";
-import type { MediaFile } from "@models/MediaFile";
+import type { MediaRow as MediaFile } from "@backend/types";
 import { useViewerStore } from "@state/viewerStore";
 
 export function openPhotoViewer(items: MediaFile[], index: number): void {

@@ -1,4 +1,4 @@
-import type { MediaFile } from "@models/MediaFile";
+import type { MediaRow as MediaFile } from "@backend/types";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 

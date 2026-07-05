@@ -6,7 +6,7 @@
  * instances across data emissions.
  */
 
-import type { MediaFile } from "@models/MediaFile";
+import type { MediaRow as MediaFile } from "@backend/types";
 import { useIsSelected } from "@state/selectionStore";
 import { Icon, iconSizes, PressableScale } from "@ui/components";
 import { StyleSheet } from "@ui/theme";

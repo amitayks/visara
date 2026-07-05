@@ -4,10 +4,9 @@
  * Sections: Appearance, Processing, AI Model, Data Management, About.
  */
 
+import { Pipeline, ThermalService } from "@backend/facade";
+import type { DeliveryStatus } from "@backend/types";
 import { useFocusEffect } from "@react-navigation/native";
-import { ThermalService } from "@services/device/ThermalService";
-import type { DeliveryStatus } from "@services/model/GemmaModelDeliveryService";
-import { LibraryReprocessingService } from "@services/orchestrator/LibraryReprocessingService";
 import { useModelStore } from "@state/modelStore";
 import { useProcessingStore } from "@state/processingStore";
 import { useSettingsStore } from "@state/settingsStore";
@@ -164,8 +163,8 @@ export function SettingsScreen() {
 	const handleRerunAnalysis = useCallback(() => {
 		// Fire-and-forget by spec: the sweep is idempotent service-side and the
 		// tap must never block on it.
-		void LibraryReprocessingService.requestReprocess().catch((error) => {
-			console.warn("SettingsScreen: requestReprocess failed", error);
+		void Pipeline.reprocess().catch((error) => {
+			console.warn("SettingsScreen: reprocess failed", error);
 		});
 		toast("Re-analysis started");
 	}, []);

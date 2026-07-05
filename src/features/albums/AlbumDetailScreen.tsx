@@ -9,14 +9,14 @@
  * so viewer paging stays inside the album.
  */
 
+import { removeMedia } from "@backend/facade";
+import type { MediaRow as MediaFile } from "@backend/types";
 import { openPhotoViewer } from "@features/viewer";
-import type { MediaFile } from "@models/MediaFile";
 import {
 	type StaticScreenProps,
 	useNavigation,
 } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { removeMedia } from "@services/facade";
 import { FlashList } from "@shopify/flash-list";
 import { useIsSelected, useSelectionStore } from "@state/selectionStore";
 import { useVisibleMedia } from "@state/useVisibleMedia";

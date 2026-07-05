@@ -8,7 +8,7 @@
  * pan moves the image instead of paging.
  */
 
-import type { MediaFile } from "@models/MediaFile";
+import type { MediaRow as MediaFile } from "@backend/types";
 import { motion, StyleSheet } from "@ui/theme";
 import { Image } from "expo-image";
 import { memo, useCallback, useEffect, useMemo, useState } from "react";

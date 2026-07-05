@@ -1,16 +1,26 @@
 /**
- * Albums data layer — live page/detail data sourced through the repositories
- * and invalidated by a throttled WatermelonDB table signal. The repos expose
- * no observe() for labels/album_media, so `database.withChangesForTables` is
- * the read-only reactive signal (design D2: WatermelonDB stays the reactive
- * source of truth); all reads still go through the repositories.
+ * Albums data layer — live page/detail data sourced through the backend
+ * facade and invalidated by the backend's table-invalidation bus (v2:
+ * op-sqlite storage, sqlite-storage-core spec). All reads go through the
+ * facade; the bus is the read-only reactive signal.
  */
 
-import type { Album } from "@models/Album";
-import type { MediaFile } from "@models/MediaFile";
-import { AlbumRepository } from "@services/database/AlbumRepository";
-import { database } from "@services/database/database";
-import { MediaFileRepository } from "@services/database/MediaFileRepository";
+import { invalidationBus } from "@backend/db/invalidation";
+import {
+	addMediaToAlbum,
+	createAlbum,
+	findAlbumById,
+	getAlbumMediaRows,
+	getAlbumsForMedia,
+	getManualAlbums,
+	getMediaRowsByIds,
+	updateAlbum,
+} from "@backend/facade";
+import type {
+	AlbumRow as Album,
+	MediaRow as MediaFile,
+	WatchedTable,
+} from "@backend/types";
 import { useEffect, useState } from "react";
 import {
 	getSmartAlbumMediaIds,
@@ -18,53 +28,26 @@ import {
 	type SmartAlbumDef,
 } from "./smartAlbums";
 
-const SIGNAL_THROTTLE_MS = 300;
-
-export const ALBUMS_PAGE_TABLES: readonly string[] = [
+export const ALBUMS_PAGE_TABLES: readonly WatchedTable[] = [
 	"albums",
-	"album_media",
-	"labels",
-	"media_files",
+	"enrichment",
+	"media",
 ];
-export const CUSTOM_DETAIL_TABLES: readonly string[] = [
-	"albums",
-	"album_media",
-];
-export const SMART_DETAIL_TABLES: readonly string[] = ["labels"];
+export const CUSTOM_DETAIL_TABLES: readonly WatchedTable[] = ["albums"];
+export const SMART_DETAIL_TABLES: readonly WatchedTable[] = ["enrichment"];
 
 /**
- * Bumps a version counter (trailing-throttled) whenever any of the given
- * tables change. The `withChangesForTables` startWith(null) primer emission
- * is skipped — mount-time loads cover the initial state.
+ * Bumps a version counter whenever any of the given tables change (the bus
+ * throttles trailing-edge internally, ~250 ms).
  */
-export function useTableVersion(tables: readonly string[]): number {
+export function useTableVersion(tables: readonly WatchedTable[]): number {
 	const [version, setVersion] = useState(0);
 
 	useEffect(() => {
-		let first = true;
-		let timer: ReturnType<typeof setTimeout> | null = null;
-
-		const subscription = database
-			.withChangesForTables([...tables])
-			.subscribe(() => {
-				if (first) {
-					first = false;
-					return;
-				}
-				if (timer === null) {
-					timer = setTimeout(() => {
-						timer = null;
-						setVersion((v) => v + 1);
-					}, SIGNAL_THROTTLE_MS);
-				}
-			});
-
-		return () => {
-			if (timer !== null) {
-				clearTimeout(timer);
-			}
-			subscription.unsubscribe();
-		};
+		const unwatch = invalidationBus.watch([...tables], () => {
+			setVersion((v) => v + 1);
+		});
+		return unwatch;
 	}, [tables]);
 
 	return version;
@@ -106,9 +89,7 @@ async function loadSmartEntries(): Promise<SmartAlbumEntry[]> {
 	return await Promise.all(
 		SMART_ALBUMS.map(async (def) => {
 			const ids = await getSmartAlbumMediaIds(def);
-			const members = visibleOnly(
-				await MediaFileRepository.findByIds([...ids]),
-			);
+			const members = visibleOnly(await hydrateByIds([...ids]));
 			members.sort((a, b) => b.creationDate - a.creationDate);
 			return { def, count: members.length, coverUri: coverOf(members[0]) };
 		}),
@@ -116,12 +97,10 @@ async function loadSmartEntries(): Promise<SmartAlbumEntry[]> {
 }
 
 async function loadCustomEntries(): Promise<CustomAlbumEntry[]> {
-	const albums = await AlbumRepository.getManualAlbums();
+	const albums = await getManualAlbums();
 	return await Promise.all(
 		albums.map(async (album) => {
-			const members = visibleOnly(
-				await AlbumRepository.getMediaFilesInAlbum(album.id),
-			);
+			const members = visibleOnly(await getAlbumMediaRows(album.id));
 			// Oldest first: the album's first member fronts the cover.
 			members.sort((a, b) => a.creationDate - b.creationDate);
 			return {
@@ -137,7 +116,7 @@ async function loadCustomEntries(): Promise<CustomAlbumEntry[]> {
 /**
  * Live Albums-page dataset: smart-album entries (counts vs the visible
  * library) + custom albums in persisted sortOrder. Recomputes on any
- * albums/album_media/labels/media_files change, throttled.
+ * albums/enrichment/media change, throttled by the bus.
  */
 export function useAlbumsPageData(): AlbumsPageData {
 	const version = useTableVersion(ALBUMS_PAGE_TABLES);
@@ -182,7 +161,7 @@ export interface AlbumDetailSource {
 
 /**
  * Live member-id set for an AlbumDetail route (custom membership rows OR
- * smart label predicate). The screen intersects it with useVisibleMedia so
+ * smart tag predicate). The screen intersects it with useVisibleMedia so
  * removed/hidden media drop out immediately.
  */
 export function useAlbumDetailSource(
@@ -201,8 +180,8 @@ export function useAlbumDetailSource(
 			try {
 				if (albumId) {
 					const [record, members] = await Promise.all([
-						AlbumRepository.findById(albumId),
-						AlbumRepository.getMediaFilesInAlbum(albumId),
+						findAlbumById(albumId),
+						getAlbumMediaRows(albumId),
 					]);
 					if (cancelled) {
 						return;
@@ -244,16 +223,15 @@ export function normalizeAlbumName(raw: string): string | null {
 
 /** Creates a custom album appended at the end of the persisted order. */
 export async function createCustomAlbum(name: string): Promise<Album> {
-	const existing = await AlbumRepository.getManualAlbums();
+	const existing = await getManualAlbums();
 	const sortOrder =
 		existing.reduce((max, album) => Math.max(max, album.sortOrder), -1) + 1;
-	return await AlbumRepository.create({ name, isSmart: false, sortOrder });
+	return await createAlbum(name, sortOrder);
 }
 
 /**
- * Persists the displayed order into `Album.sortOrder` (index positions),
- * skipping rows already in place. Sequential repo writes — the WatermelonDB
- * writer queue serializes them; never wrapped in our own database.write.
+ * Persists the displayed order into `sortOrder` (index positions), skipping
+ * rows already in place.
  */
 export async function persistAlbumOrder(
 	albums: readonly Album[],
@@ -261,23 +239,30 @@ export async function persistAlbumOrder(
 	for (let index = 0; index < albums.length; index++) {
 		const album = albums[index];
 		if (album.sortOrder !== index) {
-			await AlbumRepository.update(album, { sortOrder: index });
+			await updateAlbum(album.id, { sortOrder: index });
 		}
 	}
 }
 
 /**
  * Adds a photo to a custom album unless it is already a member (spec:
- * re-adding is idempotent). Returns whether a membership was created.
+ * re-adding is idempotent — the backend insert is OR IGNORE, the pre-check
+ * preserves the "already added" UX signal).
  */
 export async function addMediaToAlbumIdempotent(
 	albumId: string,
 	mediaFileId: string,
 ): Promise<boolean> {
-	const memberships = await AlbumRepository.getAlbumsForMediaFile(mediaFileId);
+	const memberships = await getAlbumsForMedia(mediaFileId);
 	if (memberships.some((album) => album.id === albumId)) {
 		return false;
 	}
-	await AlbumRepository.addMultipleMediaToAlbum(albumId, [mediaFileId]);
+	await addMediaToAlbum(albumId, [mediaFileId]);
 	return true;
+}
+
+/** Membership hydration helper shared by smart-album loaders. */
+async function hydrateByIds(ids: string[]): Promise<MediaFile[]> {
+	if (ids.length === 0) return [];
+	return getMediaRowsByIds(ids);
 }

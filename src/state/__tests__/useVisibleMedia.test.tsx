@@ -1,3 +1,5 @@
+import { invalidationBus } from "@backend/db/invalidation";
+import type { MediaRow } from "@backend/types";
 import {
 	afterEach,
 	beforeEach,
@@ -6,174 +8,151 @@ import {
 	it,
 	jest,
 } from "@jest/globals";
-import type { MediaFile } from "@models/MediaFile";
 import { act, renderHook } from "@testing-library/react-native";
 import { useVisibleMedia } from "../useVisibleMedia";
 
 /**
- * useVisibleMedia behavior (ui-state-management spec): one screen-level
- * subscription to observeVisible() — first emission immediate, later bursts
- * coalesced to one trailing update per 250ms window, torn down on unmount.
+ * useVisibleMedia behavior (sqlite-storage-core spec, v2 feed): first query
+ * renders immediately; invalidation-bus bursts coalesce behind the bus's
+ * 250 ms trailing throttle; unchanged rows keep object identity through the
+ * RowCache; unmount stops watching.
  *
- * RNTL v14's renderHook/act/unmount are async and must be awaited.
+ * The repo is mocked (no op-sqlite under jest); the REAL invalidation bus
+ * drives re-queries via fake timers.
  */
 
-type Subscriber = (files: MediaFile[]) => void;
+let mockVisibleRows: () => Promise<MediaRow[]> = async () => [];
 
-/** Minimal subject standing in for observeVisible()'s observable. */
-class MockSubject {
-	private readonly observers = new Set<Subscriber>();
-	unsubscribeCount = 0;
+jest.mock("@backend/repo/MediaRepo", () => ({
+	MediaRepo: class {
+		visibleRows(): Promise<MediaRow[]> {
+			return mockVisibleRows();
+		}
+	},
+}));
 
-	readonly subscribe = (observer: Subscriber) => {
-		this.observers.add(observer);
-		return {
-			unsubscribe: () => {
-				if (this.observers.delete(observer)) this.unsubscribeCount += 1;
-			},
-		};
+function row(id: string, filename = `${id}.jpg`): MediaRow {
+	return {
+		id,
+		uri: `content://media/${id}`,
+		thumbnailUri: null,
+		filename,
+		mimeType: "image/jpeg",
+		creationDate: 1000,
+		isHidden: false,
+		isProcessed: false,
+		width: 100,
+		height: 100,
+		fileSize: 1234,
+		kind: "image",
+		enrichStatus: "pending",
 	};
+}
 
-	emit(files: MediaFile[]): void {
-		for (const observer of [...this.observers]) observer(files);
-	}
-
-	get observerCount(): number {
-		return this.observers.size;
+/** Flush pending microtasks inside fake-timer tests. */
+async function flushMicrotasks(rounds = 6): Promise<void> {
+	for (let i = 0; i < rounds; i += 1) {
+		await Promise.resolve();
 	}
 }
 
-let mockSubject = new MockSubject();
-
-jest.mock("@services/database/MediaFileRepository", () => ({
-	MediaFileRepository: { observeVisible: () => mockSubject },
-}));
-
-const file = (id: string): MediaFile => ({ id }) as unknown as MediaFile;
-
-describe("useVisibleMedia — throttled observeVisible subscription", () => {
+describe("useVisibleMedia — v2 backend feed", () => {
 	beforeEach(() => {
 		jest.useFakeTimers();
-		mockSubject = new MockSubject();
+		mockVisibleRows = async () => [];
 	});
 
 	afterEach(() => {
-		jest.restoreAllMocks(); // release the setTimeout/clearTimeout spies first
+		jest.restoreAllMocks();
 		jest.useRealTimers();
 	});
 
-	it("starts empty/not-ready and renders the FIRST emission immediately", async () => {
+	it("starts empty/not-ready and renders the first query immediately", async () => {
+		mockVisibleRows = async () => [row("a"), row("b")];
 		const { result } = await renderHook(() => useVisibleMedia());
 
-		expect(result.current.media).toEqual([]);
-		expect(result.current.ready).toBe(false);
-		expect(mockSubject.observerCount).toBe(1); // exactly one subscription
-
-		const first = [file("a"), file("b")];
-		await act(() => {
-			mockSubject.emit(first);
+		// RNTL's async renderHook already flushes the immediate first query —
+		// by contract the first emission is unthrottled, so ready is true here.
+		await act(async () => {
+			await flushMicrotasks();
 		});
 
-		// No timer advance was needed — launch is not throttled, and the state
-		// holds the reference-stable array the subject emitted.
-		expect(result.current.media).toBe(first);
 		expect(result.current.ready).toBe(true);
+		expect(result.current.media.map((m) => m.id)).toEqual(["a", "b"]);
 	});
 
-	it("coalesces an emission burst into ≤1 update per 250ms window", async () => {
-		let renders = 0;
-		const { result } = await renderHook(() => {
-			renders += 1;
-			return useVisibleMedia();
+	it("coalesces an invalidation burst into one trailing re-query", async () => {
+		let queries = 0;
+		mockVisibleRows = async () => {
+			queries += 1;
+			return queries === 1 ? [row("a")] : [row("a"), row("b")];
+		};
+		const { result } = await renderHook(() => useVisibleMedia());
+		await act(async () => {
+			await flushMicrotasks();
 		});
+		expect(queries).toBe(1);
 
-		await act(() => {
-			mockSubject.emit([file("a")]);
+		// A burst of commits within one throttle window...
+		await act(async () => {
+			invalidationBus.notify("media");
+			invalidationBus.notify("enrichment");
+			invalidationBus.notify("media");
+			await flushMicrotasks();
 		});
-		const rendersAfterFirst = renders;
-
-		const setTimeoutSpy = jest.spyOn(globalThis, "setTimeout");
-		const burstFinal = [file("a"), file("b"), file("c")];
-		await act(() => {
-			mockSubject.emit([file("a"), file("b")]);
-			mockSubject.emit(burstFinal);
-		});
-
-		// The whole burst sits behind ONE trailing flush — nothing rendered yet.
-		const throttleTimers = setTimeoutSpy.mock.calls.filter(
-			(call) => call[1] === 250,
-		);
-		expect(throttleTimers).toHaveLength(1);
-		expect(renders).toBe(rendersAfterFirst);
+		// ...does not re-query inside the window.
+		expect(queries).toBe(1);
 		expect(result.current.media.map((m) => m.id)).toEqual(["a"]);
 
-		await act(() => {
-			jest.advanceTimersByTime(249);
-		});
-		expect(renders).toBe(rendersAfterFirst); // still inside the window
-
-		await act(() => {
-			jest.advanceTimersByTime(1);
-		});
-		expect(result.current.media).toBe(burstFinal); // latest snapshot wins
-		expect(renders).toBe(rendersAfterFirst + 1); // ONE update for the burst
-	});
-
-	it("throttles emissions after idle windows too — only the first is immediate", async () => {
-		const { result } = await renderHook(() => useVisibleMedia());
-
-		await act(() => {
-			mockSubject.emit([file("a")]);
-		});
-		await act(() => {
-			jest.advanceTimersByTime(1000); // idle time passes, nothing pending
-		});
-
-		const update = [file("a"), file("z")];
-		await act(() => {
-			mockSubject.emit(update);
-		});
-		expect(result.current.media.map((m) => m.id)).toEqual(["a"]); // deferred
-
-		await act(() => {
+		await act(async () => {
 			jest.advanceTimersByTime(250);
+			await flushMicrotasks();
 		});
-		expect(result.current.media).toBe(update);
+		expect(queries).toBe(2);
+		expect(result.current.media.map((m) => m.id)).toEqual(["a", "b"]);
 	});
 
-	it("unsubscribes and drops any pending flush on unmount", async () => {
-		const setTimeoutSpy = jest.spyOn(globalThis, "setTimeout");
-		const clearTimeoutSpy = jest.spyOn(globalThis, "clearTimeout");
-		const { result, unmount } = await renderHook(() => useVisibleMedia());
-
-		await act(() => {
-			mockSubject.emit([file("a")]);
+	it("keeps object identity for unchanged rows across emissions", async () => {
+		mockVisibleRows = async () => [row("a"), row("b")];
+		const { result } = await renderHook(() => useVisibleMedia());
+		await act(async () => {
+			await flushMicrotasks();
 		});
-		await act(() => {
-			mockSubject.emit([file("a"), file("b")]); // pending behind the throttle
+		const firstA = result.current.media[0];
+
+		// Second emission: fresh objects, same values for a; b changes status.
+		mockVisibleRows = async () => [
+			row("a"),
+			{ ...row("b"), enrichStatus: "done", isProcessed: true },
+		];
+		await act(async () => {
+			invalidationBus.notify("media");
+			jest.advanceTimersByTime(250);
+			await flushMicrotasks();
 		});
 
-		// Pin down the hook's own 250ms flush timer handle.
-		const throttleIndex = setTimeoutSpy.mock.calls.findIndex(
-			(call) => call[1] === 250,
-		);
-		expect(throttleIndex).toBeGreaterThanOrEqual(0);
-		const throttleHandle = setTimeoutSpy.mock.results[throttleIndex].value;
+		expect(result.current.media[0]).toBe(firstA); // RowCache identity
+		expect(result.current.media[1]?.isProcessed).toBe(true);
+	});
+
+	it("stops re-querying after unmount", async () => {
+		let queries = 0;
+		mockVisibleRows = async () => {
+			queries += 1;
+			return [row("a")];
+		};
+		const { unmount } = await renderHook(() => useVisibleMedia());
+		await act(async () => {
+			await flushMicrotasks();
+		});
+		expect(queries).toBe(1);
 
 		await unmount();
-
-		expect(mockSubject.observerCount).toBe(0);
-		expect(mockSubject.unsubscribeCount).toBe(1);
-		// The pending flush was cleared — no setState-after-unmount left armed.
-		expect(
-			clearTimeoutSpy.mock.calls.some((call) => call[0] === throttleHandle),
-		).toBe(true);
-		expect(result.current.media.map((m) => m.id)).toEqual(["a"]);
-
-		// And advancing time past the window changes nothing.
-		await act(() => {
+		await act(async () => {
+			invalidationBus.notify("media");
 			jest.advanceTimersByTime(1000);
+			await flushMicrotasks();
 		});
-		expect(result.current.media.map((m) => m.id)).toEqual(["a"]);
+		expect(queries).toBe(1);
 	});
 });

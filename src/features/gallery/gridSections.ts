@@ -5,7 +5,7 @@
  * the array at render time (the old PhotoGrid ran findIndex per cell).
  */
 
-import type { MediaFile } from "@models/MediaFile";
+import type { MediaRow as MediaFile } from "@backend/types";
 import type { GridZoomLevel } from "@state/settingsStore";
 
 export const PDF_MIME_TYPE = "application/pdf";

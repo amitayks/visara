@@ -1,7 +1,6 @@
 import { navigate, navigationRef } from "@app/navigation";
-import type { MediaFile } from "@models/MediaFile";
-import { MediaFileRepository } from "@services/database/MediaFileRepository";
-import { requestMediaPermissions } from "@services/media/MediaPermissions";
+import { getVisibleMediaRows, requestMediaAccess } from "@backend/facade";
+import type { MediaRow as MediaFile } from "@backend/types";
 import { useModelStore } from "@state/modelStore";
 import { useNavStore } from "@state/navStore";
 import { useProcessingStore } from "@state/processingStore";
@@ -22,7 +21,7 @@ export function installDevQaHooks(): void {
 		const { openPhotoViewer } = await import(
 			"@features/viewer/openPhotoViewer"
 		);
-		const media: MediaFile[] = await MediaFileRepository.getAll();
+		const media: MediaFile[] = await getVisibleMediaRows();
 		if (media.length === 0) return "no-media";
 		openPhotoViewer(media, Math.min(index, media.length - 1));
 		return `opened:${media.length}`;
@@ -37,7 +36,7 @@ export function installDevQaHooks(): void {
 		processing: useProcessingStore,
 		model: useModelStore,
 		openViewer,
-		requestPerm: () => requestMediaPermissions(),
+		requestPerm: () => requestMediaAccess(),
 		navigate,
 		goBack: () => {
 			if (navigationRef.isReady() && navigationRef.canGoBack()) {

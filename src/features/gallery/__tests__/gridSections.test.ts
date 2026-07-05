@@ -1,5 +1,5 @@
+import type { MediaRow as MediaFile } from "@backend/types";
 import { describe, expect, it } from "@jest/globals";
-import type { MediaFile } from "@models/MediaFile";
 import {
 	buildGridData,
 	type GridItem,

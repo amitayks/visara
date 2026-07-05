@@ -6,8 +6,7 @@
  * leave the device; no copy claims AI analysis never uses the internet.
  */
 
-import { requestMediaPermissions } from "@services/media/MediaPermissions";
-import { GemmaModelDeliveryService } from "@services/model/GemmaModelDeliveryService";
+import { GemmaModelDeliveryService, requestMediaAccess } from "@backend/facade";
 import { type PermissionState, useSettingsStore } from "@state/settingsStore";
 import { Button, Icon, iconSizes, Text, toast } from "@ui/components";
 import { StyleSheet, type ThemeColors } from "@ui/theme";
@@ -235,7 +234,7 @@ export function PermissionsStep() {
 	const requestAccess = useCallback(async () => {
 		setRequesting(true);
 		try {
-			const outcome = await requestMediaPermissions();
+			const outcome = await requestMediaAccess();
 			setPermissionState(outcome);
 		} catch (error) {
 			console.warn("Onboarding permission request failed", error);
@@ -283,7 +282,13 @@ export function ModelStep({ onAdvance }: { onAdvance: () => void }) {
 		GemmaModelDeliveryService.startDownload()
 			.then((result) => {
 				if (result.started) return;
-				toast(result.message);
+				toast(
+					result.reason === "notEnoughSpace"
+						? "Not enough free space for the model set. You can download it later from Settings."
+						: result.reason === "alreadyReady"
+							? "The model is already downloaded."
+							: "The download is already running.",
+				);
 				if (result.reason === "notEnoughSpace") {
 					setPhase("choice");
 				}
@@ -301,12 +306,12 @@ export function ModelStep({ onAdvance }: { onAdvance: () => void }) {
 		<StepLayout
 			icon="download"
 			title="On-Device AI Model"
-			description="For advanced analysis, Visara can download the optional on-device Gemma model (a few gigabytes) once. The download is optional and only runs over Wi-Fi while your device is charging; after that, analysis runs fully offline — your photos never leave your device. The app works without it, and you can manage it anytime in Settings."
+			description="For analysis and semantic search, Visara can download the optional on-device Gemma model set (a few gigabytes) once. The download is optional and only runs over Wi-Fi; after that, analysis runs fully offline — your photos never leave your device. The app works without it, and you can manage it anytime in Settings."
 		>
 			{phase === "requested" ? (
 				<Text variant="subhead" color="success" style={styles.centeredText}>
-					The download will run over Wi-Fi while charging. You can pause or
-					cancel it anytime in Settings.
+					The download will run over Wi-Fi. You can pause or cancel it anytime
+					in Settings.
 				</Text>
 			) : (
 				<>

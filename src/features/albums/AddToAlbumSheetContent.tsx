@@ -7,9 +7,8 @@
  * the photo already belongs to never creates a duplicate membership.
  */
 
-import type { Album } from "@models/Album";
-import type { MediaFile } from "@models/MediaFile";
-import { AlbumRepository } from "@services/database/AlbumRepository";
+import { getAlbumsForMedia, getManualAlbums } from "@backend/facade";
+import type { AlbumRow as Album, MediaRow as MediaFile } from "@backend/types";
 import { Button, Icon, ListItem, Text, toast } from "@ui/components";
 import { StyleSheet, useAppTheme } from "@ui/theme";
 import { useEffect, useState } from "react";
@@ -42,8 +41,8 @@ export function AddToAlbumSheetContent({
 		void (async () => {
 			try {
 				const [manual, memberships] = await Promise.all([
-					AlbumRepository.getManualAlbums(),
-					AlbumRepository.getAlbumsForMediaFile(media.id),
+					getManualAlbums(),
+					getAlbumsForMedia(media.id),
 				]);
 				if (cancelled) {
 					return;

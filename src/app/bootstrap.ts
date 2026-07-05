@@ -1,22 +1,20 @@
-import { BackgroundTaskService } from "@services/background/BackgroundTaskService";
-import { MediaDiscoveryService } from "@services/media/MediaDiscoveryService";
-import { requestMediaPermissions } from "@services/media/MediaPermissions";
-import { GemmaModelDeliveryService } from "@services/model/GemmaModelDeliveryService";
 import {
-	OBSERVER_THROTTLE_MS,
-	OrchestratorService,
-} from "@services/orchestrator/OrchestratorService";
+	GemmaModelDeliveryService,
+	initializeBackend,
+	LibrarySync,
+	Pipeline,
+	requestMediaAccess,
+} from "@backend/facade";
 import { attachModelStore } from "@state/modelStore";
 import { useProcessingStore } from "@state/processingStore";
 import { useSettingsStore } from "@state/settingsStore";
 
 /**
- * Headless replacement for the old OrchestratorBridge component
- * (orchestrator-gallery-bridge spec): the single sanctioned seam between
- * services and UI state. Started once from the app shell; stop tears
- * everything down. The orchestrator never imports React; this module never
- * renders. Gallery data is deliberately NOT wired here — screens subscribe to
- * the DB directly (ui-state-management spec).
+ * Headless bootstrap (orchestrator-gallery-bridge spec, v2): the single
+ * sanctioned seam between the backend and UI state. Boot order per
+ * services-ui-facade: subscriptions → delivery init (not awaited) → access
+ * request → LibrarySync.start() (discovery-first gate) → Pipeline.start().
+ * The backend never imports React; this module never renders.
  */
 
 let running = false;
@@ -32,11 +30,14 @@ function bootPipelineOnce(): void {
 
 	void (async () => {
 		try {
+			// One-shot backend init: legacy cleanup + temp sweep + composition.
+			await initializeBackend();
+
 			// Reconcile/re-attach only — never auto-starts a transfer, independent
 			// of media permissions, so fire-and-forget ahead of the boot chain.
 			void GemmaModelDeliveryService.initialize();
 
-			const permission = await requestMediaPermissions();
+			const permission = await requestMediaAccess();
 			setPermissionState(permission);
 			if (permission === "denied") {
 				// Surfaced state (no silent abort). A later grant retries via
@@ -45,17 +46,16 @@ function bootPipelineOnce(): void {
 				return;
 			}
 
-			await OrchestratorService.initialize();
-			await OrchestratorService.runInitialProcessing();
+			// Discovery-first (library-discovery-first spec): the ENTIRE library
+			// is discovered, visible, and reconciled before the pipeline may
+			// admit a single item. LibrarySync keeps observing after start().
+			await LibrarySync.start();
+			teardowns.push(() => LibrarySync.stop());
 
-			// Live observer: fold new/changed media into the pipeline, no rescan.
-			const stopObserver = MediaDiscoveryService.startObserver(
-				OBSERVER_THROTTLE_MS,
-				(changes) => {
-					void OrchestratorService.enqueueDiscovered(changes);
-				},
-			);
-			teardowns.push(stopObserver);
+			await Pipeline.start();
+			teardowns.push(() => {
+				void Pipeline.stop();
+			});
 		} catch (error) {
 			pipelineBooted = false;
 			console.error("bootstrap: pipeline boot failed", error);
@@ -73,10 +73,10 @@ export function startAppServices(): void {
 	if (running) return;
 	running = true;
 
-	// Orchestrator events -> processing store (exact event-map contract).
-	useProcessingStore.getState().seed(OrchestratorService.getSnapshot());
+	// Pipeline events -> processing store (exact event-map contract preserved).
+	useProcessingStore.getState().seed(Pipeline.getSnapshot());
 	teardowns.push(
-		OrchestratorService.subscribe((event) => {
+		Pipeline.subscribe((event) => {
 			useProcessingStore.getState().applyEvent(event);
 		}),
 	);
@@ -87,7 +87,7 @@ export function startAppServices(): void {
 	// Settings -> drain gating, now and on every change (single-writer keys).
 	const pushGating = () => {
 		const s = useSettingsStore.getState();
-		BackgroundTaskService.updateSettings({
+		Pipeline.updateSettings({
 			batterySaverEnabled: s.batterySaver,
 			nightProcessingEnabled: s.nightProcessing,
 		});

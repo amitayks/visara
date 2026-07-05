@@ -88,7 +88,12 @@ export const InfoSheet = forwardRef<InfoSheetRef, InfoSheetProps>(
 				})
 				.catch(() => {
 					if (!cancelled) {
-						setMeta({ labels: [], ocrText: null });
+						setMeta({
+							labels: [],
+							ocrText: null,
+							caption: null,
+							description: null,
+						});
 						toast.error("Couldn't load photo details");
 					}
 				});
@@ -204,7 +209,11 @@ export const InfoSheet = forwardRef<InfoSheetRef, InfoSheetProps>(
 										{meta.labels.map((label) => (
 											<Chip
 												key={label.id}
-												label={`${label.label} · ${Math.round(label.confidence * 100)}%`}
+												label={
+													label.confidence != null
+														? `${label.label} · ${Math.round(label.confidence * 100)}%`
+														: label.label
+												}
 												icon="label-outline"
 												onPress={() => {
 													void handleLabelPress(label.label);

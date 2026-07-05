@@ -1,3 +1,4 @@
+import type { MediaRow as MediaFile } from "@backend/types";
 import {
 	afterEach,
 	beforeEach,
@@ -6,7 +7,6 @@ import {
 	it,
 	jest,
 } from "@jest/globals";
-import type { MediaFile } from "@models/MediaFile";
 import { useSearchStore } from "@state/searchStore";
 import {
 	SEARCH_DEBOUNCE_MS,
@@ -14,11 +14,10 @@ import {
 	startSearchController,
 } from "../searchController";
 
-// The controller's default deps import the facade, which drags the whole
-// services graph (RNFS, WatermelonDB, orchestrator) into the test env —
-// neutered here; every test injects its own deps or facade fns anyway.
-jest.mock("@services/facade", () => ({
-	ensureSearchIndex: jest.fn(async () => {}),
+// The controller's default deps import the facade, which drags the backend
+// composition (op-sqlite, llama.rn) into the test env — neutered here; every
+// test injects its own deps or facade fns anyway.
+jest.mock("@backend/facade", () => ({
 	searchMedia: jest.fn(async () => []),
 }));
 
@@ -56,7 +55,6 @@ function createHarness(overrides: Partial<SearchControllerDeps> = {}) {
 			listener = onChange;
 			return unsubscribe;
 		}),
-		ensureSearchIndex: jest.fn(async () => {}),
 		searchMedia: jest.fn(async (_query: string): Promise<MediaFile[]> => []),
 		beginRequest: jest.fn(() => {
 			nextRequestId += 1;
@@ -131,7 +129,6 @@ describe("searchController debounce (search-experience spec)", () => {
 		expect(deps.clearResults).toHaveBeenCalledTimes(1);
 		await jest.advanceTimersByTimeAsync(10_000);
 		expect(deps.searchMedia).not.toHaveBeenCalled();
-		expect(deps.ensureSearchIndex).not.toHaveBeenCalled();
 		expect(deps.beginRequest).not.toHaveBeenCalled();
 		stop();
 	});
@@ -176,24 +173,7 @@ describe("searchController debounce (search-experience spec)", () => {
 	});
 });
 
-describe("searchController index lifecycle + request routing", () => {
-	it("ensures the search index before searching, on every dispatch (facade dedupes)", async () => {
-		const { deps, type, stop } = createHarness();
-
-		type("beach");
-		await jest.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS);
-		await flushMicrotasks();
-		type("beach dog");
-		await jest.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS);
-		await flushMicrotasks();
-
-		expect(deps.ensureSearchIndex).toHaveBeenCalledTimes(2);
-		const firstEnsure = deps.ensureSearchIndex.mock.invocationCallOrder[0];
-		const firstSearch = deps.searchMedia.mock.invocationCallOrder[0];
-		expect(firstEnsure).toBeLessThan(firstSearch);
-		stop();
-	});
-
+describe("searchController request routing", () => {
 	it("routes success through begin/complete with a matching request id", async () => {
 		const results = [media("a"), media("b")];
 		const { deps, type, stop } = createHarness({
@@ -226,22 +206,6 @@ describe("searchController index lifecycle + request routing", () => {
 		expect(deps.failRequest).toHaveBeenCalledTimes(1);
 		expect(deps.failRequest).toHaveBeenCalledWith(3);
 		expect(deps.completeRequest).not.toHaveBeenCalled();
-		stop();
-	});
-
-	it("still searches when ensureSearchIndex fails (degraded lexical path)", async () => {
-		const { deps, type, stop } = createHarness({
-			ensureSearchIndex: async () => {
-				throw new Error("no semantic index");
-			},
-		});
-
-		type("receipt");
-		await jest.advanceTimersByTimeAsync(SEARCH_DEBOUNCE_MS);
-		await flushMicrotasks();
-
-		expect(deps.searchMedia).toHaveBeenCalledWith("receipt");
-		expect(deps.completeRequest).toHaveBeenCalledTimes(1);
 		stop();
 	});
 
@@ -312,7 +276,6 @@ describe("searchController against the real searchStore", () => {
 	it("typing lands results and status in the store", async () => {
 		const stop = startSearchController({
 			...storeDeps(),
-			ensureSearchIndex: async () => {},
 			searchMedia: async () => [media("beach-1")],
 		});
 
@@ -334,7 +297,6 @@ describe("searchController against the real searchStore", () => {
 		const cats = deferred<MediaFile[]>();
 		const stop = startSearchController({
 			...storeDeps(),
-			ensureSearchIndex: async () => {},
 			searchMedia: (query: string) =>
 				query === "cats" ? cats.promise : Promise.resolve([media("dog")]),
 		});
@@ -361,7 +323,6 @@ describe("searchController against the real searchStore", () => {
 	it("emptying the query clears results and returns the store to idle", async () => {
 		const stop = startSearchController({
 			...storeDeps(),
-			ensureSearchIndex: async () => {},
 			searchMedia: async () => [media("x")],
 		});
 

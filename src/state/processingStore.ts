@@ -1,7 +1,7 @@
 import type {
-	OrchestratorEvent,
-	OrchestratorSnapshot,
-} from "@services/orchestrator/OrchestratorService";
+	PipelineEvent as OrchestratorEvent,
+	PipelineSnapshot as OrchestratorSnapshot,
+} from "@backend/types";
 import { makeMutable, type SharedValue } from "react-native-reanimated";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";

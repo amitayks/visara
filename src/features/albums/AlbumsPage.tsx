@@ -11,12 +11,12 @@
  * passing onMove/onDrop into each SortableItem: onMove tracks displacement in
  * a ref during the drag (no React state churn mid-drag — a data change would
  * remount the Sortable via its data-hash key), and onDrop commits the final
- * order to state and persists it through AlbumRepository.
+ * order to state and persists it through the backend facade.
  */
 
+import { deleteAlbum, updateAlbum } from "@backend/facade";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { AlbumRepository } from "@services/database/AlbumRepository";
 import {
 	Dialog,
 	EmptyState,
@@ -228,7 +228,7 @@ export function AlbumsPage() {
 		}
 		void (async () => {
 			try {
-				await AlbumRepository.update(target.album, { name });
+				await updateAlbum(target.album.id, { name });
 				toast.success(`Renamed to "${name}"`);
 			} catch (error) {
 				console.warn("albums: rename failed", error);
@@ -245,7 +245,7 @@ export function AlbumsPage() {
 		}
 		void (async () => {
 			try {
-				await AlbumRepository.delete(target.album);
+				await deleteAlbum(target.album.id);
 				toast.success(`Deleted "${target.album.name}"`);
 			} catch (error) {
 				console.warn("albums: delete failed", error);

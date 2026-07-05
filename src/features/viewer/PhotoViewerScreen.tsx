@@ -14,9 +14,9 @@
  * blank frame during the route's fade-out.
  */
 
-import type { MediaFile } from "@models/MediaFile";
+import { removeMedia } from "@backend/facade";
+import type { MediaRow as MediaFile } from "@backend/types";
 import { useNavigation } from "@react-navigation/native";
-import { removeMedia } from "@services/facade";
 import { useViewerStore } from "@state/viewerStore";
 import { Button, Dialog, IconButton, Text, toast } from "@ui/components";
 import { motion, StyleSheet } from "@ui/theme";

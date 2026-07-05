@@ -1,11 +1,11 @@
 /**
  * Smart albums (albums-experience spec): fixed, non-editable predicates over
- * AI-assigned labels. Membership derives exclusively from the `labels` table;
+ * AI-assigned tags. Membership derives exclusively from the enrichment tags;
  * smart albums are never renameable, deletable, or manually curated, and a
  * zero-count smart album is hidden from the Albums page.
  */
 
-import { LabelRepository } from "@services/database/LabelRepository";
+import { getSmartAlbumMediaIdsByPatterns } from "@backend/facade";
 
 export interface SmartAlbumDef {
 	/** Stable route key — the pinned `smartLabel` AlbumDetail param value. */
@@ -14,9 +14,9 @@ export interface SmartAlbumDef {
 	/** Material Design Icons glyph name for the cover placeholder. */
 	icon: string;
 	/**
-	 * Substring patterns evaluated against `labels.label` via SQLite LIKE
-	 * (ASCII case-insensitive). A media file matches the album when ANY
-	 * pattern matches ANY of its labels — mlkit and gemma sources alike.
+	 * Substring patterns evaluated against the enrichment tags via SQLite
+	 * LIKE (ASCII case-insensitive). A media file matches the album when ANY
+	 * pattern matches ANY of its Gemma tags.
 	 */
 	patterns: readonly string[];
 }
@@ -66,21 +66,11 @@ export function findSmartAlbum(key: string): SmartAlbumDef | null {
 }
 
 /**
- * Media-file ids matching a smart album's label predicate (union over the
- * album's patterns). Visibility filtering (hidden/deleted media) is applied
- * by callers against the visible-media set.
+ * Media-file ids matching a smart album's tag predicate (union over the
+ * album's patterns). The backend already excludes hidden/deleted media.
  */
 export async function getSmartAlbumMediaIds(
 	def: SmartAlbumDef,
 ): Promise<Set<string>> {
-	const perPattern = await Promise.all(
-		def.patterns.map((pattern) => LabelRepository.findByLabelLike(pattern)),
-	);
-	const ids = new Set<string>();
-	for (const labels of perPattern) {
-		for (const label of labels) {
-			ids.add(label.mediaFileId);
-		}
-	}
-	return ids;
+	return await getSmartAlbumMediaIdsByPatterns(def.patterns);
 }

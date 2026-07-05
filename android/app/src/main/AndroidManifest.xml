@@ -13,6 +13,8 @@
     <!-- Scoped storage permissions for API 33+ (Android 13+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <!-- Partial (user-selected) library access on Android 14+ -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
 
     <!-- Camera permission for manual photo capture -->
     <uses-permission android:name="android.permission.CAMERA" />

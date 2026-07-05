@@ -1,15 +1,15 @@
 /**
  * Search controller (search-experience spec): the ONLY driver of query
- * execution. Subscribes to searchStore.query, debounces 250ms, ensures the
- * search index on non-empty query intent (idempotent in the facade), and
- * routes responses through the store's monotonic request guard. An empty
+ * execution. Subscribes to searchStore.query, debounces 250ms, dispatches
+ * straight to the facade (no index lifecycle exists in v2), and routes
+ * responses through the store's monotonic request guard. An empty
  * query dispatches nothing and clears the current results. Headless plain
  * TS — started once from App, torn down on unmount; unit-testable through
  * injected deps.
  */
 
-import type { MediaFile } from "@models/MediaFile";
-import { ensureSearchIndex, searchMedia } from "@services/facade";
+import { searchMedia } from "@backend/facade";
+import type { MediaRow as MediaFile } from "@backend/types";
 import { useNavStore } from "@state/navStore";
 import { useSearchStore } from "@state/searchStore";
 
@@ -18,7 +18,6 @@ export const SEARCH_DEBOUNCE_MS = 250;
 export interface SearchControllerDeps {
 	/** Subscribe to query-text changes; returns the unsubscribe function. */
 	subscribeToQuery: (onChange: (query: string) => void) => () => void;
-	ensureSearchIndex: () => Promise<void>;
 	searchMedia: (query: string) => Promise<MediaFile[]>;
 	beginRequest: () => number;
 	completeRequest: (requestId: number, results: MediaFile[]) => void;
@@ -39,7 +38,6 @@ function defaultDeps(): SearchControllerDeps {
 	return {
 		subscribeToQuery: (onChange) =>
 			useSearchStore.subscribe((state) => state.query, onChange),
-		ensureSearchIndex,
 		searchMedia,
 		beginRequest: () => useSearchStore.getState().beginRequest(),
 		completeRequest: (requestId, results) =>
@@ -80,16 +78,8 @@ export function startSearchController(
 	};
 
 	const dispatch = async (query: string, seq: number): Promise<void> => {
-		// First non-empty query intent loads/builds the index; afterwards the
-		// facade resolves instantly (and re-tries internally after a failure).
-		try {
-			await deps.ensureSearchIndex();
-		} catch {
-			// Index trouble is not fatal here: searchMedia degrades or fails on
-			// its own, and a failure routes into the error state below.
-		}
-		if (stopped || seq !== dispatchSeq) return;
-
+		// v2: no index lifecycle — the facade queries live FTS5/vec0 tables
+		// directly (hybrid-search spec), so dispatch goes straight to search.
 		const requestId = deps.beginRequest();
 		try {
 			const results = await deps.searchMedia(query);

@@ -13,8 +13,8 @@
  * persisted owner of the zoom level.
  */
 
+import type { MediaRow as MediaFile } from "@backend/types";
 import { openPhotoViewer } from "@features/viewer/openPhotoViewer";
-import type { MediaFile } from "@models/MediaFile";
 import { FlashList } from "@shopify/flash-list";
 import { useSelectionStore } from "@state/selectionStore";
 import { useSettingsStore } from "@state/settingsStore";

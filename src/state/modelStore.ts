@@ -1,7 +1,5 @@
-import {
-	type DeliveryState,
-	GemmaModelDeliveryService,
-} from "@services/model/GemmaModelDeliveryService";
+import { GemmaModelDeliveryService } from "@backend/facade";
+import type { DeliveryState } from "@backend/types";
 import { create } from "zustand";
 
 interface ModelStore {

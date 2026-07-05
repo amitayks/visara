@@ -10,8 +10,8 @@
  * traffic out of the page and the grid.
  */
 
-import type { MediaFile } from "@models/MediaFile";
-import { removeMedia } from "@services/facade";
+import { removeMedia } from "@backend/facade";
+import type { MediaRow as MediaFile } from "@backend/types";
 import { useSelectionStore } from "@state/selectionStore";
 import {
 	Dialog,

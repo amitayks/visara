@@ -113,7 +113,86 @@ jest.mock("sonner-native", () => ({
 	}),
 }));
 
-jest.mock("@react-native-camera-roll/camera-roll", () => ({
-	iosRequestReadWriteGalleryPermission: jest.fn(async () => "granted"),
-	CameraRoll: {},
+// --- v2 backend native deps (rebuild-backend-gemma): benign stubs so any
+// transitive import of backend modules stays pure-JS under jest. Backend unit
+// tests themselves import only dependency-free pure modules.
+jest.mock("@op-engineering/op-sqlite", () => ({
+	open: jest.fn(() => {
+		throw new Error("op-sqlite is not available under jest");
+	}),
+}));
+
+jest.mock("llama.rn", () => ({
+	initLlama: jest.fn(async () => {
+		throw new Error("llama.rn is not available under jest");
+	}),
+	releaseAllLlama: jest.fn(async () => {}),
+}));
+
+jest.mock("@kesha-antonov/react-native-background-downloader", () => {
+	const task = () => {
+		const t = {
+			begin: () => t,
+			progress: () => t,
+			done: () => t,
+			error: () => t,
+			pause: () => {},
+			resume: () => {},
+			stop: () => {},
+		};
+		return t;
+	};
+	return {
+		directories: { documents: "/tmp/jest-documents" },
+		createDownloadTask: jest.fn(task),
+		getExistingDownloadTasks: jest.fn(async () => []),
+		setConfig: jest.fn(),
+		completeHandler: jest.fn(),
+	};
+});
+
+jest.mock("react-native-background-actions", () => ({
+	__esModule: true,
+	default: {
+		start: jest.fn(async () => {}),
+		stop: jest.fn(async () => {}),
+		updateNotification: jest.fn(async () => {}),
+		isRunning: jest.fn(() => false),
+	},
+}));
+
+jest.mock("expo-keep-awake", () => ({
+	activateKeepAwakeAsync: jest.fn(async () => {}),
+	deactivateKeepAwake: jest.fn(async () => {}),
+}));
+
+jest.mock("react-native-device-info", () => ({
+	getTotalMemory: jest.fn(async () => 8 * 1024 * 1024 * 1024),
+	getFreeDiskStorage: jest.fn(async () => 64 * 1024 * 1024 * 1024),
+	getPowerState: jest.fn(async () => ({
+		batteryLevel: 0.9,
+		batteryState: "unplugged",
+	})),
+	isBatteryCharging: jest.fn(async () => false),
+}));
+
+jest.mock("@dr.pogodin/react-native-fs", () => ({
+	DocumentDirectoryPath: "/tmp/jest-documents",
+	CachesDirectoryPath: "/tmp/jest-caches",
+	exists: jest.fn(async () => false),
+	mkdir: jest.fn(async () => {}),
+	unlink: jest.fn(async () => {}),
+	stat: jest.fn(async () => ({ size: 0 })),
+	hash: jest.fn(async () => "deadbeef"),
+	readDir: jest.fn(async () => []),
+}));
+
+jest.mock("@bam.tech/react-native-image-resizer", () => ({
+	__esModule: true,
+	default: {
+		createResizedImage: jest.fn(async () => ({
+			uri: "file:///tmp/jest-caches/resized.jpg",
+			path: "/tmp/jest-caches/resized.jpg",
+		})),
+	},
 }));

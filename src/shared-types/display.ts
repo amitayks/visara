@@ -12,8 +12,11 @@ export interface DisplayLabel {
 	id: string;
 	/** The label text (e.g., "sunset", "dog", "mountain") */
 	label: string;
-	/** Confidence score from 0.0 to 1.0 */
-	confidence: number;
+	/**
+	 * Confidence score from 0.0 to 1.0. Absent for Gemma open-vocabulary tags
+	 * (the VLM emits no per-tag scores).
+	 */
+	confidence?: number;
 	/** Provenance of the label (e.g., "mlkit", "gemma") */
 	source?: string;
 	/** Label category (e.g., "tag") */

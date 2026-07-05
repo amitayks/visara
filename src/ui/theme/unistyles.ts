@@ -1,5 +1,5 @@
-import { storage } from "@services/storage/mmkv";
 import { STORAGE_KEYS } from "@utils/constants/storage-keys";
+import { storage } from "@utils/storage/mmkv";
 import { Appearance } from "react-native";
 import { StyleSheet } from "react-native-unistyles";
 import { darkTheme, lightTheme, type ThemeMode } from "./tokens";

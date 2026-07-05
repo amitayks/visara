@@ -1,13 +1,10 @@
 /**
- * DevPocScreen — route component for the `DevPoc` native-stack route, which
- * the nav-app agent registers only when `__DEV__` (rebuild-ui-foundation).
- * Wraps ExecutorchPocScreen with navigation-based dismissal.
- *
- * POC rules preserved (executorch-runtime-bootstrap spec): `__DEV__` only,
- * `useLLM` direct, `file://` inputs only, iPad-operable layout.
+ * DevPocScreen — route component for the `DevPoc` native-stack route,
+ * registered only when `__DEV__`. Wraps the Gemma backend smoke harness
+ * (rebuild-backend-gemma) with navigation-based dismissal.
  */
 import { useNavigation } from "@react-navigation/native";
-import { ExecutorchPocScreen } from "./ExecutorchPocScreen";
+import { GemmaPocScreen } from "./GemmaPocScreen";
 
 export function DevPocScreen() {
 	const navigation = useNavigation();
@@ -17,5 +14,5 @@ export function DevPocScreen() {
 		return null;
 	}
 
-	return <ExecutorchPocScreen onClose={() => navigation.goBack()} />;
+	return <GemmaPocScreen onClose={() => navigation.goBack()} />;
 }

@@ -1,6 +1,6 @@
-import { storage } from "@services/storage/mmkv";
 import { applyThemeMode, type ThemeMode } from "@ui/theme";
 import { STORAGE_KEYS } from "@utils/constants/storage-keys";
+import { storage } from "@utils/storage/mmkv";
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 

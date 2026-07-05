@@ -1,5 +1,5 @@
+import type { PipelineEvent as OrchestratorEvent } from "@backend/types";
 import { describe, expect, it } from "@jest/globals";
-import type { OrchestratorEvent } from "@services/orchestrator/OrchestratorService";
 import { reduceEvent, useProcessingStore } from "../processingStore";
 
 const idle = {

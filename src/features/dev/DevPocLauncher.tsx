@@ -13,7 +13,7 @@
 import { useState } from "react";
 import { Modal, Pressable, StyleSheet, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ExecutorchPocScreen } from "./ExecutorchPocScreen";
+import { GemmaPocScreen } from "./GemmaPocScreen";
 
 export function DevPocLauncher() {
 	const [open, setOpen] = useState(false);
@@ -35,7 +35,7 @@ export function DevPocLauncher() {
 				presentationStyle="fullScreen"
 				visible={open}
 			>
-				<ExecutorchPocScreen onClose={() => setOpen(false)} />
+				<GemmaPocScreen onClose={() => setOpen(false)} />
 			</Modal>
 		</>
 	);
