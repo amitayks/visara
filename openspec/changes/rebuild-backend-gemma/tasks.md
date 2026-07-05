@@ -55,12 +55,12 @@
 - [x] 9.1 `backend/facade.ts` + `backend/events.ts`; re-export useVisibleMedia (same contract) from backend feed.
 - [x] 9.2 Rewire UI: state/useVisibleMedia, state/modelStore (import path), app/bootstrap (new boot order incl. discovery gate), utils/photoActions (loadMediaMetadata, deletePhoto via facade), features/settings (dataActions wipe, SettingsScreen thermal/pipeline/model sections, AiModelSection manifest fields), features/albums data hooks, search controller (drop ensureSearchIndex), onboarding steps (requestAccess + delivery), devQaHooks (__visaraQA parity incl. openViewer), jest setup mocks.
 - [x] 9.3 Delete old tree: src/services/**, src/models/**, src/utils/embeddings/**, src/shared-types backend types no longer referenced; fix all imports; `tsc --noEmit` clean.
-- [ ] 9.4 Dependency + native cleanup: remove watermelondb, simdjson, minisearch, executorch ×2, notifee, camera-roll, quick-crypto, quick-base64, keychain from package.json; remove Podfile patch #3 (executorch OTHER_LDFLAGS) + simdjson pod line; pod install; Android sync; iOS entitlement increased-memory-limit added; both platforms build clean.
+- [x] 9.4 Dependency + native cleanup: remove watermelondb, simdjson, minisearch, executorch ×2, notifee, camera-roll, quick-crypto, quick-base64, keychain from package.json; remove Podfile patch #3 (executorch OTHER_LDFLAGS) + simdjson pod line; pod install; Android sync; iOS entitlement increased-memory-limit added; both platforms build clean.
 
 ## 10. Tests
 
 - [x] 10.1 Jest unit: enrichment parser (fences/rambles/partial keys/tag caps), RRF fusion + FTS query sanitizer (pure fns), RowCache reference stability, MRL truncate + renorm, processingStore reducer against new emitter, manifest pin shape (no placeholders), LibrarySync apply-deltas logic (mocked indexer+repos), pipeline gate matrix (mocked inputs).
-- [ ] 10.2 Full suite green: `npm run typecheck && npm run lint && npm test`.
+- [x] 10.2 Full suite green: `npm run typecheck && npm run lint && npm test`.
 
 ## 11. Platform verification (100% working)
 
