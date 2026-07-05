@@ -1,5 +1,13 @@
 import { navigate, navigationRef } from "@app/navigation";
-import { getVisibleMediaRows, requestMediaAccess } from "@backend/facade";
+import {
+	GemmaModelDeliveryService,
+	getVisibleMediaRows,
+	LibrarySync,
+	loadMediaMetadata,
+	Pipeline,
+	requestMediaAccess,
+	searchMedia,
+} from "@backend/facade";
 import type { MediaRow as MediaFile } from "@backend/types";
 import { useModelStore } from "@state/modelStore";
 import { useNavStore } from "@state/navStore";
@@ -37,6 +45,29 @@ export function installDevQaHooks(): void {
 		model: useModelStore,
 		openViewer,
 		requestPerm: () => requestMediaAccess(),
+		// v2 backend introspection (rebuild-backend-gemma verification):
+		backend: {
+			mediaCount: async () => (await getVisibleMediaRows()).length,
+			mediaRows: async (limit = 10) =>
+				(await getVisibleMediaRows()).slice(0, limit).map((m) => ({
+					id: m.id,
+					filename: m.filename,
+					status: m.enrichStatus,
+					kind: m.kind,
+				})),
+			discoveryComplete: () => LibrarySync.isDiscoveryComplete(),
+			pipeline: () => ({
+				...Pipeline.getSnapshot(),
+				pauseReason: Pipeline.getPauseReason(),
+			}),
+			pipelineStart: () => Pipeline.start(),
+			reprocess: () => Pipeline.reprocess(),
+			delivery: () => GemmaModelDeliveryService.getState(),
+			deliveryInit: () => GemmaModelDeliveryService.initialize(),
+			search: async (q: string) =>
+				(await searchMedia(q)).map((m) => m.filename),
+			metadata: (id: string) => loadMediaMetadata(id),
+		},
 		navigate,
 		goBack: () => {
 			if (navigationRef.isReady() && navigationRef.canGoBack()) {

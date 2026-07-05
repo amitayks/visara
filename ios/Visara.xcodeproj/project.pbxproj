@@ -14,9 +14,9 @@
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
 		A4F99A9E8B1D5E66C1C3CD68 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50E97B88979EAC28ECC6283 /* ExpoModulesProvider.swift */; };
-		D69F9369F7FB85CD77A17F18 /* ThermalObserverModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2744F2A5CACA008C6023B13 /* ThermalObserverModule.swift */; };
 		AA11BB22CC33DD44EE55F001 /* MediaIndexerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55F002 /* MediaIndexerModule.swift */; };
 		AA11BB22CC33DD44EE55F003 /* MediaIndexerModule.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55F004 /* MediaIndexerModule.mm */; };
+		D69F9369F7FB85CD77A17F18 /* ThermalObserverModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2744F2A5CACA008C6023B13 /* ThermalObserverModule.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -30,9 +30,9 @@
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Visara/AppDelegate.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Visara/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		A50E97B88979EAC28ECC6283 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Visara/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		E2744F2A5CACA008C6023B13 /* ThermalObserverModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThermalObserverModule.swift; path = Visara/Thermal/ThermalObserverModule.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE55F002 /* MediaIndexerModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaIndexerModule.swift; path = Visara/MediaIndexerModule.swift; sourceTree = "<group>"; };
 		AA11BB22CC33DD44EE55F004 /* MediaIndexerModule.mm */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.cpp.objcpp; name = MediaIndexerModule.mm; path = Visara/MediaIndexerModule.mm; sourceTree = "<group>"; };
+		E2744F2A5CACA008C6023B13 /* ThermalObserverModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThermalObserverModule.swift; path = Visara/Thermal/ThermalObserverModule.swift; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FE947EE9EDA80B2389965587 /* ThermalObserverModule.mm */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.cpp.objcpp; name = ThermalObserverModule.mm; path = Visara/Thermal/ThermalObserverModule.mm; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -244,6 +244,7 @@
 			inputPaths = (
 				"$(SRCROOT)/.xcode.env",
 				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/Visara/Visara.entitlements",
 				"$(SRCROOT)/Pods/Target Support Files/Pods-Visara/expo-configure-project.sh",
 			);
 			name = "[Expo] Configure project";
@@ -320,9 +321,9 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Visara/Visara.entitlements;
 				CURRENT_PROJECT_VERSION = 30000;
 				ENABLE_BITCODE = NO;
-				CODE_SIGN_ENTITLEMENTS = Visara/Visara.entitlements;
 				INFOPLIST_FILE = Visara/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -352,8 +353,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CURRENT_PROJECT_VERSION = 30000;
 				CODE_SIGN_ENTITLEMENTS = Visara/Visara.entitlements;
+				CURRENT_PROJECT_VERSION = 30000;
 				INFOPLIST_FILE = Visara/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LD_RUNPATH_SEARCH_PATHS = (
