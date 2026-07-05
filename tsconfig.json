@@ -19,6 +19,7 @@
 		"forceConsistentCasingInFileNames": true,
 		"experimentalDecorators": true,
 		"paths": {
+			"@backend/*": ["./src/backend/*"],
 			"@ui/*": ["./src/ui/*"],
 			"@state/*": ["./src/state/*"],
 			"@app/*": ["./src/app/*"],

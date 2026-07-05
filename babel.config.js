@@ -19,6 +19,7 @@ module.exports = {
 					".json",
 				],
 				alias: {
+					"@backend": "./src/backend",
 					"@ui": "./src/ui",
 					"@state": "./src/state",
 					"@app": "./src/app",

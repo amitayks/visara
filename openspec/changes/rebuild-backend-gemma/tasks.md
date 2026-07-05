@@ -2,8 +2,8 @@
 
 ## 1. De-risk: deps + models + inference POC (blocks everything)
 
-- [ ] 1.1 Add `@op-engineering/op-sqlite` (exact 17.1.1) with package.json feature config (sqliteVec, fts5, performanceMode), `llama.rn` (exact 0.12.5), `expo-keep-awake`; npm install; `pod install` — confirm all 4 existing Podfile patches still apply and the app still builds on both platforms BEFORE any code changes (deps-only commit).
-- [ ] 1.2 Download the three GGUF artifacts on the dev machine (VLM QAT Q4_0, mmproj Q8_0, EmbeddingGemma Q8_0), record exact URLs + byte sizes + SHA-256 digests → write `src/backend/model/manifest.ts` with real pins (no placeholders).
+- [x] 1.1 Add `@op-engineering/op-sqlite` (exact 17.1.1) with package.json feature config (sqliteVec, fts5, performanceMode), `llama.rn` (exact 0.12.5), `expo-keep-awake`; npm install; `pod install` — confirm all 4 existing Podfile patches still apply and the app still builds on both platforms BEFORE any code changes (deps-only commit).
+- [x] 1.2 Download the three GGUF artifacts on the dev machine (VLM QAT Q4_0, mmproj Q8_0, EmbeddingGemma Q8_0), record exact URLs + byte sizes + SHA-256 digests → write `src/backend/model/manifest.ts` with real pins (no placeholders).
 - [ ] 1.3 POC harness (dev-only script/screen behind `__DEV__`): initMultimodal with VLM+mmproj from a local path, run the enrichment prompt on a bundled test image on iOS simulator AND Android emulator; verify parseable JSON `{caption,description,tags,text}`; init embedder, embed a doc + query with task prefixes, verify 768-d output, MRL-truncate 256 + renorm. Record timings/RAM in the change notes. Resolve the Gemma-4 chat-template open question (design.md).
 - [ ] 1.4 op-sqlite smoke: open DB with vec0 + FTS5 virtual tables, insert + KNN query + MATCH query on both platforms (proves the bundled extensions load).
 
