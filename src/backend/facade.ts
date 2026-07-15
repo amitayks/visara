@@ -117,8 +117,8 @@ export async function initializeBackend(): Promise<void> {
 
 // --- Gallery feed ---------------------------------------------------------------
 
-export { useVisibleMedia };
 export type { MediaRow };
+export { useVisibleMedia };
 
 // --- Search ----------------------------------------------------------------------
 
@@ -374,10 +374,10 @@ export const ThermalService = {
 
 // --- Service re-exports --------------------------------------------------------------------
 
-export { GemmaModelDeliveryService, LibrarySync, Pipeline };
 export type {
 	DeliveryState,
 	DeliveryStatus,
 	PipelineEvent,
 	PipelineSnapshot,
 } from "./types";
+export { GemmaModelDeliveryService, LibrarySync, Pipeline };

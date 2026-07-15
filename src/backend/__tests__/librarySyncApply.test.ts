@@ -202,6 +202,9 @@ function startWithHarness(
 		indexer: harness.indexer as IndexerModule,
 		events: harness.events,
 		platform,
+		// Disable the discovery-settle debounce so existing assertions about
+		// discovery-complete stay synchronous (settle is covered separately).
+		settleQuietMs: 0,
 	});
 }
 
@@ -397,13 +400,22 @@ describe("LibrarySync.start — full path", () => {
 			full: true,
 		});
 		wireFullScan(h, [[payload("m1", "image"), payload("v1", "video")]], "t2");
-		h.mediaRepo.allIds.mockResolvedValue(
-			new Map([
-				["m1", "u1"],
-				["v1", "u2"],
-				["stale1", "u3"],
-			]),
-		);
+		// Reconcile sees the stale row and purges it; the post-scan count query
+		// (discovery-complete total) then reflects the live, purged library.
+		h.mediaRepo.allIds
+			.mockResolvedValueOnce(
+				new Map([
+					["m1", "u1"],
+					["v1", "u2"],
+					["stale1", "u3"],
+				]),
+			)
+			.mockResolvedValue(
+				new Map([
+					["m1", "u1"],
+					["v1", "u2"],
+				]),
+			);
 
 		const seen: LibrarySyncEvent[] = [];
 		const unsubscribe = LibrarySync.subscribe((event) => {
@@ -496,5 +508,123 @@ describe("LibrarySync.start — full path", () => {
 		await startWithHarness(h, "ios");
 
 		expect(h.indexer.startPdfScan).not.toHaveBeenCalled();
+	});
+});
+
+// A cold-launch PHAsset/MediaStore snapshot can be PARTIAL; discovery-complete
+// (the pipeline's analysis gate) must hold until the library settles so the
+// whole gallery is shown before analysis starts — never a discover-as-you-
+// analyze trickle (library-discovery-first).
+describe("LibrarySync.start — discovery settle", () => {
+	function startWithSettle(
+		h: Harness,
+		settle: { settleQuietMs: number; settleMaxMs: number },
+	): Promise<void> {
+		return LibrarySync.start({
+			mediaRepo: h.mediaRepo,
+			enrichmentRepo: h.enrichmentRepo,
+			syncState: h.syncState,
+			bus: h.bus,
+			indexer: h.indexer as IndexerModule,
+			events: h.events,
+			platform: "ios",
+			...settle,
+		});
+	}
+
+	function wirePartialScan(h: Harness): void {
+		h.indexer.startFullScan.mockImplementation(() => {
+			h.events.emit(INDEXER_BATCH_EVENT, { items: [payload("m1", "image")] });
+			h.events.emit(INDEXER_SCAN_COMPLETE_EVENT, { total: 1, token: "t-scan" });
+		});
+	}
+
+	it("folds a late arrival into ONE discovery-complete at the full count", async () => {
+		const h = makeHarness();
+		wirePartialScan(h); // initial snapshot sees only m1
+		// The proactive settle re-check finds a late arrival (m2), then quiesces.
+		h.indexer.changesSince
+			.mockResolvedValueOnce({
+				added: [payload("m2", "image")],
+				updated: [],
+				deletedIds: [],
+				newToken: "t-late",
+				full: false,
+			})
+			.mockResolvedValue({
+				added: [],
+				updated: [],
+				deletedIds: [],
+				newToken: "t-late",
+				full: false,
+			});
+		h.mediaRepo.allIds
+			.mockResolvedValueOnce(new Map([["m1", "u1"]])) // reconcile
+			.mockResolvedValue(
+				new Map([
+					["m1", "u1"],
+					["m2", "u2"],
+				]),
+			); // post-settle count
+
+		const seen: LibrarySyncEvent[] = [];
+		const unsubscribe = LibrarySync.subscribe((event) => seen.push(event));
+
+		await startWithSettle(h, { settleQuietMs: 10, settleMaxMs: 2000 });
+
+		// The late arrival was folded in (upserted) during the settle window.
+		expect(h.mediaRepo.upsertBatch).toHaveBeenCalledWith([
+			expect.objectContaining({ id: "m2" }),
+		]);
+		// discovery-complete fired EXACTLY once, at the folded-in total (2) —
+		// analysis (gated on it) never saw the partial set of 1.
+		expect(seen.filter((e) => e.type === "discovery-complete")).toEqual([
+			{ type: "discovery-complete", total: 2 },
+		]);
+		expect(LibrarySync.isDiscoveryComplete()).toBe(true);
+		unsubscribe();
+	});
+
+	it("opens the gate at settleMaxMs even if the library keeps changing", async () => {
+		const h = makeHarness();
+		wirePartialScan(h);
+		// Never quiesces: every re-check reports another new photo.
+		let n = 0;
+		h.indexer.changesSince.mockImplementation(async () => ({
+			added: [payload(`extra${n++}`, "image")],
+			updated: [],
+			deletedIds: [],
+			newToken: `t${n}`,
+			full: false,
+		}));
+		h.mediaRepo.allIds.mockResolvedValue(new Map([["m1", "u1"]]));
+
+		const seen: LibrarySyncEvent[] = [];
+		const unsubscribe = LibrarySync.subscribe((event) => seen.push(event));
+
+		await startWithSettle(h, { settleQuietMs: 5, settleMaxMs: 40 });
+
+		// The hard cap still opens the gate exactly once (no wedge).
+		expect(seen.filter((e) => e.type === "discovery-complete")).toHaveLength(1);
+		expect(LibrarySync.isDiscoveryComplete()).toBe(true);
+		unsubscribe();
+	});
+
+	it("settleQuietMs <= 0 disables the settle (synchronous discovery-complete)", async () => {
+		const h = makeHarness();
+		wirePartialScan(h);
+		h.mediaRepo.allIds.mockResolvedValue(new Map([["m1", "u1"]]));
+
+		const seen: LibrarySyncEvent[] = [];
+		const unsubscribe = LibrarySync.subscribe((event) => seen.push(event));
+
+		await startWithSettle(h, { settleQuietMs: 0, settleMaxMs: 2000 });
+
+		// No proactive re-check when disabled — the scan result stands.
+		expect(h.indexer.changesSince).not.toHaveBeenCalled();
+		expect(seen.filter((e) => e.type === "discovery-complete")).toEqual([
+			{ type: "discovery-complete", total: 1 },
+		]);
+		unsubscribe();
 	});
 });

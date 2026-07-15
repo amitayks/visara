@@ -27,6 +27,20 @@ import { useViewerStore } from "@state/viewerStore";
 export function installDevQaHooks(): void {
 	if (!__DEV__) return;
 
+	// Ordered record of pipeline/discovery events (rebuild-backend-gemma
+	// discovery-first verification): proves discovery-complete fires ONCE over
+	// the whole library before the first item-processed, never mid-analysis.
+	const eventLog: Array<Record<string, unknown>> = [];
+	let eventSeq = 0;
+	Pipeline.subscribe((e) => {
+		const entry: Record<string, unknown> = { seq: eventSeq++, type: e.type };
+		for (const k of ["total", "discovered", "processed", "failed"] as const) {
+			if (k in e) entry[k] = (e as Record<string, unknown>)[k];
+		}
+		eventLog.push(entry);
+		if (eventLog.length > 300) eventLog.shift();
+	});
+
 	const openViewer = async (index = 0): Promise<string> => {
 		const { openPhotoViewer } = await import(
 			"@features/viewer/openPhotoViewer"
@@ -50,6 +64,7 @@ export function installDevQaHooks(): void {
 		// v2 backend introspection (rebuild-backend-gemma verification):
 		backend: {
 			indexerPresent: () => NativeMediaIndexer != null,
+			events: () => eventLog.slice(),
 			failures: (limit = 10) => getEnrichFailures(limit),
 			accessStatus: () => NativeMediaIndexer?.getAccessStatus() ?? "no-module",
 			mediaCount: async () => (await getVisibleMediaRows()).length,

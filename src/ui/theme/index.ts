@@ -11,8 +11,8 @@ import {
 } from "react-native-unistyles";
 import type { ThemeMode } from "./tokens";
 
-export { StyleSheet, UnistylesRuntime };
 export * from "./tokens";
+export { StyleSheet, UnistylesRuntime };
 
 /** Theme values for JSX props; styles should use StyleSheet.create(theme => …). */
 export function useAppTheme() {

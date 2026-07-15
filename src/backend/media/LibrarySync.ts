@@ -46,6 +46,21 @@ export const SCAN_BATCH_SIZE = 2000;
 export const OBSERVER_THROTTLE_MS = 2000;
 
 /**
+ * Discovery settle (library-discovery-first): after the initial full scan,
+ * hold the discovery-complete gate — the ONLY thing that lets the pipeline
+ * start analyzing — until the library stops changing for this quiet window.
+ * A cold-launch `PHAsset.fetchAssets` / MediaStore query can hand back a
+ * PARTIAL first snapshot (photolibraryd/MediaStore not fully loaded yet); the
+ * remaining assets then trickle in via the change observer. Folding those
+ * late arrivals into initial discovery makes analysis start ONCE, over the
+ * whole visible gallery, instead of racing a discover-as-you-analyze trickle.
+ * The gallery itself is never gated on this — rows show as they are scanned.
+ */
+export const DISCOVERY_SETTLE_QUIET_MS = 1500;
+/** Hard cap so a library that keeps mutating can never wedge discovery. */
+export const DISCOVERY_SETTLE_MAX_MS = 8000;
+
+/**
  * sync_state flag set before a full scan starts and cleared only after its
  * token is persisted — a crash mid-rescan re-enters the full path next boot.
  */
@@ -98,6 +113,10 @@ export interface LibrarySyncDeps {
 	platform?: "ios" | "android";
 	observerThrottleMs?: number;
 	scanBatchSize?: number;
+	/** Quiet window before discovery-complete; <= 0 disables the settle (tests). */
+	settleQuietMs?: number;
+	/** Hard cap on the settle phase. */
+	settleMaxMs?: number;
 }
 
 /** Events LibrarySync emits (members of the preserved PipelineEvent union). */
@@ -241,6 +260,8 @@ interface ResolvedLibrarySyncDeps {
 	platform: "ios" | "android";
 	observerThrottleMs: number;
 	scanBatchSize: number;
+	settleQuietMs: number;
+	settleMaxMs: number;
 }
 
 function resolveDeps(deps: LibrarySyncDeps): ResolvedLibrarySyncDeps {
@@ -261,6 +282,8 @@ function resolveDeps(deps: LibrarySyncDeps): ResolvedLibrarySyncDeps {
 		platform: deps.platform ?? (Platform.OS === "android" ? "android" : "ios"),
 		observerThrottleMs: deps.observerThrottleMs ?? OBSERVER_THROTTLE_MS,
 		scanBatchSize: deps.scanBatchSize ?? SCAN_BATCH_SIZE,
+		settleQuietMs: deps.settleQuietMs ?? DISCOVERY_SETTLE_QUIET_MS,
+		settleMaxMs: deps.settleMaxMs ?? DISCOVERY_SETTLE_MAX_MS,
 	};
 }
 
@@ -284,6 +307,12 @@ export class LibrarySyncController {
 	private subscriptions = new Set<IndexerEventSubscription>();
 	/** Settles a pending full-scan promise early on stop(). */
 	private abortScan: (() => void) | null = null;
+	/** True between the initial full scan and discovery-complete (settle phase). */
+	private settling = false;
+	/** Re-arm the settle quiet window (called when a late delta adds photos). */
+	private bumpSettle: (() => void) | null = null;
+	/** Resolve the settle immediately on stop(). */
+	private settleAbort: (() => void) | null = null;
 
 	constructor(deps: LibrarySyncDeps, emit: (event: LibrarySyncEvent) => void) {
 		this.deps = resolveDeps(deps);
@@ -310,6 +339,8 @@ export class LibrarySyncController {
 		this.session += 1;
 		this.startPromise = null;
 		this.discoveryComplete = false;
+		this.settling = false;
+		this.settleAbort?.();
 		this.abortScan?.();
 		if (this.observing) {
 			try {
@@ -335,12 +366,16 @@ export class LibrarySyncController {
 
 		let total: number;
 		if (!token || fullPending === "1") {
-			total = await this.runFullScan(session);
+			await this.runFullScan(session);
+			if (session !== this.session) return;
+			total = await this.settleInitialDiscovery(session);
 		} else {
 			const outcome = await this.runDeltaRound();
 			if (session !== this.session) return;
-			if (outcome === "full") {
-				total = await this.runFullScan(session);
+			if (outcome.kind === "full") {
+				await this.runFullScan(session);
+				if (session !== this.session) return;
+				total = await this.settleInitialDiscovery(session);
 			} else {
 				total = (await this.deps.mediaRepo.allIds()).size;
 			}
@@ -350,6 +385,81 @@ export class LibrarySyncController {
 		this.discoveryComplete = true;
 		this.emit({ type: "discovery-complete", total });
 		this.startObserver();
+	}
+
+	/**
+	 * Start observing and hold until the library settles, then return the
+	 * final discovered count. Late arrivals from a partial cold-launch snapshot
+	 * are folded into initial discovery before the gate opens (see
+	 * DISCOVERY_SETTLE_QUIET_MS). No-op fast path when the settle is disabled.
+	 */
+	private async settleInitialDiscovery(session: number): Promise<number> {
+		// Observe BEFORE the gate opens so change-observer pokes during the
+		// settle window fold in (queueDeltaRound runs while `settling`).
+		this.startObserver();
+		if (this.deps.settleQuietMs > 0) {
+			await this.awaitDiscoverySettle(session);
+			if (session !== this.session) return 0;
+		}
+		return (await this.deps.mediaRepo.allIds()).size;
+	}
+
+	/**
+	 * Resolve once the library has been quiet for `settleQuietMs` (each late
+	 * delta that adds photos re-arms it), with a proactive `changesSince`
+	 * re-check at each quiet expiry to catch a snapshot that grew without an
+	 * observer poke. Capped at `settleMaxMs`; `stop()` resolves it at once.
+	 */
+	private awaitDiscoverySettle(session: number): Promise<void> {
+		return new Promise<void>((resolve) => {
+			let quiet: ReturnType<typeof setTimeout> | undefined;
+			let finished = false;
+			const finish = (): void => {
+				if (finished) return;
+				finished = true;
+				this.settling = false;
+				this.bumpSettle = null;
+				this.settleAbort = null;
+				if (quiet) clearTimeout(quiet);
+				clearTimeout(cap);
+				resolve();
+			};
+			const arm = (): void => {
+				if (finished) return;
+				if (quiet) clearTimeout(quiet);
+				quiet = setTimeout(onQuiet, this.deps.settleQuietMs);
+			};
+			const onQuiet = (): void => {
+				if (finished || session !== this.session) {
+					finish();
+					return;
+				}
+				// One proactive re-check, serialized behind the delta chain so it
+				// never races an observer-triggered round on the change token.
+				this.deltaChain = this.deltaChain.then(async () => {
+					if (finished || session !== this.session) {
+						finish();
+						return;
+					}
+					try {
+						const outcome = await this.runDeltaRound();
+						if (finished || session !== this.session) return;
+						if (outcome.kind === "applied" && outcome.changed) {
+							arm(); // library grew silently — keep settling
+						} else {
+							finish();
+						}
+					} catch {
+						finish();
+					}
+				});
+			};
+			const cap = setTimeout(finish, this.deps.settleMaxMs);
+			this.settling = true;
+			this.bumpSettle = arm;
+			this.settleAbort = finish;
+			arm();
+		});
 	}
 
 	// --- Full-scan path ----------------------------------------------------------
@@ -507,24 +617,27 @@ export class LibrarySyncController {
 
 	// --- Delta path ----------------------------------------------------------------
 
-	private async runDeltaRound(): Promise<"applied" | "full"> {
+	private async runDeltaRound(): Promise<{
+		kind: "applied" | "full";
+		changed: boolean;
+	}> {
 		const token = (await this.deps.syncState.get(SYNC_KEYS.changeToken)) ?? "";
 		const raw = await this.deps.indexer.changesSince(token);
-		if (raw.full) return "full";
+		if (raw.full) return { kind: "full", changed: false };
 		const delta = toIndexerDelta(raw);
 		await applyDelta(delta, {
 			mediaRepo: this.deps.mediaRepo,
 			enrichmentRepo: this.deps.enrichmentRepo,
 			syncState: this.deps.syncState,
 		});
-		if (
+		const changed =
 			delta.added.length > 0 ||
 			delta.updated.length > 0 ||
-			delta.deletedIds.length > 0
-		) {
+			delta.deletedIds.length > 0;
+		if (changed) {
 			this.deps.bus.notify("media");
 		}
-		return "applied";
+		return { kind: "applied", changed };
 	}
 
 	// --- Live observation ------------------------------------------------------------
@@ -547,16 +660,25 @@ export class LibrarySyncController {
 	private queueDeltaRound(): void {
 		const session = this.session;
 		this.deltaChain = this.deltaChain.then(async () => {
-			if (session !== this.session || !this.discoveryComplete) return;
+			if (session !== this.session) return;
+			// Rounds run once the gate is open (live additions) OR during the
+			// pre-gate settle window (folding cold-launch late arrivals in).
+			if (!this.discoveryComplete && !this.settling) return;
 			try {
 				const outcome = await this.runDeltaRound();
-				if (outcome === "full" && session === this.session) {
+				if (session !== this.session) return;
+				if (outcome.kind === "full") {
 					// Mid-session token expiry/version change: routine, not
 					// exceptional — rerun the full path and re-open the gate.
 					const total = await this.runFullScan(session);
 					if (session === this.session) {
+						this.discoveryComplete = true;
 						this.emit({ type: "discovery-complete", total });
 					}
+				} else if (outcome.changed && this.settling) {
+					// A late arrival during settle — extend the quiet window so
+					// analysis still waits for the library to stop growing.
+					this.bumpSettle?.();
 				}
 			} catch (error) {
 				console.warn("[LibrarySync] live delta round failed", error);
