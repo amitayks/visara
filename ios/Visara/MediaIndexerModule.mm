@@ -20,6 +20,12 @@ RCT_EXTERN_METHOD(getAccessStatus:(RCTPromiseResolveBlock)resolve
 RCT_EXTERN_METHOD(deleteAssets:(NSArray *)ids
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
+RCT_EXTERN_METHOD(exportForInference:(NSString *)uri
+                  maxEdge:(double)maxEdge
+                  quality:(double)quality
+                  destDir:(NSString *)destDir
+                  resolve:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject)
 
 + (BOOL)requiresMainQueueSetup
 {

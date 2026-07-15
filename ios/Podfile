@@ -17,22 +17,6 @@ if linkage != nil
   use_frameworks! :linkage => linkage.to_sym
 end
 
-# react-native-image-resizer 3.0.11 (latest) hand-declares RN-0.71-era New-Arch
-# pod deps (RCT-Folly, React-Codegen, RCTRequired, RCTTypeSafety) that RN 0.86
-# no longer vends as standalone specs; install_modules_dependencies(s) in the
-# same podspec already injects the correct per-version set. Strip the stale
-# manual lines before resolution. Idempotent; re-applied after every npm install.
-resizer_podspec = File.join(__dir__, '..', 'node_modules', '@bam.tech',
-  'react-native-image-resizer', 'react-native-image-resizer.podspec')
-if File.exist?(resizer_podspec)
-  contents = File.read(resizer_podspec)
-  stripped = contents.gsub(/^\s*s\.dependency "(RCT-Folly|React-Codegen|RCTRequired|RCTTypeSafety)"\n/, '')
-  if stripped != contents
-    File.write(resizer_podspec, stripped)
-    Pod::UI.puts "[Visara] Stripped stale New-Arch deps from react-native-image-resizer.podspec".green
-  end
-end
-
 target 'Visara' do
   use_expo_modules!
 

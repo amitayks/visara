@@ -186,13 +186,3 @@ jest.mock("@dr.pogodin/react-native-fs", () => ({
 	hash: jest.fn(async () => "deadbeef"),
 	readDir: jest.fn(async () => []),
 }));
-
-jest.mock("@bam.tech/react-native-image-resizer", () => ({
-	__esModule: true,
-	default: {
-		createResizedImage: jest.fn(async () => ({
-			uri: "file:///tmp/jest-caches/resized.jpg",
-			path: "/tmp/jest-caches/resized.jpg",
-		})),
-	},
-}));

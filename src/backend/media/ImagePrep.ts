@@ -1,6 +1,5 @@
-import ImageResizer from "@bam.tech/react-native-image-resizer";
 import * as RNFS from "@dr.pogodin/react-native-fs";
-import { Platform } from "react-native";
+import NativeMediaIndexer from "@native-modules/NativeMediaIndexer";
 
 /**
  * Inference-ready image preparation (design D3, gemma-vision-enrichment
@@ -10,6 +9,11 @@ import { Platform } from "react-native";
  * file paths only, so this is the sole doorway between OS media URIs and the
  * VLM.
  *
+ * Decoding runs in the MediaIndexer TurboModule (PHImageManager on iOS,
+ * ContentResolver + BitmapFactory on Android) — no RCTImageLoader chain, no
+ * image-resizer dependency, and `ph://` assets decode without the deleted
+ * camera-roll package's URL loader.
+ *
  * All functions are fail-soft: preparation errors resolve to null (the
  * pipeline marks the item failed without invoking the model), cleanup errors
  * are swallowed.
@@ -18,39 +22,8 @@ import { Platform } from "react-native";
 const MAX_EDGE_PX = 896;
 const JPEG_QUALITY = 80;
 
-/**
- * Bounded temp dir for inference JPEGs.
- *
- * Platform split is forced by @bam.tech/react-native-image-resizer's native
- * `outputPath` handling (verified in 3.0.x sources):
- * - iOS treats `outputPath` as a directory and only honors absolute paths
- *   under the app's Documents directory — any other absolute path (e.g.
- *   Library/Caches) is appended to Documents, producing a mangled nested dir
- *   our wipe would miss. So iOS uses `Documents/inference`.
- * - Android uses the directory verbatim, so it lives under the app cache dir.
- * Files here are deleted after each generation settles; `wipeInferenceDir()`
- * clears stragglers (e.g. after a crash mid-item).
- */
-export const INFERENCE_TEMP_DIR =
-	Platform.OS === "ios"
-		? `${RNFS.DocumentDirectoryPath}/inference`
-		: `${RNFS.CachesDirectoryPath}/inference`;
-
-/** Cached ensure-dir promise (reset by wipeInferenceDir / on failure). */
-let ensureDirPromise: Promise<void> | null = null;
-
-function ensureInferenceDir(): Promise<void> {
-	if (ensureDirPromise === null) {
-		// RNFS.mkdir creates intermediate dirs and is a no-op when present. The
-		// Android resizer native does NOT create the output dir (its
-		// File.createNewFile throws on a missing parent), so this must run first.
-		ensureDirPromise = RNFS.mkdir(INFERENCE_TEMP_DIR).catch((error) => {
-			ensureDirPromise = null;
-			throw error;
-		});
-	}
-	return ensureDirPromise;
-}
+/** Bounded temp dir for inference JPEGs (app cache; wiped at boot). */
+export const INFERENCE_TEMP_DIR = `${RNFS.CachesDirectoryPath}/inference`;
 
 /**
  * Decode + downscale `uri` to a temp JPEG (longest edge <= 896, quality 80)
@@ -59,24 +32,19 @@ function ensureInferenceDir(): Promise<void> {
  * Returns null on any failure.
  */
 export async function toInferenceJpeg(uri: string): Promise<string | null> {
+	const indexer = NativeMediaIndexer;
+	if (!indexer) {
+		console.warn("[ImagePrep] MediaIndexer unavailable");
+		return null;
+	}
 	try {
-		await ensureInferenceDir();
-		const response = await ImageResizer.createResizedImage(
+		const path = await indexer.exportForInference(
 			uri,
 			MAX_EDGE_PX,
-			MAX_EDGE_PX,
-			"JPEG",
 			JPEG_QUALITY,
-			0,
 			INFERENCE_TEMP_DIR,
-			false,
-			{ mode: "contain", onlyScaleDown: true },
 		);
-		const path = response.path || response.uri;
-		if (!path) {
-			return null;
-		}
-		return stripFileScheme(path);
+		return path && path.length > 0 ? stripFileScheme(path) : null;
 	} catch (error) {
 		console.warn("[ImagePrep] toInferenceJpeg failed:", error);
 		return null;
@@ -101,10 +69,9 @@ export async function cleanupInferenceTemp(path: string): Promise<void> {
 
 /**
  * Remove the whole bounded temp dir (boot hygiene / wipeAllData). The dir is
- * lazily recreated on the next toInferenceJpeg call. Never throws.
+ * lazily recreated by the native exporter on the next call. Never throws.
  */
 export async function wipeInferenceDir(): Promise<void> {
-	ensureDirPromise = null;
 	try {
 		const exists = await RNFS.exists(INFERENCE_TEMP_DIR);
 		if (exists) {

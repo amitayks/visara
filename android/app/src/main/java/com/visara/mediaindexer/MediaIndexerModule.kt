@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.ContentObserver
 import android.database.Cursor
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Handler
 import android.os.HandlerThread
@@ -28,6 +30,7 @@ import com.visara.specs.NativeMediaIndexerSpec
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.ByteBuffer
+import java.util.UUID
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
@@ -610,6 +613,75 @@ class MediaIndexerModule(private val reactContext: ReactApplicationContext) :
     // -----------------------------------------------------------------------
     // OS-confirmed deletion
     // -----------------------------------------------------------------------
+
+    override fun exportForInference(
+        uri: String,
+        maxEdge: Double,
+        quality: Double,
+        destDir: String,
+        promise: Promise,
+    ) {
+        scanExecutor.execute {
+            try {
+                val edge = maxEdge.toInt().coerceIn(64, 4096)
+                val jpegQuality = quality.toInt().coerceIn(10, 100)
+                val source = Uri.parse(uri)
+                val resolver = reactApplicationContext.contentResolver
+
+                // Pass 1: bounds only, to compute a power-of-two inSampleSize.
+                // NB: decodeStream in inJustDecodeBounds mode returns null by
+                // design (it only fills Options.out*), so the stream itself must
+                // be null-checked directly — never via the decode result.
+                val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                (resolver.openInputStream(source)
+                    ?: throw IllegalStateException("openInputStream returned null"))
+                    .use { BitmapFactory.decodeStream(it, null, bounds) }
+                if (bounds.outWidth <= 0 || bounds.outHeight <= 0) {
+                    throw IllegalStateException("undecodable image bounds")
+                }
+                var sample = 1
+                while (
+                    bounds.outWidth / (sample * 2) >= edge ||
+                    bounds.outHeight / (sample * 2) >= edge
+                ) {
+                    sample *= 2
+                }
+
+                // Pass 2: subsampled decode, then exact contain-scale if needed.
+                val decodeOpts = BitmapFactory.Options().apply { inSampleSize = sample }
+                val decoded = resolver.openInputStream(source)?.use {
+                    BitmapFactory.decodeStream(it, null, decodeOpts)
+                } ?: throw IllegalStateException("decode failed")
+
+                val scale = minOf(
+                    edge.toFloat() / decoded.width,
+                    edge.toFloat() / decoded.height,
+                    1f,
+                )
+                val bitmap = if (scale < 1f) {
+                    Bitmap.createScaledBitmap(
+                        decoded,
+                        (decoded.width * scale).toInt().coerceAtLeast(1),
+                        (decoded.height * scale).toInt().coerceAtLeast(1),
+                        true,
+                    ).also { if (it !== decoded) decoded.recycle() }
+                } else {
+                    decoded
+                }
+
+                val dir = File(destDir)
+                if (!dir.exists()) dir.mkdirs()
+                val out = File(dir, "inf-${UUID.randomUUID()}.jpg")
+                FileOutputStream(out).use { stream ->
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, jpegQuality, stream)
+                }
+                bitmap.recycle()
+                promise.resolve(out.absolutePath)
+            } catch (t: Throwable) {
+                promise.reject("E_EXPORT_DECODE", "exportForInference failed for $uri: ${t.message}", t)
+            }
+        }
+    }
 
     override fun deleteAssets(ids: ReadableArray, promise: Promise) {
         val idList = ArrayList<String>(ids.size())

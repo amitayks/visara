@@ -1,7 +1,3 @@
-import {
-	cleanupInferenceTemp,
-	toInferenceJpeg,
-} from "@backend/media/ImagePrep";
 import { MMPROJ_ARTIFACT, VLM_ARTIFACT } from "@backend/model/manifest";
 import type { VisionAnalysis, VisionEngine } from "@backend/types";
 import {
@@ -11,6 +7,7 @@ import {
 	type NativeCompletionResult,
 } from "llama.rn";
 import { Platform } from "react-native";
+import DeviceInfo from "react-native-device-info";
 import { createMutex, type Mutex } from "./mutex";
 import { coerceEnrichment, extractFirstJsonObject } from "./parseEnrichment";
 
@@ -67,20 +64,19 @@ export class LlamaGemmaVision implements VisionEngine {
 	 * One serialized generation per call (mutex — never concurrent on one
 	 * context; dispose() queues behind the in-flight item, satisfying
 	 * "released after the in-flight item settles").
+	 *
+	 * `imagePath` is an already-prepared, decoded+downscaled JPEG path: design
+	 * D9 assigns ImagePrep to the pipeline step (the pipeline prepares from the
+	 * `ph://`/`content://` asset URI, null-checks, and owns the temp file's
+	 * lifecycle), so analyze feeds the model directly and never re-prepares.
 	 */
-	analyze(fileUri: string): Promise<VisionAnalysis> {
+	analyze(imagePath: string): Promise<VisionAnalysis> {
 		return this.runExclusive(async () => {
 			const startedAt = Date.now();
-
-			// Prep failure fails the item WITHOUT invoking (or loading) the model.
-			const imagePath = await toInferenceJpeg(fileUri);
-			if (imagePath === null) {
-				return {
-					ok: false,
-					error: "image preparation failed (unreadable or corrupt asset)",
-					durationMs: Date.now() - startedAt,
-				};
-			}
+			// llama.cpp fopens a plain path; strip a file:// scheme if present.
+			const path = imagePath.startsWith("file://")
+				? imagePath.slice("file://".length)
+				: imagePath;
 
 			try {
 				const context = await this.ensureContext();
@@ -94,7 +90,7 @@ export class LlamaGemmaVision implements VisionEngine {
 								// llama.rn replaces this part with its media marker and
 								// forwards the path natively (GGUF chat template applied by
 								// llama.rn itself — no manual formatting here).
-								{ type: "image_url", image_url: { url: imagePath } },
+								{ type: "image_url", image_url: { url: path } },
 							],
 						},
 					],
@@ -114,9 +110,6 @@ export class LlamaGemmaVision implements VisionEngine {
 					error: error instanceof Error ? error.message : String(error),
 					durationMs: Date.now() - startedAt,
 				};
-			} finally {
-				// Temp JPEG is deleted only after the generation settled.
-				await cleanupInferenceTemp(imagePath);
 			}
 		});
 	}
@@ -163,12 +156,15 @@ export class LlamaGemmaVision implements VisionEngine {
 	}
 
 	private async initContext(): Promise<LlamaContext> {
+		// D1: Metal on real iOS hardware only. The iOS Simulator's emulated Metal
+		// driver (MTLSimDriver) crashes when clip/mmproj allocates its GPU buffer
+		// (XPC shared-memory misuse), so simulator QA runs CPU — the sanctioned
+		// end-to-end path (proposal risk posture). Android is always CPU-first.
+		const useMetal = Platform.OS === "ios" && !DeviceInfo.isEmulatorSync();
 		const context = await initLlama({
 			model: `${this.modelDir}/${VLM_ARTIFACT.filename}`,
 			n_ctx: VLM_CONTEXT_TOKENS,
-			// D1: Metal on iOS; CPU-first Android (n_gpu_layers is iOS-only in
-			// llama.rn anyway — explicit 0 documents the intent).
-			n_gpu_layers: Platform.OS === "ios" ? 99 : 0,
+			n_gpu_layers: useMetal ? 99 : 0,
 			use_mlock: false,
 			embedding: false,
 			// Multimodal requires ctx_shift disabled to keep media token positions.
@@ -178,7 +174,7 @@ export class LlamaGemmaVision implements VisionEngine {
 		try {
 			const enabled = await context.initMultimodal({
 				path: `${this.modelDir}/${MMPROJ_ARTIFACT.filename}`,
-				use_gpu: Platform.OS === "ios",
+				use_gpu: useMetal,
 			});
 			if (!enabled) {
 				throw new Error("initMultimodal returned false (mmproj rejected)");

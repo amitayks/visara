@@ -315,6 +315,67 @@ class MediaIndexerModule: RCTEventEmitter, PHPhotoLibraryChangeObserver {
         }
     }
 
+    // MARK: - Inference export (PHImageManager -> temp JPEG)
+
+    @objc(exportForInference:maxEdge:quality:destDir:resolve:reject:)
+    func exportForInference(
+        _ uri: String,
+        maxEdge: Double,
+        quality: Double,
+        destDir: String,
+        resolve: @escaping RCTPromiseResolveBlock,
+        reject: @escaping RCTPromiseRejectBlock
+    ) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let localId = uri.hasPrefix("ph://") ? String(uri.dropFirst("ph://".count)) : uri
+            guard let asset = PHAsset.fetchAssets(
+                withLocalIdentifiers: [localId], options: nil
+            ).firstObject else {
+                reject("E_EXPORT_NOT_FOUND", "No asset for id \(localId)", nil)
+                return
+            }
+
+            let edge = max(64, min(4096, maxEdge.isFinite ? maxEdge : 896))
+            let jpegQuality = max(0.1, min(1.0, (quality.isFinite ? quality : 80) / 100.0))
+            let target = CGSize(width: edge, height: edge)
+
+            let options = PHImageRequestOptions()
+            options.deliveryMode = .highQualityFormat
+            options.resizeMode = .fast
+            options.isNetworkAccessAllowed = true
+            options.isSynchronous = true
+
+            PHImageManager.default().requestImage(
+                for: asset,
+                targetSize: target,
+                contentMode: .aspectFit,
+                options: options
+            ) { image, info in
+                guard let image = image, let data = image.jpegData(compressionQuality: jpegQuality) else {
+                    let underlying = info?[PHImageErrorKey] as? NSError
+                    reject(
+                        "E_EXPORT_DECODE",
+                        underlying?.localizedDescription ?? "Asset decode failed for \(localId)",
+                        underlying
+                    )
+                    return
+                }
+                do {
+                    try FileManager.default.createDirectory(
+                        atPath: destDir, withIntermediateDirectories: true
+                    )
+                    let path = (destDir as NSString).appendingPathComponent(
+                        "inf-\(UUID().uuidString).jpg"
+                    )
+                    try data.write(to: URL(fileURLWithPath: path), options: .atomic)
+                    resolve(path)
+                } catch {
+                    reject("E_EXPORT_WRITE", error.localizedDescription, error)
+                }
+            }
+        }
+    }
+
     // MARK: - Token codec ({"v":1,"ios":"<base64 NSKeyedArchiver>"})
 
     private static func currentTokenJsonIfAuthorized() -> String {

@@ -157,6 +157,21 @@ export function getVisibleMediaRows(): Promise<MediaRow[]> {
 	return mediaRepo.visibleRows();
 }
 
+/** Failed enrichment rows with stored errors (dev/QA diagnostics). */
+export async function getEnrichFailures(
+	limit = 10,
+): Promise<{ id: string; filename: string; error: string }[]> {
+	const result = await getDb().execute(
+		"SELECT id, filename, enrich_error FROM media WHERE enrich_status = 'failed' LIMIT ?",
+		[limit],
+	);
+	return result.rows.map((row) => ({
+		id: String(row.id ?? ""),
+		filename: String(row.filename ?? ""),
+		error: String(row.enrich_error ?? ""),
+	}));
+}
+
 // --- Removal / metadata ------------------------------------------------------------
 
 /**

@@ -64,6 +64,20 @@ export interface Spec extends TurboModule {
 	/** OS-confirmed deletion; resolves ids actually deleted. */
 	deleteAssets(ids: string[]): Promise<DeleteResult>;
 
+	/**
+	 * Decode + downscale an asset to an inference-ready JPEG (longest edge
+	 * `maxEdge`, `quality` 0-100) written into `destDir`. Resolves the PLAIN
+	 * file path. iOS: PHImageManager (accepts "ph://<id>" or bare id);
+	 * Android: ContentResolver + bitmap decode (accepts content:// URIs).
+	 * Rejects on unreadable/missing assets.
+	 */
+	exportForInference(
+		uri: string,
+		maxEdge: number,
+		quality: number,
+		destDir: string,
+	): Promise<string>;
+
 	addListener(eventName: string): void;
 	removeListeners(count: number): void;
 }

@@ -1,6 +1,7 @@
 import { navigate, navigationRef } from "@app/navigation";
 import {
 	GemmaModelDeliveryService,
+	getEnrichFailures,
 	getVisibleMediaRows,
 	LibrarySync,
 	loadMediaMetadata,
@@ -9,6 +10,7 @@ import {
 	searchMedia,
 } from "@backend/facade";
 import type { MediaRow as MediaFile } from "@backend/types";
+import NativeMediaIndexer from "@native-modules/NativeMediaIndexer";
 import { useModelStore } from "@state/modelStore";
 import { useNavStore } from "@state/navStore";
 import { useProcessingStore } from "@state/processingStore";
@@ -47,6 +49,9 @@ export function installDevQaHooks(): void {
 		requestPerm: () => requestMediaAccess(),
 		// v2 backend introspection (rebuild-backend-gemma verification):
 		backend: {
+			indexerPresent: () => NativeMediaIndexer != null,
+			failures: (limit = 10) => getEnrichFailures(limit),
+			accessStatus: () => NativeMediaIndexer?.getAccessStatus() ?? "no-module",
 			mediaCount: async () => (await getVisibleMediaRows()).length,
 			mediaRows: async (limit = 10) =>
 				(await getVisibleMediaRows()).slice(0, limit).map((m) => ({
