@@ -10,16 +10,13 @@
 		0C80B921A6F3F58F76C31292 /* libPods-Visara.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCACB8F33CDC322A6C60F78 /* libPods-Visara.a */; };
 		11528834DA690469F478E68A /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
-		17B437C38B0A608F4CB255A2 /* VisionTextRecognizerModule.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8CE269E8FFC4B0D52673A402 /* VisionTextRecognizerModule.mm */; };
 		2C00B663A09970F3312804EA /* ThermalObserverModule.mm in Sources */ = {isa = PBXBuildFile; fileRef = FE947EE9EDA80B2389965587 /* ThermalObserverModule.mm */; };
-		669E729B38AA4C1FF999F233 /* MediaObserverModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B2D163AF8A39E9D9C94F376 /* MediaObserverModule.swift */; };
 		761780ED2CA45674006654EE /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761780EC2CA45674006654EE /* AppDelegate.swift */; };
 		81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */; };
-		A3CF8D9BB2DC3D318EAFC4E8 /* VisionTextRecognizerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD1D60E5DDD2B6AB61F264A0 /* VisionTextRecognizerModule.swift */; };
 		A4F99A9E8B1D5E66C1C3CD68 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A50E97B88979EAC28ECC6283 /* ExpoModulesProvider.swift */; };
-		AE3B17D7F4191547EB57E099 /* MediaObserverModule.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1EEF71C8D55AE1B4B96B6A20 /* MediaObserverModule.mm */; };
+		AA11BB22CC33DD44EE55F001 /* MediaIndexerModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55F002 /* MediaIndexerModule.swift */; };
+		AA11BB22CC33DD44EE55F003 /* MediaIndexerModule.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA11BB22CC33DD44EE55F004 /* MediaIndexerModule.mm */; };
 		D69F9369F7FB85CD77A17F18 /* ThermalObserverModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2744F2A5CACA008C6023B13 /* ThermalObserverModule.swift */; };
-		FEECB2DAA4F36FD94FEC2ADE /* PhotoLibraryObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EF2FB3A5C348D01D0085E5E /* PhotoLibraryObserver.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,17 +24,14 @@
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = Visara/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Visara/Info.plist; sourceTree = "<group>"; };
 		13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = PrivacyInfo.xcprivacy; path = Visara/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		1B2D163AF8A39E9D9C94F376 /* MediaObserverModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaObserverModule.swift; path = Visara/MediaObserver/MediaObserverModule.swift; sourceTree = "<group>"; };
-		1EEF71C8D55AE1B4B96B6A20 /* MediaObserverModule.mm */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.cpp.objcpp; name = MediaObserverModule.mm; path = Visara/MediaObserver/MediaObserverModule.mm; sourceTree = "<group>"; };
 		3B4392A12AC88292D35C810B /* Pods-Visara.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Visara.debug.xcconfig"; path = "Target Support Files/Pods-Visara/Pods-Visara.debug.xcconfig"; sourceTree = "<group>"; };
 		5709B34CF0A7D63546082F79 /* Pods-Visara.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Visara.release.xcconfig"; path = "Target Support Files/Pods-Visara/Pods-Visara.release.xcconfig"; sourceTree = "<group>"; };
 		5DCACB8F33CDC322A6C60F78 /* libPods-Visara.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-Visara.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		761780EC2CA45674006654EE /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = Visara/AppDelegate.swift; sourceTree = "<group>"; };
-		7EF2FB3A5C348D01D0085E5E /* PhotoLibraryObserver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PhotoLibraryObserver.swift; path = Visara/MediaObserver/PhotoLibraryObserver.swift; sourceTree = "<group>"; };
 		81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = LaunchScreen.storyboard; path = Visara/LaunchScreen.storyboard; sourceTree = "<group>"; };
-		8CE269E8FFC4B0D52673A402 /* VisionTextRecognizerModule.mm */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.cpp.objcpp; name = VisionTextRecognizerModule.mm; path = Visara/VisionOCR/VisionTextRecognizerModule.mm; sourceTree = "<group>"; };
 		A50E97B88979EAC28ECC6283 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-Visara/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		AD1D60E5DDD2B6AB61F264A0 /* VisionTextRecognizerModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = VisionTextRecognizerModule.swift; path = Visara/VisionOCR/VisionTextRecognizerModule.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55F002 /* MediaIndexerModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MediaIndexerModule.swift; path = Visara/MediaIndexerModule.swift; sourceTree = "<group>"; };
+		AA11BB22CC33DD44EE55F004 /* MediaIndexerModule.mm */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.cpp.objcpp; name = MediaIndexerModule.mm; path = Visara/MediaIndexerModule.mm; sourceTree = "<group>"; };
 		E2744F2A5CACA008C6023B13 /* ThermalObserverModule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ThermalObserverModule.swift; path = Visara/Thermal/ThermalObserverModule.swift; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		FE947EE9EDA80B2389965587 /* ThermalObserverModule.mm */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.cpp.objcpp; name = ThermalObserverModule.mm; path = Visara/Thermal/ThermalObserverModule.mm; sourceTree = "<group>"; };
@@ -71,13 +65,10 @@
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				81AB9BB72411601600AC10FF /* LaunchScreen.storyboard */,
 				13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */,
-				1B2D163AF8A39E9D9C94F376 /* MediaObserverModule.swift */,
-				1EEF71C8D55AE1B4B96B6A20 /* MediaObserverModule.mm */,
-				AD1D60E5DDD2B6AB61F264A0 /* VisionTextRecognizerModule.swift */,
-				8CE269E8FFC4B0D52673A402 /* VisionTextRecognizerModule.mm */,
 				E2744F2A5CACA008C6023B13 /* ThermalObserverModule.swift */,
+				AA11BB22CC33DD44EE55F002 /* MediaIndexerModule.swift */,
+				AA11BB22CC33DD44EE55F004 /* MediaIndexerModule.mm */,
 				FE947EE9EDA80B2389965587 /* ThermalObserverModule.mm */,
-				7EF2FB3A5C348D01D0085E5E /* PhotoLibraryObserver.swift */,
 			);
 			name = Visara;
 			sourceTree = "<group>";
@@ -253,6 +244,7 @@
 			inputPaths = (
 				"$(SRCROOT)/.xcode.env",
 				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/Visara/Visara.entitlements",
 				"$(SRCROOT)/Pods/Target Support Files/Pods-Visara/expo-configure-project.sh",
 			);
 			name = "[Expo] Configure project";
@@ -312,13 +304,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				761780ED2CA45674006654EE /* AppDelegate.swift in Sources */,
-				669E729B38AA4C1FF999F233 /* MediaObserverModule.swift in Sources */,
-				AE3B17D7F4191547EB57E099 /* MediaObserverModule.mm in Sources */,
-				A3CF8D9BB2DC3D318EAFC4E8 /* VisionTextRecognizerModule.swift in Sources */,
-				17B437C38B0A608F4CB255A2 /* VisionTextRecognizerModule.mm in Sources */,
 				D69F9369F7FB85CD77A17F18 /* ThermalObserverModule.swift in Sources */,
+				AA11BB22CC33DD44EE55F001 /* MediaIndexerModule.swift in Sources */,
+				AA11BB22CC33DD44EE55F003 /* MediaIndexerModule.mm in Sources */,
 				2C00B663A09970F3312804EA /* ThermalObserverModule.mm in Sources */,
-				FEECB2DAA4F36FD94FEC2ADE /* PhotoLibraryObserver.swift in Sources */,
 				A4F99A9E8B1D5E66C1C3CD68 /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -332,6 +321,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Visara/Visara.entitlements;
 				CURRENT_PROJECT_VERSION = 30000;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Visara/Info.plist;
@@ -363,6 +353,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = Visara/Visara.entitlements;
 				CURRENT_PROJECT_VERSION = 30000;
 				INFOPLIST_FILE = Visara/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.0;

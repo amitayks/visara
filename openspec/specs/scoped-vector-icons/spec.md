@@ -5,7 +5,7 @@ TBD - created by archiving change migrate-vector-icons-scoped. Update Purpose af
 ## Requirements
 ### Requirement: Icons served by the scoped MaterialDesignIcons package only
 
-The project SHALL depend on `@react-native-vector-icons/material-design-icons@13.1.2` with `react-native-paper@^5.15.3`, and `react-native-vector-icons` SHALL be absent. Only the MaterialDesignIcons font family may ship in either platform bundle: no `fonts.gradle` apply on Android, `UIAppFonts` containing exactly `MaterialDesignIcons.ttf` on iOS, and no legacy `.ttf` files or references in the Xcode project.
+The project SHALL depend on `@react-native-vector-icons/material-design-icons@13.1.2`, and `react-native-vector-icons` and `react-native-paper` SHALL be absent. Icons SHALL render through the design system's own `Icon` primitive consuming the scoped package directly. Only the MaterialDesignIcons font family may ship in either platform bundle: no `fonts.gradle` apply on Android, `UIAppFonts` containing exactly `MaterialDesignIcons.ttf` on iOS, and no legacy `.ttf` files or references in the Xcode project.
 
 #### Scenario: Legacy package fully excised
 
@@ -14,6 +14,6 @@ The project SHALL depend on `@react-native-vector-icons/material-design-icons@13
 
 #### Scenario: Every existing glyph renders
 
-- **WHEN** icon-heavy screens render (onboarding, settings drawer, bottom navigation, gallery headers)
-- **THEN** every icon name previously rendered by the legacy package displays identically via paper's loader against the scoped package (no missing-glyph placeholders)
+- **WHEN** icon-heavy screens render (onboarding, settings, bottom bar, gallery headers)
+- **THEN** every icon name used by the rebuilt UI displays via the design system `Icon` primitive against the scoped package (no missing-glyph placeholders, no paper loader in the dependency tree)
 

@@ -25,15 +25,17 @@ Items here are known, deliberate deferrals — none block the app.
   pattern in MainTemplate/PhotoGrid): benign but worth restructuring someday.
 
 ## Dependency watch
-- **@notifee/react-native is archived upstream** (no maintenance). Works today on
-  RN 0.86; plan a migration (e.g. expo-notifications) before the next major RN move.
 - **reanimated 4.5.1 ↔ react-native-worklets 0.10.1 are lockstep-pinned** (exact).
   A future reanimated 4.6.x bump requires worklets 0.11.x in the same commit.
-- **react-native-executorch pinned at 0.9.2** (project constraint). Its published
-  compat table lags RN releases; re-verify before any future RN bump.
-- `@bam.tech/react-native-image-resizer` needed a Podfile patch (stale manual
-  New-Arch pod deps stripped at install time — see ios/Podfile). If a new release
-  fixes the podspec, the patch block self-neutralizes and can be deleted.
+- **op-sqlite pinned exact 17.1.1** with `{sqliteVec, fts5, performanceMode}` build
+  flags — the bundled sqlite-vec/FTS5 extensions are compiled in per-version. Any
+  bump must re-verify the vec0/FTS5 virtual tables still load (proven by hybrid search).
+- **llama.rn pinned exact 0.12.5** — the multimodal (`initMultimodal`) + embedding
+  contexts and the Gemma-4 chat-template auto-detection are what enrichment/search
+  ride on; re-run the e2e drive before any bump.
+
+_(Retired 2026-07-15 with the Gemma backend rebuild: `@notifee/react-native`,
+`react-native-executorch`, `@bam.tech/react-native-image-resizer` — all deleted.)_
 
 ## Dev-environment notes
 - Local `android/gradle.properties` (untracked, holds signing secrets) needs
@@ -41,3 +43,34 @@ Items here are known, deliberate deferrals — none block the app.
   out of Metaspace at the old 512m with the expo module graph.
 - Dev-mode Metro uses lazy bundles; rapid force-stop cycles can log transient
   `LoadBundleFromServerRequestError` — cosmetic, dev-only.
+
+## Discovered during UI rebuild (rebuild-ui-foundation, 2026-07-04)
+
+- **Metro `lazy=false` (load-bearing):** dev split/lazy bundling defers side-effect module init, so Unistyles' Nitro hybrids weren't registered before first render on Android (red-box). `metro.config.js` rewrites `lazy=true`→`lazy=false`. Release bundles are single-file and unaffected.
+
+_(Retired 2026-07-15: the ML-Kit tier-0 OCR failures and iOS Podfile patch #4 —
+both belonged to the executorch/ML-Kit tier system, now deleted. OCR is Gemma-4
+VLM in one pass; verified reading printed text on both sim/emulator.)_
+
+## Discovered during backend rebuild (rebuild-backend-gemma, 2026-07-15)
+
+- **VLM Metal is gated to real iOS hardware** (`!DeviceInfo.isEmulatorSync()`): the
+  iOS Simulator's emulated Metal driver (`MTLSimDriver`) crashes when clip/mmproj
+  allocates its GPU buffer, so sim runs CPU. Device inference uses Metal (much
+  faster). If a future llama.rn/Xcode combo fixes sim Metal, the gate can relax.
+- **Android VLM is CPU-first** (`n_gpu_layers: 0`). GPU offload (Vulkan/OpenCL via
+  llama.cpp) is a future perf lever for high-RAM devices — opportunistic, behind a
+  capability probe.
+- **Future levers (deferred):** LiteRT-LM runtime adapter (2.59 GB litertlm variant,
+  smaller footprint); a `WorkManager`/iOS `BGProcessingTask` background lane beyond
+  the current dataSync FGS + foreground keep-awake; a dedicated `mediaProcessing`
+  FGS type; **PDF enrichment** (Android pdfScan already discovers PDFs as
+  `enrich_status='skipped'` — a text/vision pass over pages is the next step);
+  E4B model variant as a quality lever for high-RAM devices.
+- **Emulator/simulator QA needs models pre-placed** in the app sandbox (iOS
+  `Documents/models/`, Android `files/models/`) to skip the 4.2 GB download; the
+  delivery `initialize()` adopt-and-verify path handles this (task 5.2). Real-device
+  QA exercises the actual background-downloader acquisition.
+- **Thumbnail pipeline still absent** (carried from the UI rebuild): the grid decodes
+  original `ph://`/`content://` URIs. Higher value now that libraries can be large and
+  enrichment reads each asset — a thumbnail/decode cache would cut cost on both paths.

@@ -6,7 +6,7 @@ import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
-import com.visara.mediaobserver.MediaObserverPackage
+import com.visara.mediaindexer.MediaIndexerPackage
 import com.visara.thermal.ThermalObserverPackage
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ExpoReactHostFactory
@@ -20,7 +20,7 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
-              add(MediaObserverPackage())
+              add(MediaIndexerPackage())
               add(ThermalObserverPackage())
             },
         // Keep the plain RN CLI/Metro entry; Expo's default expects Expo CLI's

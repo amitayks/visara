@@ -5,7 +5,7 @@ TBD - created by archiving change gemma-model-delivery-and-management. Update Pu
 ## Requirements
 ### Requirement: Onboarding includes an optional model step
 
-Onboarding SHALL include a model step (a new entry in the `OnboardingScreen` `screens` array, using the existing `OnboardingTemplate` pattern) that explains the optional on-device Gemma model and its one-time Wi-Fi download, and offers a choice to start the download or defer it. The step SHALL make clear the download is optional and gated on Wi-Fi (and charging).
+Onboarding SHALL include a model step (a step within the rebuilt onboarding flow's step sequence, owned by the `onboarding-experience` capability) that explains the optional on-device Gemma model and its one-time Wi-Fi download, and offers a choice to start the download or defer it. The step SHALL make clear the download is optional and gated on Wi-Fi (and charging).
 
 #### Scenario: Model step is presented during onboarding
 
@@ -19,7 +19,7 @@ Onboarding SHALL include a model step (a new entry in the `OnboardingScreen` `sc
 
 ### Requirement: Onboarding never blocks on the model download
 
-Onboarding completion SHALL be independent of model delivery state. `handleComplete` SHALL dispatch `SET_ONBOARDING_COMPLETED` regardless of whether a model download was started, is in progress, or failed, and SHALL NOT await the download. Until the model is present AND enabled, the app SHALL run the Tier-0 ML-Kit path only.
+Onboarding completion SHALL be independent of model delivery state. Completing onboarding SHALL set the persisted onboarding-completion flag (`onboardingCompleted` in the settings store) regardless of whether a model download was started, is in progress, or failed, and SHALL NOT await the download. Until the model is present AND enabled, the app SHALL run the Tier-0 ML-Kit path only.
 
 #### Scenario: Completion does not wait for the download
 
@@ -33,7 +33,7 @@ Onboarding completion SHALL be independent of model delivery state. `handleCompl
 
 ### Requirement: Privacy copy reconciled to "download once, then offline"
 
-The onboarding copy that currently promises processing "100% private… without internet" SHALL be reconciled so it no longer implies zero network use. The `WelcomeContent` and `PrivacyContent` copy in `src/screens/Onboarding/OnboardingScreen.tsx` SHALL state that the AI model is downloaded once (over Wi-Fi) and that analysis then runs fully offline, while continuing to assert accurately that photos and personal data never leave the device. No copy SHALL remain that claims AI analysis never uses the internet.
+The rebuilt onboarding flow's welcome/privacy copy SHALL NOT imply zero network use. Wherever onboarding describes AI analysis or privacy, the copy SHALL state that the AI model is downloaded once (over Wi-Fi) and that analysis then runs fully offline, while continuing to assert accurately that photos and personal data never leave the device. No copy SHALL remain that claims AI analysis never uses the internet.
 
 #### Scenario: Copy reflects the one-time download
 

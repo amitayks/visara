@@ -24,7 +24,11 @@ Visara automatically discovers photos and documents on your device, processes th
 |---|---|
 | Framework | React Native 0.86 (New Architecture, Hermes V1) |
 | Language | TypeScript 5.9 (strict mode) |
-| UI Components | React Native Paper (Material Design) |
+| UI Components | Visara DS (owned design system on RN primitives) |
+| Styling/Theming | react-native-unistyles 3 (C++ Fabric, zero-re-render themes) |
+| State | Zustand 5 (domain stores) + WatermelonDB observables |
+| Navigation | React Navigation 7 (static API, native-stack) + pager-view shell |
+| Sheets/Toasts | TrueSheet (native) / sonner-native |
 | Animations | React Native Reanimated 4 (react-native-worklets) |
 | Gestures | React Native Gesture Handler |
 | Virtualized Lists | Shopify FlashList |
@@ -36,7 +40,6 @@ Visara automatically discovers photos and documents on your device, processes th
 | ML - OCR | Apple Vision (iOS) / engine OCR pipeline |
 | ML - Search | Semantic embeddings + hybrid (lexical/vector) search |
 | Media Access | Camera Roll |
-| Camera | Vision Camera |
 | Background Tasks | React Native Background Actions |
 | Notifications | Notifee |
 | Encryption | React Native Quick Crypto + Keychain |
@@ -47,38 +50,46 @@ Visara automatically discovers photos and documents on your device, processes th
 
 ```
 ┌────────────────────────────────────────────────────────┐
-│                     Screens                            │
-│   Onboarding  |  Main (Gallery)  |  Albums  | Settings │
+│                     Features                           │
+│  Onboarding | Gallery | Viewer | Albums | Settings     │
+│  (src/features/*, each owns its screens + logic)       │
 ├────────────────────────────────────────────────────────┤
-│                   Navigation                           │
-│   HorizontalPageContainer + AnimatedBottomNav          │
-│   (custom swipe-based page system)                     │
+│                  App Shell (src/app)                   │
+│  RNav7 static native-stack: Onboarding gate → Shell    │
+│  Shell = PagerShell (Gallery ↔ Albums, edge gestures)  │
+│         + morphing BottomBar; PhotoViewer modal;       │
+│         Settings push; headless bootstrap (services)   │
 ├────────────────────────────────────────────────────────┤
-│             Components (Atomic Design)                 │
-│   Templates  ->  Organisms  ->  Molecules  ->  Atoms   │
+│              Design System (src/ui)                    │
+│  Unistyles tokens/themes + ~18 owned primitives        │
 ├────────────────────────────────────────────────────────┤
-│            State Management (Contexts)                 │
-│  Gallery | Navigation | Processing | Search | Settings │
+│            State (src/state, Zustand 5)                │
+│  settings | nav | selection | search | processing |    │
+│  model | viewer  — DB entity data stays in Watermelon  │
+│  observables at screen level (throttled), never in     │
+│  global stores; hot progress via Reanimated SharedValue│
 ├────────────────────────────────────────────────────────┤
 │                 Service Layer                          │
-│  ML Services     | Search   | Background  | Security   │
-│  (Label + OCR)   | (Mini   | (Tasks +    | (Encrypt   │
-│                  | Search) | Notifs)     | + Keychain) │
+│  Orchestrator (discover→queue→ML tiers→index) | Search │
+│  (hybrid lexical+vector) | Background gating | Model   │
+│  delivery | facade.ts (searchMedia/removeMedia/index)  │
 ├────────────────────────────────────────────────────────┤
 │                  Data Layer                            │
-│  WatermelonDB (SQLCipher)  |  MMKV (fast KV store)    │
-│  Repositories: Media, Label, OCR, Album, Queue, etc.  │
+│  WatermelonDB  |  MMKV (single-owner typed keys)       │
+│  Repositories: Media, Label, OCR, Album, Queue, etc.   │
 ├────────────────────────────────────────────────────────┤
 │                 Native Layer                           │
-│ Camera Roll | ExecuTorch | Filesystem | Crypto | Notifee│
+│ MediaObserver/Thermal/VisionOCR TurboModules |         │
+│ ExecuTorch | Camera Roll | Filesystem | Crypto         │
 └────────────────────────────────────────────────────────┘
 ```
 
 **Key patterns:**
-- **Atomic Design** for component hierarchy (atoms, molecules, organisms, templates, screens)
+- **Owned design system** (`src/ui`): tokens + primitives on Unistyles — theme flips never re-render the media grid
+- **Domain stores** (`src/state`, Zustand): entity arrays never live in global stores; screens subscribe to WatermelonDB observables with trailing throttle
+- **Headless bootstrap** (`src/app/bootstrap.ts`): the single seam wiring orchestrator events, observer batches, and settings gating into stores — orchestrator never imports React
+- **Services facade** (`src/services/facade.ts`): batched search hydration, full-cleanup deletion, idempotent index lifecycle
 - **Repository Pattern** for database access abstraction
-- **Context + useReducer** for unidirectional state management
-- **Service Layer** with static class services for ML, search, background processing, and encryption
 
 ## Getting Started
 
@@ -121,49 +132,37 @@ npm run android
 
 ```
 src/
-├── App.tsx                        # Root component with provider hierarchy
+├── app/                           # App shell
+│   ├── App.tsx                    # Root component (minimal providers)
+│   ├── navigation.tsx             # RNav7 static native-stack tree + navigationRef
+│   ├── bootstrap.ts               # Headless services wiring (start/stop)
+│   ├── gestureMath.ts             # Pure edge-swipe validity math (tested)
+│   └── shell/                     # ShellScreen, PagerShell, BottomBar, back handler
+├── ui/
+│   ├── theme/                     # Unistyles config, tokens (colors/spacing/type/motion)
+│   └── components/                # Visara DS primitives (Text, Button, Sheet, Dialog, …)
+├── state/                         # Zustand stores: settings, nav, selection, search,
+│   │                              #   processing (+SharedValue mirror), model, viewer
+│   └── useVisibleMedia.ts         # Throttled screen-level WatermelonDB subscription
+├── features/
+│   ├── gallery/                   # GalleryPage: sectioned grid, zoom, selection, empty states
+│   ├── viewer/                    # PhotoViewerScreen + InfoSheet + openPhotoViewer
+│   ├── albums/                    # Smart + custom albums, reorder, AlbumDetail
+│   ├── search/                    # searchController (debounce + stale guard)
+│   ├── settings/                  # SettingsScreen + AI model section + data actions
+│   ├── onboarding/                # Steps: welcome/privacy/permissions/model/complete
+│   └── dev/                       # __DEV__-only ExecuTorch POC surfaces
 ├── assets/                        # Static assets (logos)
-├── components/
-│   ├── atoms/                     # Button, Thumbnail, Badge, Icon, LabelTag, ProgressBar
-│   ├── molecules/                 # AnimatedBottomNav, AlbumCard, SearchBar, DateSectionHeader
-│   ├── organisms/                 # PhotoGrid, PhotoViewerModal, InfoDrawer, AlbumList, SettingsDrawer
-│   └── templates/                 # MainTemplate, OnboardingTemplate
-├── contexts/                      # React Context state management
-│   ├── GalleryContext.tsx         # Photo data, selection, grid state
-│   ├── NavigationContext.tsx       # Page state, search mode, drawers
-│   ├── ProcessingContext.tsx       # AI processing pipeline state
-│   ├── SearchContext.tsx           # Search queries and results
-│   └── SettingsContext.tsx         # User preferences and theme
-├── models/                        # WatermelonDB models
-│   ├── MediaFile.ts               # Photos and documents
-│   ├── Label.ts                   # AI-generated labels
-│   ├── OcrText.ts                 # Extracted text
-│   ├── Album.ts                   # Albums (manual and smart)
-│   ├── AlbumMedia.ts              # Album-media junction
-│   ├── ProcessingQueue.ts         # Processing pipeline queue
-│   └── AppSettings.ts             # Key-value settings
-├── native-modules/
-│   └── NativeMediaObserver.ts     # TurboModule spec for native media watching
-├── navigation/
-│   ├── RootNavigator.tsx          # Top-level navigation (onboarding vs main)
-│   ├── MainNavigator.tsx          # Custom swipeable page navigation
-│   ├── OnboardingNavigator.tsx    # First-launch flow
-│   └── ModalNavigator.tsx         # Full-screen modals
-├── screens/
-│   ├── Main/MainScreen.tsx        # Photo gallery grid
-│   ├── Albums/AlbumsScreen.tsx    # Album management
-│   ├── Settings/SettingsScreen.tsx # App settings
-│   └── Onboarding/               # First-launch onboarding
+├── models/                        # WatermelonDB models (MediaFile, Label, OcrText, Album, …)
+├── native-modules/                # TurboModule specs (MediaObserver, Thermal, VisionOCR)
 ├── services/
-│   ├── background/                # BackgroundTaskService, NotificationService
-│   ├── database/                  # Database init, schema, 6 repository classes
-│   ├── media/                     # MediaDiscoveryService, ThumbnailService
-│   ├── ml/                        # ImageLabelingService, TextRecognitionService, ProcessingService
-│   ├── search/                    # SearchService (MiniSearch integration)
-│   ├── security/                  # EncryptionService (AES-256)
-│   └── storage/                   # MMKV key-value store setup
+│   ├── facade.ts                  # UI-facing surface: searchMedia, removeMedia, ensureSearchIndex
+│   ├── background/                # BackgroundTaskService (drain gating), NotificationService
+│   ├── database/                  # Database init, schema, repository classes
+│   ├── media/                     # MediaDiscoveryService, MediaPermissions, ThumbnailService
+│   ├── ml/ · model/ · orchestrator/ · search/ · security/ · device/
+│   └── storage/                   # MMKV singleton (single-owner typed keys)
 ├── shared-types/                  # Shared TypeScript types
-├── theme/                         # Color system and useTheme hook
 └── utils/                         # Constants, device utilities, photo actions
 ```
 

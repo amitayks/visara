@@ -19,17 +19,16 @@
 		"forceConsistentCasingInFileNames": true,
 		"experimentalDecorators": true,
 		"paths": {
-			"@components/*": ["./src/components/*"],
-			"@screens/*": ["./src/screens/*"],
+			"@backend/*": ["./src/backend/*"],
+			"@ui/*": ["./src/ui/*"],
+			"@state/*": ["./src/state/*"],
+			"@app/*": ["./src/app/*"],
+			"@features/*": ["./src/features/*"],
 			"@services/*": ["./src/services/*"],
-			"@contexts/*": ["./src/contexts/*"],
 			"@models/*": ["./src/models/*"],
-			"@hooks/*": ["./src/hooks/*"],
 			"@utils/*": ["./src/utils/*"],
 			"@shared-types/*": ["./src/shared-types/*"],
-			"@native-modules/*": ["./src/native-modules/*"],
-			"@theme/*": ["./src/theme/*"],
-			"@navigation/*": ["./src/navigation/*"]
+			"@native-modules/*": ["./src/native-modules/*"]
 		}
 	},
 	"include": ["src/**/*"],
