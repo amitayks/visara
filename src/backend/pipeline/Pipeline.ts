@@ -467,13 +467,22 @@ export class Pipeline {
 		Pipeline.configureCleanup.push(
 			deps.librarySync.subscribe((event) => {
 				Pipeline.emit(event);
-				if (event.type === "discovery-complete") Pipeline.wake();
+				if (event.type === "discovery-complete") {
+					Pipeline.wake();
+					// start() now bails until there is admissible work, so nudge it
+					// once discovery is done (it no-ops if not yet ready).
+					void Pipeline.maybeAutoResume();
+				}
 			}),
 		);
 
 		Pipeline.configureCleanup.push(
 			deps.delivery.subscribe(() => {
 				Pipeline.wake();
+				// Model just became ready (or was deleted) — (re)start if there is
+				// pending work; this is what lets the drain begin AFTER a download
+				// completes without an FGS having been spun up on cold boot.
+				void Pipeline.maybeAutoResume();
 			}),
 		);
 
@@ -518,6 +527,25 @@ export class Pipeline {
 			return;
 		}
 		if (Pipeline.running) return;
+
+		// Do not spin up the drain host until there is admissible work. On
+		// Android the host is a react-native-background-actions FOREGROUND
+		// SERVICE; starting an FGS only to sit paused (no model yet, discovery
+		// not done, or nothing pending) is rejected/churned by strict OEM builds
+		// (ColorOS / Android 12+ — ForegroundServiceStartNotAllowed + a "No task
+		// registered" sticky-restart loop) and can take the JS engine down with
+		// it. The delivery / app-state / media subscriptions re-invoke start via
+		// maybeAutoResume() the moment conditions change (e.g. model ready).
+		if (!deps.delivery.isReady() || !deps.librarySync.isDiscoveryComplete()) {
+			return;
+		}
+		try {
+			if ((await deps.mediaRepo.pendingCount()) === 0) return;
+		} catch (error) {
+			console.warn("[Pipeline] start(): pending check failed", error);
+			return;
+		}
+
 		Pipeline.running = true;
 		Pipeline.stopRequested = false;
 		Pipeline.manualStopped = false;
@@ -1000,7 +1028,9 @@ export class Pipeline {
 		if (Pipeline.running || Pipeline.manualStopped || Pipeline.manualPause) {
 			return;
 		}
-		if (!deps.librarySync.isDiscoveryComplete()) return;
+		if (!deps.librarySync.isDiscoveryComplete() || !deps.delivery.isReady()) {
+			return;
+		}
 		try {
 			const pending = await deps.mediaRepo.pendingCount();
 			if (pending > 0) await Pipeline.start();
