@@ -4,33 +4,36 @@ import type { ModelArtifact, ModelManifest } from "@backend/types";
  * Pinned Gemma model set (gemma-model-delivery spec: "Static pinned manifest").
  * One artifact set for BOTH platforms — no variants, no runtime getters.
  *
- * Digests were computed 2026-07-05 from verified downloads of the exact URLs
- * below (byte sizes cross-checked against the Hugging Face tree API). Any
- * upstream file change breaks verification fail-closed — bump deliberately,
- * together with MODEL_VERSION.
+ * Digests were re-pinned 2026-07-17 from verified downloads. URLs point at an
+ * IMMUTABLE Hugging Face commit revision (not `resolve/main`) so an upstream
+ * re-upload can never again silently change the bytes under the pin and trip
+ * the fail-closed verifier on-device — the 2026-07-15 pins broke exactly that
+ * way (ggml-org/google re-uploaded the VLM + mmproj GGUFs, a metadata-only
+ * change of ~1.7 KB / ~0.3 KB). Any deliberate model bump: update the commit
+ * revision + sha256 + bytes here, together with MODEL_VERSION if output changes.
  */
 
 const HF = "https://huggingface.co";
 
 export const VLM_ARTIFACT: ModelArtifact = {
 	key: "vlm",
-	url: `${HF}/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/main/gemma-4-E2B_q4_0-it.gguf`,
+	url: `${HF}/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/02078d687ddc1fdb1af29400364bdca7ee2b6062/gemma-4-E2B_q4_0-it.gguf`,
 	filename: "gemma-4-E2B_q4_0-it.gguf",
-	bytes: 3_349_514_112,
-	sha256: "3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd",
+	bytes: 3_349_515_840,
+	sha256: "25194efbf8a53268241e5ffa6d5490edc08b3faaa6ead24478c8b025a986d556",
 };
 
 export const MMPROJ_ARTIFACT: ModelArtifact = {
 	key: "mmproj",
-	url: `${HF}/ggml-org/gemma-4-E2B-it-GGUF/resolve/main/mmproj-gemma-4-E2B-it-Q8_0.gguf`,
+	url: `${HF}/ggml-org/gemma-4-E2B-it-GGUF/resolve/858dcdf955fb1b5a43ed2301aea00362fc443a5c/mmproj-gemma-4-E2B-it-Q8_0.gguf`,
 	filename: "mmproj-gemma-4-E2B-it-Q8_0.gguf",
-	bytes: 557_367_776,
-	sha256: "8a82e0fd831bb7cb5c8898b86393eb14042986b950a60e1034bf21d061aac8a8",
+	bytes: 557_368_064,
+	sha256: "9406f99c16d68cda4f1f0552192dcc99021ea1fc6d2fd50b1dc3ccf30d04b292",
 };
 
 export const EMBEDDER_ARTIFACT: ModelArtifact = {
 	key: "embedder",
-	url: `${HF}/ggml-org/embeddinggemma-300M-GGUF/resolve/main/embeddinggemma-300M-Q8_0.gguf`,
+	url: `${HF}/ggml-org/embeddinggemma-300M-GGUF/resolve/0f741b5a6585bd53aeb15cd1372c56f2a0f65e12/embeddinggemma-300M-Q8_0.gguf`,
 	filename: "embeddinggemma-300M-Q8_0.gguf",
 	bytes: 333_590_944,
 	sha256: "b5ce9d77a3fc4b3b39ccb5643c36777911cc4eb46a66962eadfa3f5f60490d63",
