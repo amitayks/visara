@@ -76,16 +76,26 @@ public class ThermalObserverModule extends NativeThermalObserverSpec {
     private WritableMap buildPayload(int status) {
         int level;
         String name;
+        // Align Android's 7-step PowerManager scale with the shared 0..3 scale
+        // (iOS ProcessInfo.thermalState semantics), NOT by raw ordinal:
+        //   NONE      -> nominal   (0)
+        //   LIGHT     -> fair      (1)  "throttling, UX not impacted"
+        //   MODERATE  -> fair      (1)  "moderate throttling, UX NOT largely impacted"
+        //   SEVERE    -> serious   (2)  "severe throttling, UX largely impacted" == iOS serious
+        //   CRITICAL+ -> critical  (3)
+        // The drain's thermal gate blocks at serious(2); mapping MODERATE to
+        // serious (its old ordinal-equal value) wrongly paused analysis on a
+        // merely-warm device (e.g. right after the model download).
         switch (status) {
             case PowerManager.THERMAL_STATUS_NONE:
                 level = 0;
                 name = "nominal";
                 break;
             case PowerManager.THERMAL_STATUS_LIGHT:
+            case PowerManager.THERMAL_STATUS_MODERATE:
                 level = 1;
                 name = "fair";
                 break;
-            case PowerManager.THERMAL_STATUS_MODERATE:
             case PowerManager.THERMAL_STATUS_SEVERE:
                 level = 2;
                 name = "serious";

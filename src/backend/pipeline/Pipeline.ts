@@ -913,6 +913,21 @@ export class Pipeline {
 		const power = deps.readPower
 			? await deps.readPower()
 			: await readPowerDefault();
+		// Refresh the thermal level from a live read on every gate evaluation
+		// (between items AND during the 5 s pause poll). The event-driven cache
+		// alone can latch a stale level — e.g. a hot reading taken right after
+		// the model download — and leave the drain paused long after the device
+		// cooled, because no further thermal-change event arrives to clear it.
+		// The event path (onThermalLevel) still drives the critical fast-release.
+		if (Pipeline.thermalSource) {
+			try {
+				Pipeline.thermalLevel = clampThermalLevel(
+					await Pipeline.thermalSource.read(),
+				);
+			} catch (error) {
+				console.warn("[Pipeline] thermal read failed (using cached)", error);
+			}
+		}
 		return {
 			discoveryComplete: deps.librarySync.isDiscoveryComplete(),
 			deliveryReady: deps.delivery.isReady(),
