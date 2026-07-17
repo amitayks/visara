@@ -4,31 +4,36 @@ import type { ModelArtifact, ModelManifest } from "@backend/types";
  * Pinned Gemma model set (gemma-model-delivery spec: "Static pinned manifest").
  * One artifact set for BOTH platforms — no variants, no runtime getters.
  *
- * Digests were re-pinned 2026-07-17 from verified downloads. URLs point at an
- * IMMUTABLE Hugging Face commit revision (not `resolve/main`) so an upstream
- * re-upload can never again silently change the bytes under the pin and trip
- * the fail-closed verifier on-device — the 2026-07-15 pins broke exactly that
- * way (ggml-org/google re-uploaded the VLM + mmproj GGUFs, a metadata-only
- * change of ~1.7 KB / ~0.3 KB). Any deliberate model bump: update the commit
- * revision + sha256 + bytes here, together with MODEL_VERSION if output changes.
+ * URLs point at an IMMUTABLE Hugging Face commit revision (not `resolve/main`)
+ * so an upstream re-upload can never silently change the bytes under the pin.
+ *
+ * VLM + mmproj are DELIBERATELY pinned to the PRE-re-upload revisions. On
+ * 2026-07-15/16 upstream re-uploaded both GGUFs; the VLM change was
+ * "Update metadata (tokenizer.chat_template)" (+1.7 KB). That new tokenizer
+ * metadata makes the Android llama.cpp build hard-`abort()` in
+ * `llama_vocab::impl::load` while loading the model (SIGABRT, whole-app crash)
+ * — even though the iOS prebuilt parsed it fine. So we hold the original files,
+ * which are verified working on BOTH platforms. Any future bump to the newer
+ * files MUST be validated on a physical Android device (not just the iOS sim /
+ * an emulator, whose CPU variant differs) before landing.
  */
 
 const HF = "https://huggingface.co";
 
 export const VLM_ARTIFACT: ModelArtifact = {
 	key: "vlm",
-	url: `${HF}/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/02078d687ddc1fdb1af29400364bdca7ee2b6062/gemma-4-E2B_q4_0-it.gguf`,
+	url: `${HF}/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/69536a21d70340464240401ba38223d805f6a709/gemma-4-E2B_q4_0-it.gguf`,
 	filename: "gemma-4-E2B_q4_0-it.gguf",
-	bytes: 3_349_515_840,
-	sha256: "25194efbf8a53268241e5ffa6d5490edc08b3faaa6ead24478c8b025a986d556",
+	bytes: 3_349_514_112,
+	sha256: "3646b4c147cd235a44d91df1546d3b7d8e29b547dbe4e1f80856419aa455e6fd",
 };
 
 export const MMPROJ_ARTIFACT: ModelArtifact = {
 	key: "mmproj",
-	url: `${HF}/ggml-org/gemma-4-E2B-it-GGUF/resolve/858dcdf955fb1b5a43ed2301aea00362fc443a5c/mmproj-gemma-4-E2B-it-Q8_0.gguf`,
+	url: `${HF}/ggml-org/gemma-4-E2B-it-GGUF/resolve/b3a016208376b12ba27234f397bf29cf0538434e/mmproj-gemma-4-E2B-it-Q8_0.gguf`,
 	filename: "mmproj-gemma-4-E2B-it-Q8_0.gguf",
-	bytes: 557_368_064,
-	sha256: "9406f99c16d68cda4f1f0552192dcc99021ea1fc6d2fd50b1dc3ccf30d04b292",
+	bytes: 557_367_776,
+	sha256: "8a82e0fd831bb7cb5c8898b86393eb14042986b950a60e1034bf21d061aac8a8",
 };
 
 export const EMBEDDER_ARTIFACT: ModelArtifact = {
