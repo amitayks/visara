@@ -3,7 +3,7 @@ import {
 	removeMedia,
 } from "@backend/facade";
 import type { MediaRow as MediaFile } from "@backend/types";
-import { Clipboard, Share } from "react-native";
+import { Clipboard, Linking, Platform, Share } from "react-native";
 
 /**
  * Photo Actions Utilities — shared reusable functions for common photo
@@ -86,10 +86,18 @@ export async function copyPhotoMetadata(
 	await copyTextToClipboard(metadata);
 }
 
-/** Open file in external/default application (unimplemented placeholder). */
-export async function openInExternalApp(media: MediaFile): Promise<void> {
-	console.log(`Opening file externally: ${media.filename} (${media.uri})`);
-	throw new Error("External app opening not yet implemented");
+/**
+ * Open the photo in the device's main gallery app. Android: the MediaStore
+ * content URI resolves through ACTION_VIEW straight into the default gallery.
+ * iOS: `ph://` asset URIs cannot be deep-linked, so opening the Photos app
+ * is the closest supported behavior.
+ */
+export async function openInGallery(media: MediaFile): Promise<void> {
+	if (Platform.OS === "android") {
+		await Linking.openURL(media.uri);
+		return;
+	}
+	await Linking.openURL("photos-redirect://");
 }
 
 /**

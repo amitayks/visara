@@ -17,7 +17,11 @@ import { useSearchStore } from "@state/searchStore";
 import { useViewerStore } from "@state/viewerStore";
 import { Sheet, type SheetRef, toast } from "@ui/components";
 import { StyleSheet } from "@ui/theme";
-import { copyPhotoMetadata, sharePhoto } from "@utils/photoActions";
+import {
+	copyPhotoMetadata,
+	openInGallery,
+	sharePhoto,
+} from "@utils/photoActions";
 import {
 	forwardRef,
 	useCallback,
@@ -91,6 +95,15 @@ export const PhotoInfoDrawer = forwardRef<
 		}
 	}, [media]);
 
+	const handleOpenInGallery = useCallback(async () => {
+		if (!media) return;
+		try {
+			await openInGallery(media);
+		} catch {
+			toast.error("Couldn't open in gallery");
+		}
+	}, [media]);
+
 	const handleCopyDetails = useCallback(async () => {
 		if (!metadata) return;
 		try {
@@ -135,6 +148,9 @@ export const PhotoInfoDrawer = forwardRef<
 						}}
 						onShare={() => {
 							void handleShare();
+						}}
+						onOpenInGallery={() => {
+							void handleOpenInGallery();
 						}}
 						onCopyDetails={() => {
 							void handleCopyDetails();

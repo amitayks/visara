@@ -19,6 +19,7 @@ interface QuickAction {
 
 export interface QuickActionsProps {
 	onShare: () => void;
+	onOpenInGallery: () => void;
 	onCopyDetails: () => void;
 	onAddToAlbum: () => void;
 	onDelete: () => void;
@@ -26,6 +27,7 @@ export interface QuickActionsProps {
 
 export function QuickActions({
 	onShare,
+	onOpenInGallery,
 	onCopyDetails,
 	onAddToAlbum,
 	onDelete,
@@ -37,6 +39,13 @@ export function QuickActions({
 			label: "Share",
 			onPress: onShare,
 			testID: "drawer-action-share",
+		},
+		{
+			key: "open",
+			icon: "open-in-new",
+			label: "Open in",
+			onPress: onOpenInGallery,
+			testID: "drawer-action-open",
 		},
 		{
 			key: "album",
@@ -100,8 +109,8 @@ const styles = StyleSheet.create((theme) => ({
 		gap: theme.spacing.sm,
 	},
 	circle: {
-		width: 52,
-		height: 52,
+		width: 48,
+		height: 48,
 		borderRadius: theme.radii.full,
 		alignItems: "center",
 		justifyContent: "center",

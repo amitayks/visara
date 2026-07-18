@@ -20,6 +20,7 @@ export interface InfoPaneProps {
 	metadata: DrawerMetadata | null;
 	onTagPress: (tag: string) => void;
 	onShare: () => void;
+	onOpenInGallery: () => void;
 	onCopyDetails: () => void;
 	onAddToAlbum: () => void;
 	onDelete: () => void;
@@ -30,6 +31,7 @@ export function InfoPane({
 	metadata,
 	onTagPress,
 	onShare,
+	onOpenInGallery,
 	onCopyDetails,
 	onAddToAlbum,
 	onDelete,
@@ -55,6 +57,7 @@ export function InfoPane({
 
 			<QuickActions
 				onShare={onShare}
+				onOpenInGallery={onOpenInGallery}
 				onCopyDetails={onCopyDetails}
 				onAddToAlbum={onAddToAlbum}
 				onDelete={onDelete}
