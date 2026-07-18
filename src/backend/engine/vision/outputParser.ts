@@ -1,16 +1,18 @@
 import type { EnrichmentResult } from "@backend/types";
 
 /**
- * Pure parse/coerce layer for the Gemma vision output (design D3,
- * gemma-vision-enrichment "Robust parse with degraded fallback").
- *
- * Deliberately dependency-free (only a type import) so jest exercises it
- * without any llama.rn / react-native mocking
- * (`src/backend/__tests__/parseEnrichment.test.ts`).
+ * Pure parse/coerce layer for the Gemma vision output
+ * (personalized-vision-context design D5; gemma-vision-enrichment "Robust
+ * parse with degraded fallback"). Dependency-free (only a type import) so
+ * jest exercises it without llama.rn / react-native mocking
+ * (`src/backend/__tests__/outputParser.test.ts`).
  */
 
 /** Tags are capped at this many entries after lowercase/trim/dedupe. */
 export const MAX_TAGS = 16;
+
+/** Entity matches are capped after trim/case-insensitive dedupe. */
+export const MAX_ENTITIES = 8;
 
 /** Degraded raw-as-caption fallback is trimmed then capped at this length. */
 export const RAW_CAPTION_MAX_CHARS = 500;
@@ -51,8 +53,10 @@ export function extractFirstJsonObject(
 
 /**
  * Coerce a (possibly null) parsed object into the EnrichmentResult contract:
- * - object present: missing/mistyped keys default (strings → "", tags → []);
- *   tags lowercased, trimmed, deduped, capped at MAX_TAGS.
+ * - object present: missing/mistyped keys default (strings → "", arrays → []);
+ *   tags lowercased, trimmed, deduped, capped at MAX_TAGS; entities trimmed,
+ *   deduped case-insensitively (original casing preserved — they round-trip
+ *   to the entity store by exact glossary name), capped at MAX_ENTITIES.
  * - object null: the whole raw output (trimmed, capped) becomes the caption —
  *   a degraded-but-searchable result, never a failure.
  */
@@ -66,6 +70,7 @@ export function coerceEnrichment(
 			description: "",
 			tags: [],
 			text: "",
+			entities: [],
 		};
 	}
 
@@ -74,6 +79,7 @@ export function coerceEnrichment(
 		description: coerceString(obj.description),
 		tags: normalizeTags(obj.tags),
 		text: coerceString(obj.text),
+		entities: normalizeEntities(obj.entities),
 	};
 }
 
@@ -141,6 +147,37 @@ function normalizeTags(value: unknown): string[] {
 		}
 	}
 	return tags;
+}
+
+/**
+ * Entities: strings only (no legacy object forms — the field is new).
+ * Trim, drop empties, dedupe case-insensitively KEEPING the first casing
+ * (downstream resolution against the store is itself case-insensitive, but
+ * exact text reads better in logs/UI), cap at MAX_ENTITIES.
+ */
+function normalizeEntities(value: unknown): string[] {
+	if (!Array.isArray(value)) {
+		return [];
+	}
+
+	const seen = new Set<string>();
+	const entities: string[] = [];
+	for (const entry of value as unknown[]) {
+		if (typeof entry !== "string") {
+			continue;
+		}
+		const trimmed = entry.trim();
+		const key = trimmed.toLowerCase();
+		if (trimmed.length === 0 || seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		entities.push(trimmed);
+		if (entities.length >= MAX_ENTITIES) {
+			break;
+		}
+	}
+	return entities;
 }
 
 function tagText(entry: unknown): string | null {

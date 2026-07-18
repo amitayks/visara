@@ -27,6 +27,7 @@ export class TableInvalidationBus implements InvalidationBus {
 		media: 0,
 		enrichment: 0,
 		albums: 0,
+		entities: 0,
 	};
 
 	private readonly watchers = new Set<Watcher>();

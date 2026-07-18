@@ -1,9 +1,10 @@
 import {
 	coerceEnrichment,
 	extractFirstJsonObject,
+	MAX_ENTITIES,
 	MAX_TAGS,
 	RAW_CAPTION_MAX_CHARS,
-} from "@backend/engine/parseEnrichment";
+} from "@backend/engine/vision/outputParser";
 import { describe, expect, it } from "@jest/globals";
 
 /** Parse exactly as the engine does: extract, then coerce with raw fallback. */
@@ -64,15 +65,16 @@ describe("extractFirstJsonObject — balanced-brace scan", () => {
 });
 
 describe("coerceEnrichment — schema coercion", () => {
-	it("keeps all four fields from a complete object", () => {
+	it("keeps all five fields from a complete object", () => {
 		const result = parse(
-			'{"caption":"A dog","description":"Two sentences here.","tags":["dog"],"text":"EXIT"}',
+			'{"caption":"A dog","description":"Two sentences here.","tags":["dog"],"text":"EXIT","entities":["Biscuit"]}',
 		);
 		expect(result).toEqual({
 			caption: "A dog",
 			description: "Two sentences here.",
 			tags: ["dog"],
 			text: "EXIT",
+			entities: ["Biscuit"],
 		});
 	});
 
@@ -82,17 +84,21 @@ describe("coerceEnrichment — schema coercion", () => {
 			description: "",
 			tags: [],
 			text: "",
+			entities: [],
 		});
 	});
 
-	it("defaults mistyped keys (non-string caption, non-array tags)", () => {
+	it("defaults mistyped keys (non-string caption, non-array tags/entities)", () => {
 		expect(
-			parse('{"caption":42,"description":null,"tags":"dog","text":7}'),
+			parse(
+				'{"caption":42,"description":null,"tags":"dog","text":7,"entities":"Biscuit"}',
+			),
 		).toEqual({
 			caption: "",
 			description: "",
 			tags: [],
 			text: "",
+			entities: [],
 		});
 	});
 
@@ -143,6 +149,31 @@ describe("coerceEnrichment — schema coercion", () => {
 		});
 	});
 
+	describe("entities normalization", () => {
+		it("trims, drops junk, and preserves original casing", () => {
+			const raw = JSON.stringify({
+				caption: "x",
+				entities: [" Biscuit ", 7, null, { text: "Rex" }, "", "Loomis"],
+			});
+			expect(parse(raw).entities).toEqual(["Biscuit", "Loomis"]);
+		});
+
+		it("dedupes case-insensitively keeping the first casing", () => {
+			const raw = JSON.stringify({
+				caption: "x",
+				entities: ["Biscuit", "biscuit", "BISCUIT", "Rex"],
+			});
+			expect(parse(raw).entities).toEqual(["Biscuit", "Rex"]);
+		});
+
+		it(`caps entities at ${MAX_ENTITIES}`, () => {
+			const entities = Array.from({ length: 20 }, (_, i) => `Entity${i}`);
+			const result = parse(JSON.stringify({ entities }));
+			expect(result.entities).toHaveLength(MAX_ENTITIES);
+			expect(result.entities[0]).toBe("Entity0");
+		});
+	});
+
 	describe("degraded raw fallback (no JSON)", () => {
 		it("stores the whole raw output as the caption", () => {
 			const raw = "  The image shows a sunset over the ocean.  ";
@@ -151,6 +182,7 @@ describe("coerceEnrichment — schema coercion", () => {
 				description: "",
 				tags: [],
 				text: "",
+				entities: [],
 			});
 		});
 
@@ -167,6 +199,7 @@ describe("coerceEnrichment — schema coercion", () => {
 				description: "",
 				tags: [],
 				text: "",
+				entities: [],
 			});
 		});
 	});

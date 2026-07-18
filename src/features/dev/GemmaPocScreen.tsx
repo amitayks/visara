@@ -13,7 +13,7 @@
 
 import { getDb } from "@backend/db/open";
 import { createGemmaEmbed } from "@backend/engine/GemmaEmbed";
-import { createGemmaVision } from "@backend/engine/GemmaVision";
+import { createGemmaVision } from "@backend/engine/vision";
 import { GemmaModelDeliveryService } from "@backend/facade";
 import { getModelDir } from "@backend/model/Delivery";
 import RNFS from "@dr.pogodin/react-native-fs";

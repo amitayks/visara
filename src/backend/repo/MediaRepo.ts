@@ -144,6 +144,7 @@ export class MediaRepo implements MediaRepoContract {
 		const inList = "IN (SELECT value FROM json_each(?))";
 		const commands: SQLBatchTuple[] = [
 			[`DELETE FROM album_media WHERE media_id ${inList}`, [list]],
+			[`DELETE FROM entity_media WHERE media_id ${inList}`, [list]],
 			[
 				`DELETE FROM media_fts WHERE rowid IN (SELECT rowid FROM media WHERE id ${inList})`,
 				[list],
@@ -285,6 +286,28 @@ export class MediaRepo implements MediaRepoContract {
 					OR (enrich_status = 'done' AND (model_version IS NULL OR model_version <> ?))
 				)`,
 			[currentModelVersion],
+		);
+		if (result.rowsAffected > 0) {
+			this.bus.notify("media");
+		}
+		return result.rowsAffected;
+	}
+
+	/**
+	 * Teach→re-analyze loop (user-entity-store spec): targeted rows flip back
+	 * to pending with retry/error reset; deleted rows are excluded. Unlike
+	 * sweepForReprocess this ignores model_version — the trigger is a
+	 * knowledge change, not a model change.
+	 */
+	async resetForReanalysis(ids: string[]): Promise<number> {
+		if (ids.length === 0) {
+			return 0;
+		}
+		const result = await this.db().execute(
+			`UPDATE media SET enrich_status = 'pending', retry_count = 0, enrich_error = NULL
+			 WHERE deleted = 0 AND kind = 'image'
+				AND id IN (SELECT value FROM json_each(?))`,
+			[idListParam(ids)],
 		);
 		if (result.rowsAffected > 0) {
 			this.bus.notify("media");

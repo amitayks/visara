@@ -4,7 +4,7 @@ import { invalidationBus } from "./db/invalidation";
 import { runLegacyCleanup } from "./db/legacyCleanup";
 import { getDb } from "./db/open";
 import { createGemmaEmbed } from "./engine/GemmaEmbed";
-import { createGemmaVision } from "./engine/GemmaVision";
+import { createGemmaVision, MAX_CONTEXT_ENTITIES } from "./engine/vision";
 import { useVisibleMedia } from "./feed";
 import {
 	cleanupInferenceTemp,
@@ -16,6 +16,7 @@ import { GemmaModelDeliveryService, getModelDir } from "./model/Delivery";
 import { Pipeline } from "./pipeline/Pipeline";
 import { AlbumRepo } from "./repo/AlbumRepo";
 import { EnrichmentRepo } from "./repo/EnrichmentRepo";
+import { EntityRepo } from "./repo/EntityRepo";
 import { MediaRepo } from "./repo/MediaRepo";
 import { wipeAllData as wipeAllRows } from "./repo/maintenance";
 import { SyncStateRepo } from "./repo/syncState";
@@ -25,6 +26,8 @@ import type {
 	AccessStatus,
 	AlbumRow,
 	EmbedEngine,
+	EntityKind,
+	EntityRow,
 	MediaMetadata,
 	MediaRow,
 } from "./types";
@@ -41,6 +44,7 @@ const mediaRepo = new MediaRepo();
 const enrichmentRepo = new EnrichmentRepo();
 const vectorRepo = new VectorRepo();
 const albumRepo = new AlbumRepo();
+const entityRepo = new EntityRepo();
 const syncState = new SyncStateRepo();
 
 /**
@@ -91,6 +95,12 @@ function configureOnce(): void {
 		delivery: GemmaModelDeliveryService,
 		librarySync: LibrarySync,
 		imagePrep: { toInferenceJpeg, cleanupInferenceTemp },
+		// Personalization glossary in / model detections out (fail-soft seam).
+		entities: {
+			promptContext: () => entityRepo.promptContext(MAX_CONTEXT_ENTITIES),
+			recordDetections: (mediaId, names) =>
+				entityRepo.recordDetections(mediaId, names),
+		},
 		// Live additions re-kick an idle (completed) pipeline (D9).
 		bus: invalidationBus,
 	});
@@ -231,6 +241,92 @@ export async function wipeAllData(): Promise<void> {
 		.catch((error) => {
 			console.warn("[facade] post-wipe re-discovery failed", error);
 		});
+}
+
+// --- User entities (personalized-vision-context) --------------------------------------
+
+export type { EntityKind, EntityRow };
+
+/**
+ * Teach→re-analyze loop (user-entity-store spec): after a knowledge change,
+ * flip the affected photos back to pending and nudge the drain so enrichment
+ * reflects the new glossary. Fire-and-forget on the pipeline side — teaching
+ * APIs resolve as soon as the status reset is durable.
+ */
+async function reanalyzeWithNewKnowledge(mediaIds: string[]): Promise<void> {
+	if (mediaIds.length === 0) return;
+	configureOnce();
+	const affected = await mediaRepo.resetForReanalysis(mediaIds);
+	if (affected > 0) {
+		void Pipeline.nudge().catch((error) => {
+			console.warn("[facade] pipeline nudge failed", error);
+		});
+	}
+}
+
+/** All taught entities, most recently updated first. */
+export function listEntities(): Promise<EntityRow[]> {
+	return entityRepo.list();
+}
+
+export function findEntityById(id: string): Promise<EntityRow | null> {
+	return entityRepo.byId(id);
+}
+
+/** Create alone doesn't re-analyze — nothing is linked yet; the glossary
+ * simply includes the entity for every FUTURE analysis. */
+export function createEntity(
+	kind: EntityKind,
+	name: string,
+	description: string,
+): Promise<EntityRow> {
+	return entityRepo.create(kind, name, description);
+}
+
+/** Update re-analyzes the entity's linked photos under the new brief. */
+export async function updateEntity(
+	id: string,
+	patch: { kind?: EntityKind; name?: string; description?: string },
+): Promise<void> {
+	await entityRepo.update(id, patch);
+	await reanalyzeWithNewKnowledge(await entityRepo.linkedMediaIds(id));
+}
+
+/** Delete re-analyzes former exemplars so stale names are scrubbed. */
+export async function deleteEntity(id: string): Promise<void> {
+	const formerlyLinked = await entityRepo.delete(id);
+	await reanalyzeWithNewKnowledge(formerlyLinked);
+}
+
+/** "These photos are <entity>" — links exemplars and re-enriches them. */
+export async function addEntityExamples(
+	entityId: string,
+	mediaIds: string[],
+): Promise<void> {
+	await entityRepo.addExamples(entityId, mediaIds);
+	await reanalyzeWithNewKnowledge(mediaIds);
+}
+
+/** Unlink one exemplar (no re-analysis: the glossary itself is unchanged). */
+export function removeEntityExample(
+	entityId: string,
+	mediaId: string,
+): Promise<void> {
+	return entityRepo.removeExample(entityId, mediaId);
+}
+
+/** Entities linked to a photo (user exemplars first, then detections). */
+export function getEntitiesForMedia(mediaId: string): Promise<EntityRow[]> {
+	return entityRepo.entitiesForMedia(mediaId);
+}
+
+/** Hydrated rows linked to an entity (exemplars + detections, newest links first). */
+export async function getEntityMediaRows(
+	entityId: string,
+): Promise<MediaRow[]> {
+	const ids = await entityRepo.linkedMediaIds(entityId);
+	if (ids.length === 0) return [];
+	return mediaRepo.byIds(ids);
 }
 
 // --- Albums --------------------------------------------------------------------------

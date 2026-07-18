@@ -4,6 +4,7 @@ import {
 	readUserVersion,
 	runMigrations,
 	SCHEMA_V1,
+	SCHEMA_V2,
 	SCHEMA_VERSION,
 	type SqlRunner,
 } from "@backend/db/migrations";
@@ -16,13 +17,16 @@ import { describe, expect, it } from "@jest/globals";
  */
 
 const allDdl = SCHEMA_V1.join("\n");
+const v2Ddl = SCHEMA_V2.join("\n");
 
 describe("schema v1 DDL", () => {
-	it("targets schema version 1 via a single migration", () => {
-		expect(SCHEMA_VERSION).toBe(1);
-		expect(MIGRATIONS).toHaveLength(1);
+	it("targets schema version 2 via ordered migrations", () => {
+		expect(SCHEMA_VERSION).toBe(2);
+		expect(MIGRATIONS).toHaveLength(2);
 		expect(MIGRATIONS[0].toVersion).toBe(1);
 		expect(MIGRATIONS[0].statements).toBe(SCHEMA_V1);
+		expect(MIGRATIONS[1].toVersion).toBe(2);
+		expect(MIGRATIONS[1].statements).toBe(SCHEMA_V2);
 	});
 
 	it.each([
@@ -97,6 +101,41 @@ describe("schema v1 DDL", () => {
 	});
 });
 
+describe("schema v2 DDL (user-entity-store)", () => {
+	it.each(["entity", "entity_media"])("creates table %s", (table) => {
+		expect(v2Ddl).toMatch(new RegExp(`CREATE TABLE ${table}\\s*\\(`));
+	});
+
+	it("is purely additive (no ALTER/DROP of v1 objects)", () => {
+		expect(v2Ddl).not.toContain("ALTER TABLE");
+		expect(v2Ddl).not.toContain("DROP ");
+	});
+
+	it("constrains kind and link source to the contract unions", () => {
+		expect(v2Ddl).toContain(
+			"kind TEXT CHECK(kind IN ('person','pet','brand','event','place','other'))",
+		);
+		expect(v2Ddl).toContain(
+			"source TEXT DEFAULT 'user' CHECK(source IN ('user','vlm'))",
+		);
+	});
+
+	it("declares entity invariants and recency index", () => {
+		expect(v2Ddl).toContain("id TEXT PRIMARY KEY");
+		expect(v2Ddl).toContain("name TEXT NOT NULL");
+		expect(v2Ddl).toContain(
+			"CREATE INDEX idx_entity_updated ON entity (updated_at DESC)",
+		);
+	});
+
+	it("keys entity_media on (entity_id, media_id) with a media lookup index", () => {
+		expect(v2Ddl).toContain("PRIMARY KEY (entity_id, media_id)");
+		expect(v2Ddl).toContain(
+			"CREATE INDEX idx_entity_media_media ON entity_media (media_id)",
+		);
+	});
+});
+
 describe("pendingMigrations", () => {
 	it("returns everything for a fresh database", () => {
 		expect(pendingMigrations(0)).toEqual([...MIGRATIONS]);
@@ -138,18 +177,34 @@ class FakeDb implements SqlRunner {
 }
 
 describe("runMigrations", () => {
-	it("applies v1 inside one transaction and bumps user_version", () => {
+	it("applies each migration in its own transaction and bumps user_version", () => {
 		const db = new FakeDb();
 		runMigrations(db);
 
-		expect(db.version).toBe(1);
+		expect(db.version).toBe(2);
 		expect(db.log[0]).toBe("PRAGMA user_version");
 		expect(db.log[1]).toBe("BEGIN IMMEDIATE");
-		for (const statement of SCHEMA_V1) {
+		for (const statement of [...SCHEMA_V1, ...SCHEMA_V2]) {
 			expect(db.log).toContain(statement);
 		}
-		expect(db.log[db.log.length - 2]).toBe("PRAGMA user_version = 1");
+		// v1 commits before v2 begins; the final pair closes v2.
+		expect(db.log.indexOf("PRAGMA user_version = 1")).toBeLessThan(
+			db.log.indexOf("PRAGMA user_version = 2"),
+		);
+		expect(db.log[db.log.length - 2]).toBe("PRAGMA user_version = 2");
 		expect(db.log[db.log.length - 1]).toBe("COMMIT");
+	});
+
+	it("applies only v2 on a database already at v1", () => {
+		const db = new FakeDb();
+		db.version = 1;
+		runMigrations(db);
+
+		expect(db.version).toBe(2);
+		for (const statement of SCHEMA_V2) {
+			expect(db.log).toContain(statement);
+		}
+		expect(db.log).not.toContain(SCHEMA_V1[0]);
 	});
 
 	it("is idempotent — a second run executes no DDL", () => {
@@ -160,7 +215,7 @@ describe("runMigrations", () => {
 		runMigrations(db);
 		expect(db.log.length).toBe(lengthAfterFirst + 1);
 		expect(db.log[db.log.length - 1]).toBe("PRAGMA user_version");
-		expect(db.version).toBe(1);
+		expect(db.version).toBe(2);
 	});
 
 	it("rolls back and rethrows when a statement fails", () => {
@@ -171,6 +226,15 @@ describe("runMigrations", () => {
 		expect(db.log[db.log.length - 1]).toBe("ROLLBACK");
 		expect(db.log).not.toContain("COMMIT");
 		expect(db.version).toBe(0);
+	});
+
+	it("a v2 failure keeps the committed v1", () => {
+		const db = new FakeDb();
+		db.failOn = "entity_media";
+
+		expect(() => runMigrations(db)).toThrow("fake failure on: entity_media");
+		expect(db.log[db.log.length - 1]).toBe("ROLLBACK");
+		expect(db.version).toBe(1);
 	});
 });
 

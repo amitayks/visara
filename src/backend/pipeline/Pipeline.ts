@@ -7,8 +7,10 @@ import type {
 } from "@backend/contracts";
 import { EMBEDDER_VERSION, MODEL_VERSION } from "@backend/model/manifest";
 import type {
+	AnalysisContext,
 	DeliveryState,
 	EmbedEngine,
+	EntityBrief,
 	MediaRow,
 	PauseReason,
 	PipelineEvent,
@@ -91,6 +93,17 @@ export interface ImagePrepContract {
 	cleanupInferenceTemp(path: string): Promise<void>;
 }
 
+/**
+ * User-entity seam (personalized-vision-context): the prompt glossary in and
+ * the model's detections out. Both directions are fail-soft — provider
+ * absence or failure never blocks an item (the caller already caps/orders
+ * `promptContext`; the pipeline stays ignorant of selection policy).
+ */
+export interface EntityContext {
+	promptContext(): Promise<EntityBrief[]>;
+	recordDetections(mediaId: string, names: string[]): Promise<void>;
+}
+
 /** Cached-thermal seam; the default wraps the ThermalObserver TurboModule. */
 export interface ThermalSource {
 	/** Normalized 0..3; MUST resolve (fail-open 0 on any error). */
@@ -133,6 +146,8 @@ export interface PipelineDeps {
 	delivery: DeliveryGate;
 	librarySync: LibrarySyncGate;
 	imagePrep: ImagePrepContract;
+	/** Optional: personalization glossary + detection links (fail-soft). */
+	entities?: EntityContext;
 	/** Optional: media invalidations re-kick an idle pipeline (live photos). */
 	bus?: InvalidationBus;
 	/** Override the ThermalObserver-backed default (tests). */
@@ -625,6 +640,27 @@ export class Pipeline {
 		}
 	}
 
+	/**
+	 * Re-kick after a targeted status reset (teach→re-analyze loop): a running
+	 * drain refreshes totals and wakes; an idle one starts. The reprocess()
+	 * pattern without the model-version sweep.
+	 */
+	static async nudge(): Promise<void> {
+		if (!Pipeline.deps) return;
+		if (Pipeline.running) {
+			await Pipeline.refreshTotals();
+			Pipeline.emit({
+				type: "progress",
+				processed: Pipeline.processed,
+				total: Pipeline.total,
+				failed: Pipeline.failed,
+			});
+			Pipeline.wake();
+		} else {
+			await Pipeline.start();
+		}
+	}
+
 	/** Gate config from settingsStore; applies at the next between-item check. */
 	static updateSettings(settings: PipelineSettings): void {
 		Pipeline.settings = { ...settings };
@@ -688,7 +724,8 @@ export class Pipeline {
 				await Pipeline.recordFailure(row, "image preparation failed");
 			} else {
 				const vision = Pipeline.getVision();
-				const analysis = await vision.analyze(preparedPath);
+				const analysisContext = await Pipeline.loadAnalysisContext();
+				const analysis = await vision.analyze(preparedPath, analysisContext);
 				if (analysis.ok && analysis.result) {
 					await deps.enrichmentRepo.saveResult(
 						row.id,
@@ -696,6 +733,7 @@ export class Pipeline {
 						Pipeline.modelVersion(),
 						analysis.durationMs,
 					);
+					await Pipeline.recordDetections(row.id, analysis.result.entities);
 					await Pipeline.embedInline(row.id);
 					Pipeline.processed += 1;
 					Pipeline.emit({
@@ -755,6 +793,46 @@ export class Pipeline {
 			filename: row.filename,
 			error,
 		});
+	}
+
+	/**
+	 * The per-item personalization glossary (personalized-vision-context).
+	 * Fail-soft: no provider, provider failure, or an empty store all yield
+	 * undefined — the engine falls back to the generic prompt.
+	 */
+	private static async loadAnalysisContext(): Promise<
+		AnalysisContext | undefined
+	> {
+		const entities = Pipeline.deps?.entities;
+		if (!entities) return undefined;
+		try {
+			const briefs = await entities.promptContext();
+			return briefs.length > 0 ? { entities: briefs } : undefined;
+		} catch (error) {
+			console.warn(
+				"[Pipeline] analysis context failed (generic prompt)",
+				error,
+			);
+			return undefined;
+		}
+	}
+
+	/**
+	 * Persist the model's entity matches as 'vlm' links (tolerated failure,
+	 * like inline embed — enrichment never depends on it). Called with [] too:
+	 * a re-analysis that no longer sees an entity must clear its stale link.
+	 */
+	private static async recordDetections(
+		mediaId: string,
+		names: string[],
+	): Promise<void> {
+		const entities = Pipeline.deps?.entities;
+		if (!entities) return;
+		try {
+			await entities.recordDetections(mediaId, names);
+		} catch (error) {
+			console.warn("[Pipeline] detection recording failed (tolerated)", error);
+		}
 	}
 
 	/** Inline per-item embedding — search improves photo by photo (D4).

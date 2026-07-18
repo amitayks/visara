@@ -1,5 +1,9 @@
 import { MMPROJ_ARTIFACT, VLM_ARTIFACT } from "@backend/model/manifest";
-import type { VisionAnalysis, VisionEngine } from "@backend/types";
+import type {
+	AnalysisContext,
+	VisionAnalysis,
+	VisionEngine,
+} from "@backend/types";
 import {
 	type CompletionParams,
 	initLlama,
@@ -8,16 +12,18 @@ import {
 } from "llama.rn";
 import { Platform } from "react-native";
 import DeviceInfo from "react-native-device-info";
-import { createMutex, type Mutex } from "./mutex";
-import { coerceEnrichment, extractFirstJsonObject } from "./parseEnrichment";
+import { createMutex, type Mutex } from "../mutex";
+import { coerceEnrichment, extractFirstJsonObject } from "./outputParser";
+import { buildPrompt } from "./promptAssembly";
 
 /**
- * Gemma 4 E2B vision engine over llama.rn (design D1/D3/D10,
- * gemma-vision-enrichment spec). One multimodal generation per photo returns
- * `{caption, description, tags, text}`; the context is initialized lazily on
- * the first analyze and released by dispose() (pipeline calls it on stop /
- * background / critical-thermal). `analyze` resolves — never rejects — with
- * the VisionAnalysis envelope.
+ * Gemma 4 E2B vision runtime over llama.rn (personalized-vision-context
+ * design D5; gemma-vision-enrichment spec). This module owns ONLY the native
+ * runtime concerns — prompt content lives in promptAssembly, output shaping
+ * in outputParser. One multimodal generation per photo; the context is
+ * initialized lazily on the first analyze and released by dispose()
+ * (pipeline calls it on stop / background / critical-thermal). `analyze`
+ * resolves — never rejects — with the VisionAnalysis envelope.
  */
 
 /** Per-image generation budget; on expiry the native generation is stopped. */
@@ -30,7 +36,7 @@ const GENERATION_TIMEOUT_MS = 120_000;
  */
 const INTERRUPT_GRACE_MS = 10_000;
 
-/** Context window: prompt + ~256-512 image tokens + JSON output head-room. */
+/** Context window: prompt + glossary + ~256-512 image tokens + JSON output. */
 const VLM_CONTEXT_TOKENS = 4096;
 
 /**
@@ -39,17 +45,7 @@ const VLM_CONTEXT_TOKENS = 4096;
  */
 const MAX_PREDICT_TOKENS = 768;
 
-const SYSTEM_PROMPT =
-	"You are a precise on-device photo analyst. You respond with exactly one JSON object and nothing else.";
-
-const USER_PROMPT =
-	'Analyze this image. Respond with ONLY one JSON object: {"caption":"<one short sentence>","description":"<2-3 sentences>","tags":["<up to 16 lowercase open-vocabulary tags: salient objects, scene, attributes>"],"text":"<transcribe ALL legible text in the image verbatim; empty string if none>"}';
-
-export function createGemmaVision(modelDir: string): VisionEngine {
-	return new LlamaGemmaVision(modelDir);
-}
-
-export class LlamaGemmaVision implements VisionEngine {
+export class GemmaVisionEngine implements VisionEngine {
 	private readonly modelDir: string;
 	private readonly runExclusive: Mutex = createMutex();
 	private context: LlamaContext | null = null;
@@ -65,12 +61,15 @@ export class LlamaGemmaVision implements VisionEngine {
 	 * context; dispose() queues behind the in-flight item, satisfying
 	 * "released after the in-flight item settles").
 	 *
-	 * `imagePath` is an already-prepared, decoded+downscaled JPEG path: design
-	 * D9 assigns ImagePrep to the pipeline step (the pipeline prepares from the
-	 * `ph://`/`content://` asset URI, null-checks, and owns the temp file's
-	 * lifecycle), so analyze feeds the model directly and never re-prepares.
+	 * `imagePath` is an already-prepared, decoded+downscaled JPEG path (design
+	 * D9 of the rebuild: ImagePrep belongs to the pipeline step, which owns the
+	 * temp file's lifecycle). `analysisContext` personalizes the prompt; absent
+	 * or empty it degrades to the generic prompt (fail-soft).
 	 */
-	analyze(imagePath: string): Promise<VisionAnalysis> {
+	analyze(
+		imagePath: string,
+		analysisContext?: AnalysisContext,
+	): Promise<VisionAnalysis> {
 		return this.runExclusive(async () => {
 			const startedAt = Date.now();
 			// llama.cpp fopens a plain path; strip a file:// scheme if present.
@@ -79,14 +78,15 @@ export class LlamaGemmaVision implements VisionEngine {
 				: imagePath;
 
 			try {
+				const prompt = buildPrompt(analysisContext);
 				const context = await this.ensureContext();
 				const completion = await this.completeWithTimeout(context, {
 					messages: [
-						{ role: "system", content: SYSTEM_PROMPT },
+						{ role: "system", content: prompt.system },
 						{
 							role: "user",
 							content: [
-								{ type: "text", text: USER_PROMPT },
+								{ type: "text", text: prompt.user },
 								// llama.rn replaces this part with its media marker and
 								// forwards the path natively (GGUF chat template applied by
 								// llama.rn itself — no manual formatting here).
@@ -126,12 +126,12 @@ export class LlamaGemmaVision implements VisionEngine {
 			try {
 				await context.releaseMultimodal();
 			} catch (error) {
-				console.warn("[GemmaVision] releaseMultimodal failed:", error);
+				console.warn("[GemmaVisionEngine] releaseMultimodal failed:", error);
 			}
 			try {
 				await context.release();
 			} catch (error) {
-				console.warn("[GemmaVision] release failed:", error);
+				console.warn("[GemmaVisionEngine] release failed:", error);
 			}
 		});
 	}
@@ -156,10 +156,10 @@ export class LlamaGemmaVision implements VisionEngine {
 	}
 
 	private async initContext(): Promise<LlamaContext> {
-		// D1: Metal on real iOS hardware only. The iOS Simulator's emulated Metal
+		// Metal on real iOS hardware only. The iOS Simulator's emulated Metal
 		// driver (MTLSimDriver) crashes when clip/mmproj allocates its GPU buffer
 		// (XPC shared-memory misuse), so simulator QA runs CPU — the sanctioned
-		// end-to-end path (proposal risk posture). Android is always CPU-first.
+		// end-to-end path. Android is always CPU-first.
 		const useMetal = Platform.OS === "ios" && !DeviceInfo.isEmulatorSync();
 		const context = await initLlama({
 			model: `${this.modelDir}/${VLM_ARTIFACT.filename}`,
