@@ -1,6 +1,7 @@
 import { EMBEDDER_ARTIFACT } from "@backend/model/manifest";
 import type { EmbedEngine } from "@backend/types";
 import { initLlama, type LlamaContext } from "llama.rn";
+import { Platform } from "react-native";
 import { createMutex, type Mutex } from "./mutex";
 import { EMBEDDING_DIMS, truncateAndRenormalize } from "./vector";
 
@@ -103,6 +104,9 @@ export class LlamaGemmaEmbed implements EmbedEngine {
 				// CPU on both platforms: a 300M Q8 embedder is cheap, and keeping it
 				// off the GPU leaves Metal memory to the resident-hungry VLM (D10).
 				n_gpu_layers: 0,
+				// Two threads suffice for a 300M embedder; leaves cores (and heat
+				// budget) to the VLM sharing the drain on Android.
+				...(Platform.OS === "android" ? { n_threads: 2 } : {}),
 				use_mlock: false,
 			})
 				.then((context) => {

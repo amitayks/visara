@@ -40,6 +40,13 @@
       android:theme="@style/AppTheme"
       android:usesCleartextTraffic="${usesCleartextTraffic}"
       android:supportsRtl="true">
+      <!-- llama.rn's accelerated Android backends need
+           <uses-native-library libOpenCL.so / libcdsprpc.so> declared here to
+           load. Deliberately NOT declared: benchmarked on SM8450, Adreno
+           OpenCL is ~2x slower than tuned CPU for our Q4_0 VLM and the
+           Hexagon HTP backend crashes DSP-side — the plain CPU librnllama
+           variant is the correct loader outcome (see GemmaVision.ts). -->
+
       <activity
         android:name=".MainActivity"
         android:label="@string/app_name"
