@@ -18,6 +18,7 @@ import type {
 	PipelineSnapshot,
 	VisionEngine,
 } from "@backend/types";
+import type { Spec as DrainServiceSpec } from "@native-modules/NativeDrainService";
 import type {
 	Spec as ThermalObserverSpec,
 	ThermalStatePayload,
@@ -27,10 +28,10 @@ import {
 	AppState,
 	type AppStateStatus,
 	NativeEventEmitter,
+	PermissionsAndroid,
 	Platform,
 	TurboModuleRegistry,
 } from "react-native";
-import BackgroundService from "react-native-background-actions";
 import DeviceInfo from "react-native-device-info";
 import { canRunVlm, evaluateGates, type GateInputs } from "./gates";
 
@@ -40,10 +41,11 @@ import { canRunVlm, evaluateGates, type GateInputs } from "./gates";
  * checkpoints), admission gates between items, inline embedding, vector
  * backfill at drain end, preserved OrchestratorEvent union for the UI.
  *
- * Platform execution: Android runs the loop inside the
- * react-native-background-actions dataSync FGS (its own progress
- * notification); iOS runs a plain async loop with expo-keep-awake held while
- * actively draining and settles the in-flight item on backgrounding.
+ * Platform execution: BOTH platforms run the loop right here, in the app's
+ * main JS runtime. Android additionally holds a minimal keep-alive foreground
+ * service (VisaraDrainService — no headless task) for background continuation
+ * and the progress notification; iOS holds expo-keep-awake while actively
+ * draining and settles the in-flight item on backgrounding.
  */
 
 // --- Tunables ------------------------------------------------------------------
@@ -60,6 +62,8 @@ const BACKFILL_BATCH = 200;
 const KEEP_AWAKE_TAG = "pipeline";
 /** ThermalObserver event name (kept module contract). */
 const THERMAL_EVENT = "thermal_state_change";
+/** DrainService teardown event (kept module contract). */
+const DRAIN_TEARDOWN_EVENT = "drain_service_teardown";
 /** VLM context is force-released at critical (3), not merely serious (D10). */
 const THERMAL_CRITICAL_LEVEL = 3;
 
@@ -118,20 +122,28 @@ export interface PowerSample {
 }
 
 /**
- * Platform execution host for the drain loop. Android: dataSync FGS via
- * react-native-background-actions with per-item notification progress. iOS:
- * keep-awake held while actively draining, released on pause/stop.
+ * Platform execution host for the drain loop. The loop itself always runs in
+ * the app's main JS runtime; the host only augments it — Android: a minimal
+ * keep-alive FGS (VisaraDrainService) with per-item notification progress;
+ * iOS: keep-awake held while actively draining, released on pause/stop.
  */
 export interface PlatformRunner {
-	/** Execute the loop in the platform host. */
+	/** Execute the loop in the platform host; resolves when the loop ends. */
 	run(loop: () => Promise<void>): Promise<void>;
 	/** Stop the host (idempotent; safe when never started). */
 	stop(): Promise<void>;
 	updateProgress(processed: number, total: number): Promise<void>;
 	notifyPaused(reason: PauseReason): Promise<void>;
 	notifyResumed(): Promise<void>;
-	/** False once the OS/host tore the service down (treated as a pause). */
+	/** False once the host demands the loop wind down (unused by the built-in
+	 * hosts — FGS loss downgrades instead of killing; seam kept for tests). */
 	shouldContinue(): boolean;
+	/**
+	 * True when the host keeps the drain alive while the app is backgrounded
+	 * (Android with the keep-alive FGS actually acquired). When false,
+	 * backgrounding pauses the drain via the `backgrounded` gate.
+	 */
+	backgroundCapable(): boolean;
 }
 
 export interface PipelineDeps {
@@ -242,97 +254,176 @@ function errorMessage(error: unknown): string {
 
 // --- Platform runners ----------------------------------------------------------------
 
-function buildAndroidTaskOptions(snapshot: PipelineSnapshot) {
-	return {
-		taskName: "VisaraProcessing",
-		taskTitle: "Visara",
-		taskDesc: "Processing your library",
-		taskIcon: { name: "visara_launcher", type: "mipmap" },
-		// Must match the dataSync FGS type declared in AndroidManifest.xml.
-		foregroundServiceType: ["dataSync" as const],
-		color: "#FF6347",
-		progressBar: {
-			max: Math.max(snapshot.total, 1),
-			value: snapshot.processed,
-			indeterminate: snapshot.total === 0,
-		},
-	};
+/** Lazy, nullable handle to the Android keep-alive FGS module — absent on
+ * iOS and under jest (mirrors the ThermalObserver access pattern). */
+let drainModuleCache: DrainServiceSpec | null | undefined;
+function getDrainService(): DrainServiceSpec | null {
+	if (drainModuleCache === undefined) {
+		try {
+			drainModuleCache =
+				TurboModuleRegistry.get<DrainServiceSpec>("DrainService") ?? null;
+		} catch {
+			drainModuleCache = null;
+		}
+	}
+	return drainModuleCache;
 }
 
-class AndroidBackgroundRunner implements PlatformRunner {
-	/** Latched once the service reports running (start() resolve race guard). */
-	private sawRunning = false;
+/** Cap on waiting for the POST_NOTIFICATIONS dialog: an unanswered prompt
+ * (e.g. queued behind the keyguard) must not stall the drain host. */
+const NOTIFICATION_PERMISSION_WAIT_MS = 15000;
 
-	constructor(private readonly snapshot: () => PipelineSnapshot) {}
+/** Android 13+ runtime gate for the progress notification. Best-effort: the
+ * FGS runs (and keeps the drain alive) even when the user declines or simply
+ * never answers the prompt. */
+async function ensureNotificationPermission(): Promise<void> {
+	try {
+		const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
+		if (await PermissionsAndroid.check(permission)) return;
+		await Promise.race([
+			PermissionsAndroid.request(permission),
+			new Promise<void>((resolve) => {
+				setTimeout(resolve, NOTIFICATION_PERMISSION_WAIT_MS);
+			}),
+		]);
+	} catch (error) {
+		console.warn("[Pipeline] notification permission request failed", error);
+	}
+}
+
+/**
+ * Android host: a minimal Kotlin keep-alive FGS (VisaraDrainService) holds
+ * foreground process priority and owns the progress notification while the
+ * drain loop runs HERE, in the app's main JS runtime. There is no headless
+ * task, so the react-native-background-actions crash class (task-registration
+ * race → ForegroundServiceDidNotStartInTimeException → sticky restart loop)
+ * cannot occur.
+ *
+ * The FGS is an optional accelerator, never a dependency: when the OS refuses
+ * the start (not foreground-eligible) or tears the service down (the ~6h/24h
+ * mediaProcessing budget on Android 15+), the loop keeps running with
+ * `backgroundCapable()` false — the `backgrounded` gate then pauses it while
+ * off-screen — and the service grab is retried at the next resume, which by
+ * construction happens in the foreground where the grab is allowed.
+ */
+class AndroidFgsRunner implements PlatformRunner {
+	/** Foreground service currently believed held. */
+	private fgs = false;
+	private stopping = false;
+	private teardownSub: { remove(): void } | null = null;
+
+	constructor(private readonly onHostChanged: () => void) {}
 
 	async run(loop: () => Promise<void>): Promise<void> {
-		// The lib auto-stops the service when the task function resolves.
-		await BackgroundService.start(async () => {
-			try {
-				await loop();
-			} catch (error) {
-				console.warn("[Pipeline] Android drain task crashed", error);
-			}
-		}, buildAndroidTaskOptions(this.snapshot()));
+		const module = getDrainService();
+		if (module) {
+			await ensureNotificationPermission();
+			this.subscribeTeardown(module);
+			this.fgs = await AndroidFgsRunner.acquire(module);
+		}
+		try {
+			await loop();
+		} finally {
+			await this.stop();
+		}
 	}
 
 	async stop(): Promise<void> {
+		this.stopping = true;
+		this.teardownSub?.remove();
+		this.teardownSub = null;
+		if (!this.fgs) return;
+		this.fgs = false;
 		try {
-			if (BackgroundService.isRunning()) {
-				await BackgroundService.stop();
-			}
+			await getDrainService()?.stop();
 		} catch (error) {
-			console.warn("[Pipeline] Android service stop failed", error);
+			console.warn("[Pipeline] drain service stop failed", error);
 		}
 	}
 
 	async updateProgress(processed: number, total: number): Promise<void> {
-		if (!BackgroundService.isRunning()) return;
+		if (!this.fgs) return;
 		const percentage = total > 0 ? Math.floor((processed / total) * 100) : 0;
 		try {
-			await BackgroundService.updateNotification({
-				taskDesc: `Processing ${processed} of ${total} (${percentage}%)`,
-				progressBar: {
-					max: Math.max(total, 1),
-					value: processed,
-					indeterminate: false,
-				},
-			});
+			await getDrainService()?.updateProgress(
+				processed,
+				total,
+				`Processing ${processed} of ${total} (${percentage}%)`,
+			);
 		} catch (error) {
 			console.warn("[Pipeline] notification update failed", error);
 		}
 	}
 
 	async notifyPaused(reason: PauseReason): Promise<void> {
-		if (!BackgroundService.isRunning()) return;
+		if (!this.fgs) return;
 		try {
-			await BackgroundService.updateNotification({
-				taskDesc: `Processing paused (${reason})`,
-			});
+			await getDrainService()?.updateText(`Processing paused (${reason})`);
 		} catch (error) {
 			console.warn("[Pipeline] notification update failed", error);
 		}
 	}
 
 	async notifyResumed(): Promise<void> {
-		if (!BackgroundService.isRunning()) return;
+		const module = getDrainService();
+		if (!module || this.stopping) return;
+		if (!this.fgs) {
+			// A refused/torn-down FGS pauses the drain off-screen, so a resume
+			// implies the app is foregrounded again — exactly the state in
+			// which a fresh service grab is allowed.
+			this.fgs = await AndroidFgsRunner.acquire(module);
+			return;
+		}
 		try {
-			await BackgroundService.updateNotification({
-				taskDesc: "Processing your library",
-			});
+			await module.updateText("Processing your library");
 		} catch (error) {
 			console.warn("[Pipeline] notification update failed", error);
 		}
 	}
 
 	shouldContinue(): boolean {
-		// start() resolves slightly after the headless task begins; never kill
-		// the loop before the service has been observed running once.
-		if (!this.sawRunning) {
-			this.sawRunning = BackgroundService.isRunning();
-			return true;
+		// Host loss downgrades to foreground-gated draining (teardown handler)
+		// instead of killing the loop.
+		return true;
+	}
+
+	backgroundCapable(): boolean {
+		return this.fgs;
+	}
+
+	private subscribeTeardown(module: DrainServiceSpec): void {
+		try {
+			const emitter = new NativeEventEmitter(
+				module as unknown as ConstructorParameters<
+					typeof NativeEventEmitter
+				>[0],
+			);
+			this.teardownSub = emitter.addListener(
+				DRAIN_TEARDOWN_EVENT,
+				(payload: { reason?: string } | undefined) => {
+					if (this.stopping) return;
+					// FGS budget exhausted or an OS stop: drop to foreground-gated
+					// draining; the wake re-evaluates gates immediately.
+					console.warn(
+						"[Pipeline] drain service torn down",
+						payload?.reason ?? "unknown",
+					);
+					this.fgs = false;
+					this.onHostChanged();
+				},
+			);
+		} catch (error) {
+			console.warn("[Pipeline] drain teardown subscribe failed", error);
 		}
-		return BackgroundService.isRunning();
+	}
+
+	private static async acquire(module: DrainServiceSpec): Promise<boolean> {
+		try {
+			return await module.start("Processing your library");
+		} catch (error) {
+			console.warn("[Pipeline] drain service start failed", error);
+			return false;
+		}
 	}
 }
 
@@ -370,6 +461,10 @@ class IosKeepAwakeRunner implements PlatformRunner {
 		return true;
 	}
 
+	backgroundCapable(): boolean {
+		return false; // iOS suspends JS in the background — always gate on it
+	}
+
 	private async activate(): Promise<void> {
 		try {
 			await activateKeepAwakeAsync(KEEP_AWAKE_TAG);
@@ -401,6 +496,10 @@ export class Pipeline {
 
 	// Drain state ------------------------------------------------------------
 	private static running = false;
+	/** Reentry latch for start(): its admission checks await, so `running`
+	 * alone lets near-simultaneous callers (bootstrap + delivery-ready +
+	 * discovery-complete) spin up TWO hosts/loops. Set synchronously. */
+	private static starting = false;
 	private static stopRequested = false;
 	private static manualPause = false;
 	private static manualStopped = false;
@@ -482,13 +581,22 @@ export class Pipeline {
 		Pipeline.configureCleanup.push(
 			deps.librarySync.subscribe((event) => {
 				Pipeline.emit(event);
-				if (event.type === "discovery-complete") Pipeline.wake();
+				if (event.type === "discovery-complete") {
+					Pipeline.wake();
+					// start() now bails until there is admissible work, so nudge it
+					// once discovery is done (it no-ops if not yet ready).
+					void Pipeline.maybeAutoResume();
+				}
 			}),
 		);
 
 		Pipeline.configureCleanup.push(
 			deps.delivery.subscribe(() => {
 				Pipeline.wake();
+				// Model just became ready (or was deleted) — (re)start if there is
+				// pending work; this is what lets the drain begin AFTER a download
+				// completes without an FGS having been spun up on cold boot.
+				void Pipeline.maybeAutoResume();
 			}),
 		);
 
@@ -532,44 +640,78 @@ export class Pipeline {
 			console.warn("[Pipeline] start() before configure() — ignored");
 			return;
 		}
-		if (Pipeline.running) return;
-		Pipeline.running = true;
-		Pipeline.stopRequested = false;
-		Pipeline.manualStopped = false;
-		Pipeline.paused = false;
-		Pipeline.pauseReason = null;
-		Pipeline.emit({ type: "started" });
+		if (Pipeline.running || Pipeline.starting) return;
+		Pipeline.starting = true;
 
 		try {
-			await deps.mediaRepo.resetStaleProcessing();
-			await Pipeline.refreshTotals();
-			if (Pipeline.totalMemBytes === null) {
-				Pipeline.totalMemBytes = await Pipeline.readTotalMem();
+			// Do not spin up the drain host until there is admissible work: an
+			// Android foreground service (even the crash-proof keep-alive one)
+			// that only sits paused draws a notification and burns the FGS
+			// runtime budget for nothing, and strict OEM builds punish churny
+			// services. The delivery / app-state / media subscriptions re-invoke
+			// start via maybeAutoResume() the moment conditions change (e.g.
+			// model ready).
+			if (!deps.librarySync.isDiscoveryComplete()) return;
+			try {
+				if ((await deps.mediaRepo.pendingCount()) === 0) return;
+			} catch (error) {
+				console.warn("[Pipeline] start(): pending check failed", error);
+				return;
 			}
-			if (Pipeline.thermalSource) {
-				Pipeline.thermalLevel = clampThermalLevel(
-					await Pipeline.thermalSource.read(),
-				);
+			if (!deps.delivery.isReady()) {
+				// Pending work but no model: surface an explicit waiting state
+				// instead of a silent no-op (the host still isn't spun up —
+				// there is nothing to run yet).
+				if (!Pipeline.paused || Pipeline.pauseReason !== "model-not-ready") {
+					Pipeline.paused = true;
+					Pipeline.pauseReason = "model-not-ready";
+					Pipeline.emit({ type: "paused" });
+				}
+				return;
 			}
 
-			const runner =
-				deps.runner ??
-				(Platform.OS === "android"
-					? new AndroidBackgroundRunner(() => Pipeline.getSnapshot())
-					: new IosKeepAwakeRunner());
-			Pipeline.runner = runner;
+			Pipeline.running = true;
+			Pipeline.stopRequested = false;
+			Pipeline.manualStopped = false;
+			Pipeline.paused = false;
+			Pipeline.pauseReason = null;
+			Pipeline.emit({ type: "started" });
 
-			// Android: run() resolves once the FGS is up (loop continues inside
-			// the headless task). iOS: run() resolves when the loop finishes.
-			runner
-				.run(() => Pipeline.drainLoop())
-				.catch(async (error) => {
-					console.warn("[Pipeline] platform runner failed", error);
-					await Pipeline.teardownRun();
-				});
-		} catch (error) {
-			console.warn("[Pipeline] start failed", error);
-			await Pipeline.teardownRun();
+			try {
+				await deps.mediaRepo.resetStaleProcessing();
+				await Pipeline.refreshTotals();
+				if (Pipeline.totalMemBytes === null) {
+					Pipeline.totalMemBytes = await Pipeline.readTotalMem();
+				}
+				if (Pipeline.thermalSource) {
+					Pipeline.thermalLevel = clampThermalLevel(
+						await Pipeline.thermalSource.read(),
+					);
+				}
+
+				const runner =
+					deps.runner ??
+					(Platform.OS === "android"
+						? new AndroidFgsRunner(() => {
+								Pipeline.wake();
+							})
+						: new IosKeepAwakeRunner());
+				Pipeline.runner = runner;
+
+				// run() resolves when the loop finishes (fire-and-forget here);
+				// the loop's finally + this catch both funnel into teardownRun.
+				runner
+					.run(() => Pipeline.drainLoop())
+					.catch(async (error) => {
+						console.warn("[Pipeline] platform runner failed", error);
+						await Pipeline.teardownRun();
+					});
+			} catch (error) {
+				console.warn("[Pipeline] start failed", error);
+				await Pipeline.teardownRun();
+			}
+		} finally {
+			Pipeline.starting = false;
 		}
 	}
 
@@ -904,8 +1046,9 @@ export class Pipeline {
 		Pipeline.emit({ type: "paused" });
 		await Pipeline.runner?.notifyPaused(reason);
 		if (reason === "backgrounded") {
-			// iOS background transition: in-flight already settled (we are
-			// between items), now release the VLM within the grace window.
+			// App-backgrounded transition (iOS, or Android without the FGS):
+			// in-flight already settled (we are between items) — release the
+			// VLM before the OS suspends/freezes the process.
 			await Pipeline.releaseVision();
 		}
 	}
@@ -929,14 +1072,27 @@ export class Pipeline {
 	private static waitForWake(ms: number): Promise<void> {
 		return new Promise<void>((resolve) => {
 			let settled = false;
+			let timer: ReturnType<typeof setTimeout> | null = null;
 			const finish = (): void => {
 				if (settled) return;
 				settled = true;
-				clearTimeout(timer);
+				if (timer !== null) clearTimeout(timer);
 				if (Pipeline.wakeSignal === finish) Pipeline.wakeSignal = null;
 				resolve();
 			};
-			const timer = setTimeout(finish, ms);
+			// Android: RN suspends JS timers while the host activity is paused
+			// — with only the FGS keeping the process alive, setTimeout would
+			// park the loop between items until the next foreground. Native
+			// promise delivery is not suspended, so sleep on the module's
+			// handler instead (a late native resolve after wake() is a no-op).
+			const drain = Platform.OS === "android" ? getDrainService() : null;
+			if (drain) {
+				drain.delay(ms).then(finish, () => {
+					timer = setTimeout(finish, ms);
+				});
+			} else {
+				timer = setTimeout(finish, ms);
+			}
 			Pipeline.wakeSignal = finish;
 		});
 	}
@@ -1016,9 +1172,11 @@ export class Pipeline {
 			settings: { ...Pipeline.settings },
 			manualPause: Pipeline.manualPause,
 			hourOfDay: (deps.now ? deps.now() : new Date()).getHours(),
-			// Android's FGS drains while backgrounded by design; only iOS
-			// foreground state feeds the gate.
-			appActive: Platform.OS === "ios" ? Pipeline.appStateActive : true,
+			// Backgrounding pauses the drain unless the host can outlive it
+			// (Android with the keep-alive FGS actually acquired).
+			appActive: Pipeline.runner?.backgroundCapable()
+				? true
+				: Pipeline.appStateActive,
 		};
 	}
 
@@ -1078,7 +1236,9 @@ export class Pipeline {
 		if (Pipeline.running || Pipeline.manualStopped || Pipeline.manualPause) {
 			return;
 		}
-		if (!deps.librarySync.isDiscoveryComplete()) return;
+		if (!deps.librarySync.isDiscoveryComplete() || !deps.delivery.isReady()) {
+			return;
+		}
 		try {
 			const pending = await deps.mediaRepo.pendingCount();
 			if (pending > 0) await Pipeline.start();

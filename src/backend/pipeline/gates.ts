@@ -37,8 +37,9 @@ export interface GateInputs {
 	/** Local hour 0..23, for the night-processing window. */
 	hourOfDay: number;
 	/**
-	 * iOS foreground state. Android callers pass `true` — the dataSync FGS
-	 * keeps draining in the background by design.
+	 * Whether the app is foregrounded — OR the host is background-capable
+	 * (Android with the keep-alive FGS acquired passes `true`: the drain
+	 * keeps running in the background by design).
 	 */
 	appActive: boolean;
 }

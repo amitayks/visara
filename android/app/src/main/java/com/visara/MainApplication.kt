@@ -6,6 +6,7 @@ import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
 import com.facebook.react.ReactHost
 import com.facebook.react.ReactNativeApplicationEntryPoint.loadReactNative
+import com.visara.drain.DrainServicePackage
 import com.visara.mediaindexer.MediaIndexerPackage
 import com.visara.thermal.ThermalObserverPackage
 import expo.modules.ApplicationLifecycleDispatcher
@@ -22,6 +23,7 @@ class MainApplication : Application(), ReactApplication {
               // add(MyReactNativePackage())
               add(MediaIndexerPackage())
               add(ThermalObserverPackage())
+              add(DrainServicePackage())
             },
         // Keep the plain RN CLI/Metro entry; Expo's default expects Expo CLI's
         // virtual entry (.expo/.virtual-metro-entry) which our Metro doesn't serve.

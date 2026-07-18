@@ -5,7 +5,7 @@
  */
 
 import { Pipeline, ThermalService } from "@backend/facade";
-import type { DeliveryStatus } from "@backend/types";
+import type { DeliveryStatus, PauseReason } from "@backend/types";
 import { useFocusEffect } from "@react-navigation/native";
 import { useModelStore } from "@state/modelStore";
 import { useProcessingStore } from "@state/processingStore";
@@ -36,11 +36,32 @@ const THEME_OPTIONS: ReadonlyArray<{ label: string; value: ThemeMode }> = [
 	{ label: "System", value: "system" },
 ];
 
+/** Human copy for an explicit Pipeline pause reason (gate verdict). */
+export function describePauseReason(reason: PauseReason): string {
+	switch (reason) {
+		case "manual":
+			return "paused by you";
+		case "thermal":
+			return "thermal throttling";
+		case "battery":
+			return "battery below 20%";
+		case "battery-saver":
+			return "battery saver, waiting for charging";
+		case "night-window":
+			return "night processing, waiting for 00:00–06:00";
+		case "model-not-ready":
+			return "AI model not ready";
+		case "discovery-pending":
+			return "waiting for library scan";
+		case "backgrounded":
+			return "waiting for the app to be active";
+	}
+}
+
 /**
- * Best-effort pause reason mirroring `BackgroundTaskService`'s gating
- * precedence (battery saver → night window → thermal). The orchestrator's
- * `paused` event carries no reason, so this derives one from the same inputs
- * the drain gate reads.
+ * Fallback pause reason for when the pipeline exposes none, mirroring the
+ * drain's gating precedence (battery saver → night window → thermal) from
+ * the same inputs the gate reads.
  */
 export function derivePauseReason(input: {
 	batterySaver: boolean;
@@ -132,14 +153,21 @@ export function SettingsScreen() {
 			total > 0 ? `${processed} of ${total} processed` : "Nothing queued";
 		const parts: string[] = [];
 		if (isPaused) {
+			// Prefer the pipeline's actual gate verdict; derive only when the
+			// pause carries no reason (defensive — it always should).
+			const reason = Pipeline.getPauseReason();
 			parts.push(
-				`Paused — ${derivePauseReason({
-					batterySaver,
-					nightProcessing,
-					charging,
-					thermalThrottled: ThermalService.isThrottledForDrain(),
-					hour: new Date().getHours(),
-				})}`,
+				`Paused — ${
+					reason
+						? describePauseReason(reason)
+						: derivePauseReason({
+								batterySaver,
+								nightProcessing,
+								charging,
+								thermalThrottled: ThermalService.isThrottledForDrain(),
+								hour: new Date().getHours(),
+							})
+				}`,
 			);
 		} else if (isProcessing) {
 			parts.push("Processing");

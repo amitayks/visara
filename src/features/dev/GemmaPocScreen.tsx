@@ -16,7 +16,9 @@ import { createGemmaEmbed } from "@backend/engine/GemmaEmbed";
 import { createGemmaVision } from "@backend/engine/vision";
 import { GemmaModelDeliveryService } from "@backend/facade";
 import { getModelDir } from "@backend/model/Delivery";
-import RNFS from "@dr.pogodin/react-native-fs";
+// Namespace import on purpose: the package has no default export (a default
+// import leaves RNFS undefined — "Cannot read property 'CachesDirectoryPath'").
+import * as RNFS from "@dr.pogodin/react-native-fs";
 import { Button, Text } from "@ui/components";
 import { StyleSheet } from "@ui/theme";
 import { useCallback, useRef, useState } from "react";
