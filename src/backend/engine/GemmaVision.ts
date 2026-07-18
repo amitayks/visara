@@ -35,9 +35,31 @@ const VLM_CONTEXT_TOKENS = 4096;
 
 /**
  * Output cap: the JSON object plus verbatim OCR of a text-dense photo.
- * Bounded so a rambling generation cannot eat the whole 120 s budget.
+ * Bounded so a rambling generation cannot eat the whole 120 s budget (and,
+ * on CPU-bound Android, so the OCR long-tail doesn't double per-item time).
  */
-const MAX_PREDICT_TOKENS = 768;
+const MAX_PREDICT_TOKENS = 512;
+
+/**
+ * Android CPU thread cap. llama.cpp's default grabs every core — on
+ * big.LITTLE Snapdragons that schedules onto efficiency cores, which is
+ * slower per token AND runs the SoC at maximum heat. Four threads (the big
+ * cores) is the llama.cpp sweet spot on these parts.
+ */
+const ANDROID_VLM_THREADS = 4;
+
+/*
+ * Android accelerator note (benchmarked on OnePlus 10 Pro / SM8450, 2026-07):
+ * tuned CPU is the fastest correct backend for this model — keep it.
+ *  - CPU, 4 threads:   38-50 s/item, 9.3-9.6 tok/s   ← shipped
+ *  - Adreno OpenCL:    80-117 s/item, 3.4-3.7 tok/s  (2x slower)
+ *  - Hexagon HTP v69:  DSP-side libggml-htp crash + ColorOS FastRPC
+ *    permission denials — unusable (llama.rn marks it Experimental)
+ * Revisit only with a newer llama.rn OpenCL backend or Snapdragon 8 Gen 3+.
+ * The accelerated .so also needs <uses-native-library libOpenCL/libcdsprpc>
+ * manifest entries — deliberately NOT declared so the loader picks the plain
+ * CPU variant and never probes the DSP.
+ */
 
 const SYSTEM_PROMPT =
 	"You are a precise on-device photo analyst. You respond with exactly one JSON object and nothing else.";
@@ -165,6 +187,9 @@ export class LlamaGemmaVision implements VisionEngine {
 			model: `${this.modelDir}/${VLM_ARTIFACT.filename}`,
 			n_ctx: VLM_CONTEXT_TOKENS,
 			n_gpu_layers: useMetal ? 99 : 0,
+			...(Platform.OS === "android"
+				? { n_threads: ANDROID_VLM_THREADS }
+				: {}),
 			use_mlock: false,
 			embedding: false,
 			// Multimodal requires ctx_shift disabled to keep media token positions.

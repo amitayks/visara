@@ -52,6 +52,13 @@ import { canRunVlm, evaluateGates, type GateInputs } from "./gates";
 const GATE_POLL_MS = 5000;
 /** Small breather between items (parity with the legacy drain delay). */
 const ITEM_DELAY_MS = 100;
+/**
+ * Between-item breather once the device reports thermal `fair` (1): back-to-
+ * back inference otherwise camps the SoC just under the throttle line for the
+ * whole drain. A real cool-down per item trades throughput for the device
+ * settling at warm instead of hot; `serious` (2) still pauses via the gate.
+ */
+const WARM_ITEM_DELAY_MS = 15_000;
 /** retry_count budget: item fails permanently at >= 2 (spec). */
 const MAX_RETRIES = 2;
 /** Vector backfill page size per missingOrStale() round. */
@@ -809,7 +816,12 @@ export class Pipeline {
 				}
 
 				await Pipeline.processOne(row);
-				await Pipeline.waitForWake(ITEM_DELAY_MS);
+				// Thermal-adaptive pacing: `thermalLevel` was re-read live at this
+				// iteration's gate check, so a warming device stretches the breather
+				// on the very next item.
+				await Pipeline.waitForWake(
+					Pipeline.thermalLevel >= 1 ? WARM_ITEM_DELAY_MS : ITEM_DELAY_MS,
+				);
 			}
 		} catch (error) {
 			console.warn("[Pipeline] drain loop error", error);
