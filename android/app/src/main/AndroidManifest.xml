@@ -22,9 +22,9 @@
     <!-- Access to media location metadata (EXIF GPS data) -->
     <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
 
-    <!-- Background processing permissions -->
+    <!-- Background processing permissions (keep-alive FGS for the drain) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROCESSING" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
@@ -53,10 +53,13 @@
         </intent-filter>
       </activity>
 
-      <!-- Background processing service for AI tasks -->
+      <!-- Keep-alive FGS for the enrichment drain: runs no work itself (the
+           drain loop lives in the main JS runtime), only holds foreground
+           priority + owns the progress notification. -->
       <service
-        android:name="com.asterinet.react.bgactions.RNBackgroundActionsTask"
+        android:name="com.visara.drain.VisaraDrainService"
         android:exported="false"
-        android:foregroundServiceType="dataSync" />
+        android:stopWithTask="true"
+        android:foregroundServiceType="mediaProcessing" />
     </application>
 </manifest>

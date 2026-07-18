@@ -151,16 +151,6 @@ jest.mock("@kesha-antonov/react-native-background-downloader", () => {
 	};
 });
 
-jest.mock("react-native-background-actions", () => ({
-	__esModule: true,
-	default: {
-		start: jest.fn(async () => {}),
-		stop: jest.fn(async () => {}),
-		updateNotification: jest.fn(async () => {}),
-		isRunning: jest.fn(() => false),
-	},
-}));
-
 jest.mock("expo-keep-awake", () => ({
 	activateKeepAwakeAsync: jest.fn(async () => {}),
 	deactivateKeepAwake: jest.fn(async () => {}),
@@ -168,6 +158,7 @@ jest.mock("expo-keep-awake", () => ({
 
 jest.mock("react-native-device-info", () => ({
 	getTotalMemory: jest.fn(async () => 8 * 1024 * 1024 * 1024),
+	getBatteryLevel: jest.fn(async () => 0.9),
 	getFreeDiskStorage: jest.fn(async () => 64 * 1024 * 1024 * 1024),
 	getPowerState: jest.fn(async () => ({
 		batteryLevel: 0.9,

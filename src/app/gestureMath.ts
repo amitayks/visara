@@ -49,11 +49,16 @@ export function isEdgeOrigin(
 	x: number,
 	screenWidth: number,
 	edge: EdgeSide,
-	zone: number = EDGE_DETECTION_ZONE,
+	zone?: number,
 ): boolean {
 	"worklet";
+	// Defaulted in the body, not the signature: Reanimated's plugin only
+	// captures closure identifiers referenced inside the worklet body, so a
+	// module-scope constant used as a default parameter value crashes on the
+	// UI runtime ("Property 'EDGE_DETECTION_ZONE' doesn't exist").
+	const zonePx = zone ?? EDGE_DETECTION_ZONE;
 	if (!(x >= 0 && x <= screenWidth)) return false;
-	return edge === "left" ? x < zone : x > screenWidth - zone;
+	return edge === "left" ? x < zonePx : x > screenWidth - zonePx;
 }
 
 /**

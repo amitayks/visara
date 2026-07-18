@@ -35,7 +35,6 @@
 		"llama.rn": "0.12.5",
 		"react": "19.2.3",
 		"react-native": "0.86.0",
-		"react-native-background-actions": "^4.1.0",
 		"react-native-device-info": "^15.0.2",
 		"react-native-gesture-handler": "^3.0.2",
 		"react-native-mmkv": "4.3.2",
