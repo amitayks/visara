@@ -75,14 +75,22 @@ export function AiModelSection({ freeDisk }: AiModelSectionProps) {
 		void (async () => {
 			try {
 				const result = await GemmaModelDeliveryService.startDownload();
-				if (!result.started) {
+				if (result.started) {
+					// Starting a multi-GB download IS the opt-in: pre-enable so
+					// analysis starts hands-free the moment verification
+					// completes. Otherwise a fresh install / post-wipe download
+					// leaves the pipeline parked on "model not ready" behind a
+					// second, easy-to-miss toggle even though the model shows
+					// Ready. The toggle still turns analysis off afterwards.
+					setEnabled(true);
+				} else {
 					toast(REASON_COPY[result.reason ?? "unknown"] ?? REASON_COPY.unknown);
 				}
 			} catch {
 				toast.error("Couldn't start the model download");
 			}
 		})();
-	}, []);
+	}, [setEnabled]);
 
 	const handlePause = useCallback(() => {
 		void GemmaModelDeliveryService.pause().catch(() => {

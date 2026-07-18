@@ -1,13 +1,13 @@
 /**
  * OnboardingScreen — ordered step flow (onboarding-experience spec):
  * welcome → privacy → permissions → model → complete on a horizontal pager
- * (pager-view) with a dots progress indicator and a per-step Next control.
+ * (pager-view) with animated progress dots and a per-step primary control.
+ * Steps receive `isActive` so their reveal animation plays on entry — via
+ * Next and swipes alike.
  *
  * Skip renders top-right on every non-final step and jumps straight to the
- * final completion step (fixes the legacy unreachable-Skip bug, where the
- * template required an `onSkip` prop that was never passed). Skip never
- * completes onboarding, never requests a permission, and never starts a
- * model download — it is a pure jump.
+ * final completion step. Skip never completes onboarding, never requests a
+ * permission, and never starts a model download — it is a pure jump.
  *
  * The final step's primary action calls settingsStore.completeOnboarding();
  * the root navigator gate then swaps to the Shell automatically and the
@@ -22,6 +22,7 @@ import { View } from "react-native";
 import PagerView, {
 	type PagerViewOnPageSelectedEvent,
 } from "react-native-pager-view";
+import { ProgressDots } from "./ProgressDots";
 import {
 	CompleteStep,
 	ModelStep,
@@ -93,32 +94,24 @@ export function OnboardingScreen() {
 				onPageSelected={handlePageSelected}
 			>
 				<View key="welcome" style={styles.page} collapsable={false}>
-					<WelcomeStep />
+					<WelcomeStep isActive={stepIndex === 0} />
 				</View>
 				<View key="privacy" style={styles.page} collapsable={false}>
-					<PrivacyStep />
+					<PrivacyStep isActive={stepIndex === 1} />
 				</View>
 				<View key="permissions" style={styles.page} collapsable={false}>
-					<PermissionsStep />
+					<PermissionsStep isActive={stepIndex === 2} />
 				</View>
 				<View key="model" style={styles.page} collapsable={false}>
-					<ModelStep onAdvance={jumpToCompletion} />
+					<ModelStep isActive={stepIndex === 3} onAdvance={jumpToCompletion} />
 				</View>
 				<View key="complete" style={styles.page} collapsable={false}>
-					<CompleteStep />
+					<CompleteStep isActive={stepIndex === LAST_STEP} />
 				</View>
 			</PagerView>
 
 			<View style={styles.footer}>
-				<View
-					style={styles.dots}
-					accessibilityRole="progressbar"
-					accessibilityLabel={`Step ${stepIndex + 1} of ${STEP_IDS.length}`}
-				>
-					{STEP_IDS.map((id, index) => (
-						<View key={id} style={styles.dot(index === stepIndex)} />
-					))}
-				</View>
+				<ProgressDots steps={STEP_IDS} index={stepIndex} />
 				<Button
 					title={isLastStep ? "Get started" : "Next"}
 					onPress={handleNext}
@@ -155,16 +148,4 @@ const styles = StyleSheet.create((theme, rt) => ({
 		paddingTop: theme.spacing.lg,
 		gap: theme.spacing.xl,
 	},
-	dots: {
-		flexDirection: "row",
-		justifyContent: "center",
-		alignItems: "center",
-		gap: theme.spacing.xs,
-	},
-	dot: (active: boolean) => ({
-		width: active ? theme.spacing.xxl : theme.spacing.sm,
-		height: theme.spacing.sm,
-		borderRadius: theme.radii.full,
-		backgroundColor: active ? theme.colors.accent : theme.colors.border,
-	}),
 }));
