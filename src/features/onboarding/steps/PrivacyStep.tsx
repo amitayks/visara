@@ -6,28 +6,28 @@
  */
 
 import { StepScaffold } from "../StepScaffold";
-import { InfoRow, RowCard } from "./rows";
+import { FeatureRow, RowCard } from "./rows";
 
 export function PrivacyStep({ isActive }: { isActive: boolean }) {
 	return (
 		<StepScaffold
 			icon="shield-lock"
-			title="Privacy first"
+			title="Private by design"
 			description="Your photos and personal data never leave your device."
 			isActive={isActive}
 		>
 			<RowCard>
-				<InfoRow
-					icon="memory"
-					title="On-device analysis"
-					note="The AI model downloads once over Wi-Fi; after that, every analysis runs fully offline."
+				<FeatureRow
+					icon="wifi"
+					title="One download, then offline"
+					note="The AI model downloads once over Wi-Fi — analysis then runs fully offline."
 				/>
-				<InfoRow
+				<FeatureRow
 					icon="lock-outline"
 					title="Encrypted storage"
 					note="Everything the AI learns is stored with device-level encryption."
 				/>
-				<InfoRow
+				<FeatureRow
 					icon="eye-off-outline"
 					title="No tracking"
 					note="No analytics, no accounts, no data collection."

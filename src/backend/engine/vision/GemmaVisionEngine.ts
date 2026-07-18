@@ -187,9 +187,7 @@ export class GemmaVisionEngine implements VisionEngine {
 			model: `${this.modelDir}/${VLM_ARTIFACT.filename}`,
 			n_ctx: VLM_CONTEXT_TOKENS,
 			n_gpu_layers: useMetal ? 99 : 0,
-			...(Platform.OS === "android"
-				? { n_threads: ANDROID_VLM_THREADS }
-				: {}),
+			...(Platform.OS === "android" ? { n_threads: ANDROID_VLM_THREADS } : {}),
 			use_mlock: false,
 			embedding: false,
 			// Multimodal requires ctx_shift disabled to keep media token positions.
