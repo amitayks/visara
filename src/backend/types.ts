@@ -79,6 +79,13 @@ export interface EnrichmentResult {
 	tags: string[];
 	/** Transcription of legible in-photo text; empty string when none. */
 	text: string;
+	/**
+	 * Exact names of user-taught entities the model judged clearly present
+	 * (personalized-vision-context). Deduped case-insensitively, capped at 8;
+	 * always [] when no context was provided. Not persisted by EnrichmentRepo —
+	 * the pipeline resolves names into entity_media links (source 'vlm').
+	 */
+	entities: string[];
 }
 
 export interface VisionAnalysis {
@@ -88,10 +95,49 @@ export interface VisionAnalysis {
 	durationMs: number;
 }
 
+// ---------------------------------------------------------------------------
+// User entity store (personalized-vision-context)
+// ---------------------------------------------------------------------------
+
+export type EntityKind =
+	| "person"
+	| "pet"
+	| "brand"
+	| "event"
+	| "place"
+	| "other";
+
+/** 'user' = taught exemplar link; 'vlm' = model-detected on analysis. */
+export type EntityLinkSource = "user" | "vlm";
+
+export interface EntityRow {
+	id: string;
+	kind: EntityKind;
+	name: string;
+	description: string;
+	createdAt: number;
+	updatedAt: number;
+}
+
+/** The prompt-facing slice of an entity (assembled into the glossary). */
+export interface EntityBrief {
+	name: string;
+	kind: EntityKind;
+	description: string;
+}
+
+/** Everything the engine may personalize a single analysis with. */
+export interface AnalysisContext {
+	entities: EntityBrief[];
+}
+
 /** Runtime-agnostic engine seams (design D1/D3/D4). */
 export interface VisionEngine {
-	/** Resolves (never rejects) with the analysis envelope. */
-	analyze(fileUri: string): Promise<VisionAnalysis>;
+	/**
+	 * Resolves (never rejects) with the analysis envelope. `context` absent or
+	 * empty yields the generic prompt (fail-soft personalization).
+	 */
+	analyze(fileUri: string, context?: AnalysisContext): Promise<VisionAnalysis>;
 	/** Release the native context. Safe to call when not loaded. */
 	dispose(): Promise<void>;
 }
@@ -227,4 +273,4 @@ export interface AlbumRow {
 // Invalidation bus
 // ---------------------------------------------------------------------------
 
-export type WatchedTable = "media" | "enrichment" | "albums";
+export type WatchedTable = "media" | "enrichment" | "albums" | "entities";

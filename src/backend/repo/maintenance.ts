@@ -29,6 +29,9 @@ export async function wipeAllData(deps: MaintenanceDeps = {}): Promise<void> {
 
 	const commands: SQLBatchTuple[] = [
 		["DELETE FROM album_media"],
+		// Entity SHELLS survive like album shells — the user's taught
+		// knowledge outlives a media wipe; links go with the media rows.
+		["DELETE FROM entity_media"],
 		["DELETE FROM media_fts"],
 		["DELETE FROM vec_media"],
 		["DELETE FROM embedding_meta"],
@@ -40,5 +43,5 @@ export async function wipeAllData(deps: MaintenanceDeps = {}): Promise<void> {
 
 	await enrichment.rebuildFts();
 
-	bus.notify("media", "enrichment", "albums");
+	bus.notify("media", "enrichment", "albums", "entities");
 }

@@ -1,6 +1,9 @@
 import type {
 	AlbumRow,
 	EnrichmentResult,
+	EntityBrief,
+	EntityKind,
+	EntityRow,
 	MediaItem,
 	MediaMetadata,
 	MediaRow,
@@ -47,6 +50,49 @@ export interface MediaRepoContract {
 	sweepForReprocess(currentModelVersion: string): Promise<number>;
 	/** Mark non-image or capability-excluded rows skipped. */
 	markSkipped(ids: string[]): Promise<void>;
+	/**
+	 * Flip specific rows back to pending (teach→re-analyze loop,
+	 * personalized-vision-context): status/retry/error reset, deleted rows
+	 * excluded. Returns affected count.
+	 */
+	resetForReanalysis(ids: string[]): Promise<number>;
+}
+
+/**
+ * User-taught entity store (user-entity-store spec). All writes notify the
+ * bus under "entities"; link writes distinguish user exemplars from
+ * model detections via `source`.
+ */
+export interface EntityRepoContract {
+	create(
+		kind: EntityKind,
+		name: string,
+		description: string,
+	): Promise<EntityRow>;
+	update(
+		id: string,
+		patch: { kind?: EntityKind; name?: string; description?: string },
+	): Promise<void>;
+	/** Removes the entity and ALL its links; returns the linked media ids. */
+	delete(id: string): Promise<string[]>;
+	/** Most-recently-updated first. */
+	list(): Promise<EntityRow[]>;
+	byId(id: string): Promise<EntityRow | null>;
+	/** Upsert user exemplar links (source 'user' wins over a prior 'vlm'). */
+	addExamples(entityId: string, mediaIds: string[]): Promise<void>;
+	removeExample(entityId: string, mediaId: string): Promise<void>;
+	/** Media ids linked to the entity (both sources). */
+	linkedMediaIds(entityId: string): Promise<string[]>;
+	/** Entities linked to a media id, user links first (viewer display). */
+	entitiesForMedia(mediaId: string): Promise<EntityRow[]>;
+	/** Prompt briefs, most-recently-updated first, capped at `limit`. */
+	promptContext(limit: number): Promise<EntityBrief[]>;
+	/**
+	 * Resolve model-reported names (case-insensitive; unknown names dropped)
+	 * and replace this media's 'vlm' links with the matches, preserving all
+	 * 'user' links (user-entity-store spec).
+	 */
+	recordDetections(mediaId: string, names: string[]): Promise<void>;
 }
 
 export interface EnrichmentRepoContract {

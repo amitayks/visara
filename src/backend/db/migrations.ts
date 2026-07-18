@@ -27,7 +27,7 @@ export interface SqlRunner {
 	executeSync(query: string): { rows: Array<Record<string, unknown>> };
 }
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const SCHEMA_V1: readonly string[] = [
 	`CREATE TABLE media (
@@ -99,8 +99,35 @@ export const SCHEMA_V1: readonly string[] = [
 	)`,
 ];
 
+/**
+ * v2 (personalized-vision-context, design D6): user-taught entity store.
+ * Additive only. No FK-cascade reliance (repo-wide posture): EntityRepo
+ * deletes its own links, MediaRepo.purgeByIds covers entity_media, and the
+ * full wipe clears both tables.
+ */
+export const SCHEMA_V2: readonly string[] = [
+	`CREATE TABLE entity (
+		id TEXT PRIMARY KEY,
+		kind TEXT CHECK(kind IN ('person','pet','brand','event','place','other')),
+		name TEXT NOT NULL,
+		description TEXT DEFAULT '',
+		created_at INT,
+		updated_at INT
+	)`,
+	"CREATE INDEX idx_entity_updated ON entity (updated_at DESC)",
+	`CREATE TABLE entity_media (
+		entity_id TEXT,
+		media_id TEXT,
+		source TEXT DEFAULT 'user' CHECK(source IN ('user','vlm')),
+		added_at INT,
+		PRIMARY KEY (entity_id, media_id)
+	)`,
+	"CREATE INDEX idx_entity_media_media ON entity_media (media_id)",
+];
+
 export const MIGRATIONS: readonly Migration[] = [
 	{ toVersion: 1, statements: SCHEMA_V1 },
+	{ toVersion: 2, statements: SCHEMA_V2 },
 ];
 
 /** Migrations still to apply on a database currently at `currentVersion`. */
