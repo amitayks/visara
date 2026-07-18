@@ -3,19 +3,21 @@
 ## Purpose
 TBD - created by archiving change gemma-model-delivery-and-management. Update Purpose after archive.
 ## Requirements
-### Requirement: Onboarding includes an optional model step
+### Requirement: Model delivery auto-starts as part of the onboarding setup finale
 
-Onboarding SHALL include a model step (a step within the rebuilt onboarding flow's step sequence, owned by the `onboarding-experience` capability) that explains the optional on-device Gemma model and its one-time Wi-Fi download, and offers a choice to start the download or defer it. The step SHALL make clear the download is optional and gated on Wi-Fi (and charging).
+Onboarding SHALL start model delivery as the final task of the setup finale's single-activation sequence (owned by the `onboarding-experience` capability): starting the sequence SHALL opt the user into the model (delivery enabled) and request a download start fire-and-forget. The setup step SHALL make clear the download is one-time and gated on Wi-Fi (and charging), and that it can be managed later from Settings. A failed start (for example insufficient free space) SHALL surface on the setup task's status and SHALL NOT block onboarding completion.
 
-#### Scenario: Model step is presented during onboarding
+#### Scenario: Setup schedules the model download
 
-- **WHEN** a first-time user proceeds through onboarding
-- **THEN** a model step is shown describing the optional on-device model and its one-time Wi-Fi download
+- **WHEN** the user runs the setup sequence and photo access resolves as usable
+- **THEN** delivery is enabled and a download start is requested without awaiting the transfer
+- **AND** the setup step reflects that the download runs over Wi-Fi while charging and is manageable in Settings
 
-#### Scenario: User can defer the download
+#### Scenario: Insufficient space surfaces without blocking
 
-- **WHEN** the user chooses to defer on the model step
-- **THEN** no download starts and onboarding continues
+- **WHEN** the download start reports insufficient free space
+- **THEN** the setup task presents that outcome with a pointer to Settings
+- **AND** onboarding still completes normally
 
 ### Requirement: Onboarding never blocks on the model download
 
@@ -23,25 +25,24 @@ Onboarding completion SHALL be independent of model delivery state. Completing o
 
 #### Scenario: Completion does not wait for the download
 
-- **WHEN** the user starts the model download on the model step and then finishes onboarding
+- **WHEN** the setup sequence schedules the model download and onboarding completes
 - **THEN** onboarding completes immediately without waiting for the multi-gigabyte download, and the app proceeds on Tier-0
 
-#### Scenario: Declined download still completes onboarding
+#### Scenario: Continue-anyway after denial skips the download without blocking
 
-- **WHEN** the user declines the model download
-- **THEN** onboarding completes normally and the app runs Tier-0 only
+- **WHEN** the user completes onboarding via continue-anyway after a denied photo permission
+- **THEN** onboarding completes normally without a model download having started, and the app runs Tier-0 only
 
 ### Requirement: Privacy copy reconciled to "download once, then offline"
 
-The rebuilt onboarding flow's welcome/privacy copy SHALL NOT imply zero network use. Wherever onboarding describes AI analysis or privacy, the copy SHALL state that the AI model is downloaded once (over Wi-Fi) and that analysis then runs fully offline, while continuing to assert accurately that photos and personal data never leave the device. No copy SHALL remain that claims AI analysis never uses the internet.
+The onboarding flow's story-step copy SHALL NOT imply zero network use. Wherever onboarding describes AI analysis or privacy, the copy SHALL state that the AI model is downloaded once (over Wi-Fi) and that analysis then runs fully offline, while continuing to assert accurately that photos and personal data never leave the device. No copy SHALL remain that claims AI analysis never uses the internet.
 
 #### Scenario: Copy reflects the one-time download
 
-- **WHEN** the user reads the welcome/privacy onboarding steps
+- **WHEN** the user reads the onboarding story steps
 - **THEN** the copy states the model is downloaded once over Wi-Fi and then works fully offline, and does not claim analysis happens with no internet ever
 
 #### Scenario: On-device data guarantee preserved
 
 - **WHEN** the reconciled privacy copy is shown
 - **THEN** it still accurately states that photos and personal data never leave the device
-

@@ -1,17 +1,16 @@
 /**
- * OnboardingScreen — ordered step flow (onboarding-experience spec):
- * welcome → privacy → permissions → model → complete on a horizontal pager
- * (pager-view) with animated progress dots and a per-step primary control.
- * Steps receive `isActive` so their reveal animation plays on entry — via
- * Next and swipes alike.
+ * OnboardingScreen — three-step flow (onboarding-experience spec):
+ * welcome → privacy → setup finale on a horizontal pager over an ambient
+ * animated backdrop, with progress dots and a phase-aware footer CTA.
  *
- * Skip renders top-right on every non-final step and jumps straight to the
- * final completion step. Skip never completes onboarding, never requests a
- * permission, and never starts a model download — it is a pure jump.
+ * The finale's single CTA runs the whole first-run sequence (photo access,
+ * Android notifications, model download auto-start) via useSetupSequence and
+ * completes onboarding by itself; a denied photo permission pauses in a
+ * recoverable blocked phase where the footer offers continue-anyway.
  *
- * The final step's primary action calls settingsStore.completeOnboarding();
- * the root navigator gate then swaps to the Shell automatically and the
- * bootstrap boot sequence takes over (services-ui-facade contract).
+ * Skip renders top-right on the story steps and jumps straight to the setup
+ * step. Skip never completes onboarding, never requests a permission, and
+ * never starts a model download — it is a pure jump.
  */
 
 import { useSettingsStore } from "@state/settingsStore";
@@ -22,29 +21,21 @@ import { View } from "react-native";
 import PagerView, {
 	type PagerViewOnPageSelectedEvent,
 } from "react-native-pager-view";
+import { AmbientBackdrop } from "./AmbientBackdrop";
 import { ProgressDots } from "./ProgressDots";
-import {
-	CompleteStep,
-	ModelStep,
-	PermissionsStep,
-	PrivacyStep,
-	WelcomeStep,
-} from "./steps";
+import { PrivacyStep, SetupStep, WelcomeStep } from "./steps";
+import { useSetupSequence } from "./useSetupSequence";
 
-const STEP_IDS = [
-	"welcome",
-	"privacy",
-	"permissions",
-	"model",
-	"complete",
-] as const;
+const STEP_IDS = ["welcome", "privacy", "setup"] as const;
 const LAST_STEP = STEP_IDS.length - 1;
 
 export function OnboardingScreen() {
 	const completeOnboarding = useSettingsStore((s) => s.completeOnboarding);
 	const pagerRef = useRef<PagerView>(null);
 	const [stepIndex, setStepIndex] = useState(0);
-	const isLastStep = stepIndex === LAST_STEP;
+	const setup = useSetupSequence();
+	const isSetupStep = stepIndex === LAST_STEP;
+	const sequenceBusy = setup.phase === "running" || setup.phase === "finishing";
 
 	const handlePageSelected = useCallback(
 		(event: PagerViewOnPageSelectedEvent) => {
@@ -57,31 +48,25 @@ export function OnboardingScreen() {
 		pagerRef.current?.setPage(index);
 	}, []);
 
-	/**
-	 * Jump-only navigation to the completion step. Used by Skip (spec: no
-	 * completion, no permission request, no download) and by the model step's
-	 * "Download later" (the step after model IS the completion step).
-	 */
-	const jumpToCompletion = useCallback(() => {
+	/** Pure jump to the setup step (spec: Skip has no side effects). */
+	const skipToSetup = useCallback(() => {
 		goToStep(LAST_STEP);
 	}, [goToStep]);
 
 	const handleNext = useCallback(() => {
-		if (stepIndex === LAST_STEP) {
-			completeOnboarding();
-			return;
-		}
 		goToStep(stepIndex + 1);
-	}, [stepIndex, completeOnboarding, goToStep]);
+	}, [stepIndex, goToStep]);
 
 	return (
 		<View style={styles.root} testID="onboarding-screen">
+			<AmbientBackdrop />
+
 			<View style={styles.topBar}>
-				{isLastStep ? null : (
+				{isSetupStep ? null : (
 					<Button
 						title="Skip"
 						variant="ghost"
-						onPress={jumpToCompletion}
+						onPress={skipToSetup}
 						testID="onboarding-skip"
 					/>
 				)}
@@ -91,6 +76,7 @@ export function OnboardingScreen() {
 				ref={pagerRef}
 				style={styles.pager}
 				initialPage={0}
+				scrollEnabled={!sequenceBusy}
 				onPageSelected={handlePageSelected}
 			>
 				<View key="welcome" style={styles.page} collapsable={false}>
@@ -99,24 +85,40 @@ export function OnboardingScreen() {
 				<View key="privacy" style={styles.page} collapsable={false}>
 					<PrivacyStep isActive={stepIndex === 1} />
 				</View>
-				<View key="permissions" style={styles.page} collapsable={false}>
-					<PermissionsStep isActive={stepIndex === 2} />
-				</View>
-				<View key="model" style={styles.page} collapsable={false}>
-					<ModelStep isActive={stepIndex === 3} onAdvance={jumpToCompletion} />
-				</View>
-				<View key="complete" style={styles.page} collapsable={false}>
-					<CompleteStep isActive={stepIndex === LAST_STEP} />
+				<View key="setup" style={styles.page} collapsable={false}>
+					<SetupStep isActive={isSetupStep} setup={setup} />
 				</View>
 			</PagerView>
 
 			<View style={styles.footer}>
 				<ProgressDots steps={STEP_IDS} index={stepIndex} />
-				<Button
-					title={isLastStep ? "Get started" : "Next"}
-					onPress={handleNext}
-					testID="onboarding-next"
-				/>
+				{!isSetupStep ? (
+					<Button
+						title="Continue"
+						onPress={handleNext}
+						testID="onboarding-next"
+					/>
+				) : setup.phase === "blocked" ? (
+					<Button
+						title="Continue anyway"
+						variant="secondary"
+						onPress={completeOnboarding}
+						testID="onboarding-next"
+					/>
+				) : (
+					<Button
+						title={
+							setup.phase === "finishing"
+								? "Opening your gallery"
+								: setup.phase === "running"
+									? "Setting up"
+									: "Set up Visara"
+						}
+						loading={sequenceBusy}
+						onPress={setup.run}
+						testID="onboarding-next"
+					/>
+				)}
 			</View>
 		</View>
 	);
