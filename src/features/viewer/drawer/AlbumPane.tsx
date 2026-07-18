@@ -26,7 +26,7 @@ export function AlbumPane({ media, onBack, onDone }: AlbumPaneProps) {
 					accessibilityLabel="Back to photo info"
 					testID="drawer-album-back"
 				/>
-				<Text variant="headline">Add to album</Text>
+				<Text variant="title3">Add to album</Text>
 			</View>
 			<AddToAlbumSheetContent media={media} onDone={onDone} />
 		</View>
