@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
+import android.util.Log
 import com.visara.app.R
 
 /**
@@ -32,6 +33,7 @@ class VisaraDrainService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.d(TAG, "onStartCommand startId=$startId intent=$intent")
         if (intent == null) {
             // System restart without our extras (never expected with
             // NOT_STICKY) — die quietly instead of guessing at a notification.
@@ -65,17 +67,21 @@ class VisaraDrainService : Service() {
         // FGS runtime budget exhausted (Android 15+): tell JS to settle, then
         // stop before the system's ANR window closes. JS downgrades to
         // foreground-gated draining and re-grabs the service on next resume.
+        Log.d(TAG, "onTimeout startId=$startId fgsType=$fgsType")
         onTeardown?.invoke("timeout")
         stopSelf()
     }
 
     override fun onDestroy() {
+        Log.d(TAG, "onDestroy")
         isRunning = false
         onTeardown?.invoke("destroyed")
         super.onDestroy()
     }
 
     companion object {
+        private const val TAG = "VisaraDrainService"
+
         const val CHANNEL_ID = "visara_processing"
         const val NOTIFICATION_ID = 4201
         const val EXTRA_TEXT = "com.visara.drain.TEXT"

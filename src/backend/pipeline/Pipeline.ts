@@ -383,13 +383,20 @@ class AndroidFgsRunner implements PlatformRunner {
 					typeof NativeEventEmitter
 				>[0],
 			);
-			this.teardownSub = emitter.addListener(DRAIN_TEARDOWN_EVENT, () => {
-				if (this.stopping) return;
-				// FGS budget exhausted or an OS stop: drop to foreground-gated
-				// draining; the wake re-evaluates gates immediately.
-				this.fgs = false;
-				this.onHostChanged();
-			});
+			this.teardownSub = emitter.addListener(
+				DRAIN_TEARDOWN_EVENT,
+				(payload: { reason?: string } | undefined) => {
+					if (this.stopping) return;
+					// FGS budget exhausted or an OS stop: drop to foreground-gated
+					// draining; the wake re-evaluates gates immediately.
+					console.warn(
+						"[Pipeline] drain service torn down",
+						payload?.reason ?? "unknown",
+					);
+					this.fgs = false;
+					this.onHostChanged();
+				},
+			);
 		} catch (error) {
 			console.warn("[Pipeline] drain teardown subscribe failed", error);
 		}
@@ -474,6 +481,10 @@ export class Pipeline {
 
 	// Drain state ------------------------------------------------------------
 	private static running = false;
+	/** Reentry latch for start(): its admission checks await, so `running`
+	 * alone lets near-simultaneous callers (bootstrap + delivery-ready +
+	 * discovery-complete) spin up TWO hosts/loops. Set synchronously. */
+	private static starting = false;
 	private static stopRequested = false;
 	private static manualPause = false;
 	private static manualStopped = false;
@@ -614,73 +625,78 @@ export class Pipeline {
 			console.warn("[Pipeline] start() before configure() — ignored");
 			return;
 		}
-		if (Pipeline.running) return;
-
-		// Do not spin up the drain host until there is admissible work: an
-		// Android foreground service (even the crash-proof keep-alive one)
-		// that only sits paused draws a notification and burns the FGS
-		// runtime budget for nothing, and strict OEM builds punish churny
-		// services. The delivery / app-state / media subscriptions re-invoke
-		// start via maybeAutoResume() the moment conditions change (e.g.
-		// model ready).
-		if (!deps.librarySync.isDiscoveryComplete()) return;
-		try {
-			if ((await deps.mediaRepo.pendingCount()) === 0) return;
-		} catch (error) {
-			console.warn("[Pipeline] start(): pending check failed", error);
-			return;
-		}
-		if (!deps.delivery.isReady()) {
-			// Pending work but no model: surface an explicit waiting state
-			// instead of a silent no-op (the host still isn't spun up —
-			// there is nothing to run yet).
-			if (!Pipeline.paused || Pipeline.pauseReason !== "model-not-ready") {
-				Pipeline.paused = true;
-				Pipeline.pauseReason = "model-not-ready";
-				Pipeline.emit({ type: "paused" });
-			}
-			return;
-		}
-
-		Pipeline.running = true;
-		Pipeline.stopRequested = false;
-		Pipeline.manualStopped = false;
-		Pipeline.paused = false;
-		Pipeline.pauseReason = null;
-		Pipeline.emit({ type: "started" });
+		if (Pipeline.running || Pipeline.starting) return;
+		Pipeline.starting = true;
 
 		try {
-			await deps.mediaRepo.resetStaleProcessing();
-			await Pipeline.refreshTotals();
-			if (Pipeline.totalMemBytes === null) {
-				Pipeline.totalMemBytes = await Pipeline.readTotalMem();
+			// Do not spin up the drain host until there is admissible work: an
+			// Android foreground service (even the crash-proof keep-alive one)
+			// that only sits paused draws a notification and burns the FGS
+			// runtime budget for nothing, and strict OEM builds punish churny
+			// services. The delivery / app-state / media subscriptions re-invoke
+			// start via maybeAutoResume() the moment conditions change (e.g.
+			// model ready).
+			if (!deps.librarySync.isDiscoveryComplete()) return;
+			try {
+				if ((await deps.mediaRepo.pendingCount()) === 0) return;
+			} catch (error) {
+				console.warn("[Pipeline] start(): pending check failed", error);
+				return;
 			}
-			if (Pipeline.thermalSource) {
-				Pipeline.thermalLevel = clampThermalLevel(
-					await Pipeline.thermalSource.read(),
-				);
+			if (!deps.delivery.isReady()) {
+				// Pending work but no model: surface an explicit waiting state
+				// instead of a silent no-op (the host still isn't spun up —
+				// there is nothing to run yet).
+				if (!Pipeline.paused || Pipeline.pauseReason !== "model-not-ready") {
+					Pipeline.paused = true;
+					Pipeline.pauseReason = "model-not-ready";
+					Pipeline.emit({ type: "paused" });
+				}
+				return;
 			}
 
-			const runner =
-				deps.runner ??
-				(Platform.OS === "android"
-					? new AndroidFgsRunner(() => {
-							Pipeline.wake();
-						})
-					: new IosKeepAwakeRunner());
-			Pipeline.runner = runner;
+			Pipeline.running = true;
+			Pipeline.stopRequested = false;
+			Pipeline.manualStopped = false;
+			Pipeline.paused = false;
+			Pipeline.pauseReason = null;
+			Pipeline.emit({ type: "started" });
 
-			// run() resolves when the loop finishes (fire-and-forget here);
-			// the loop's finally + this catch both funnel into teardownRun.
-			runner
-				.run(() => Pipeline.drainLoop())
-				.catch(async (error) => {
-					console.warn("[Pipeline] platform runner failed", error);
-					await Pipeline.teardownRun();
-				});
-		} catch (error) {
-			console.warn("[Pipeline] start failed", error);
-			await Pipeline.teardownRun();
+			try {
+				await deps.mediaRepo.resetStaleProcessing();
+				await Pipeline.refreshTotals();
+				if (Pipeline.totalMemBytes === null) {
+					Pipeline.totalMemBytes = await Pipeline.readTotalMem();
+				}
+				if (Pipeline.thermalSource) {
+					Pipeline.thermalLevel = clampThermalLevel(
+						await Pipeline.thermalSource.read(),
+					);
+				}
+
+				const runner =
+					deps.runner ??
+					(Platform.OS === "android"
+						? new AndroidFgsRunner(() => {
+								Pipeline.wake();
+							})
+						: new IosKeepAwakeRunner());
+				Pipeline.runner = runner;
+
+				// run() resolves when the loop finishes (fire-and-forget here);
+				// the loop's finally + this catch both funnel into teardownRun.
+				runner
+					.run(() => Pipeline.drainLoop())
+					.catch(async (error) => {
+						console.warn("[Pipeline] platform runner failed", error);
+						await Pipeline.teardownRun();
+					});
+			} catch (error) {
+				console.warn("[Pipeline] start failed", error);
+				await Pipeline.teardownRun();
+			}
+		} finally {
+			Pipeline.starting = false;
 		}
 	}
 
@@ -978,14 +994,27 @@ export class Pipeline {
 	private static waitForWake(ms: number): Promise<void> {
 		return new Promise<void>((resolve) => {
 			let settled = false;
+			let timer: ReturnType<typeof setTimeout> | null = null;
 			const finish = (): void => {
 				if (settled) return;
 				settled = true;
-				clearTimeout(timer);
+				if (timer !== null) clearTimeout(timer);
 				if (Pipeline.wakeSignal === finish) Pipeline.wakeSignal = null;
 				resolve();
 			};
-			const timer = setTimeout(finish, ms);
+			// Android: RN suspends JS timers while the host activity is paused
+			// — with only the FGS keeping the process alive, setTimeout would
+			// park the loop between items until the next foreground. Native
+			// promise delivery is not suspended, so sleep on the module's
+			// handler instead (a late native resolve after wake() is a no-op).
+			const drain = Platform.OS === "android" ? getDrainService() : null;
+			if (drain) {
+				drain.delay(ms).then(finish, () => {
+					timer = setTimeout(finish, ms);
+				});
+			} else {
+				timer = setTimeout(finish, ms);
+			}
 			Pipeline.wakeSignal = finish;
 		});
 	}

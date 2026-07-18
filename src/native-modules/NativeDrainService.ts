@@ -30,6 +30,14 @@ export interface Spec extends TurboModule {
 	updateProgress(processed: number, total: number, text: string): Promise<void>;
 	/** Update only the notification text (progress bar keeps its last state). */
 	updateText(text: string): Promise<void>;
+	/**
+	 * Resolve after `ms` on a native handler. React Native suspends JS timers
+	 * while the host activity is paused — with only the FGS keeping the
+	 * process alive, a backgrounded drain loop would park on setTimeout until
+	 * the next foreground. Native promises are still delivered, so this is
+	 * the loop's background-safe sleep.
+	 */
+	delay(ms: number): Promise<void>;
 	addListener(eventName: string): void;
 	removeListeners(count: number): void;
 }

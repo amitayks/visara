@@ -1,6 +1,9 @@
 package com.visara.drain
 
 import android.content.Intent
+import android.os.Handler
+import android.os.Looper
+import android.util.Log
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
@@ -26,6 +29,7 @@ class DrainServiceModule(private val reactContext: ReactApplicationContext) :
     }
 
     override fun start(text: String, promise: Promise) {
+        Log.d(TAG, "start() from JS")
         val intent = Intent(reactContext, VisaraDrainService::class.java)
             .putExtra(VisaraDrainService.EXTRA_TEXT, text)
         try {
@@ -41,6 +45,7 @@ class DrainServiceModule(private val reactContext: ReactApplicationContext) :
     }
 
     override fun stop(promise: Promise) {
+        Log.d(TAG, "stop() from JS")
         try {
             reactContext.stopService(Intent(reactContext, VisaraDrainService::class.java))
         } catch (e: Exception) {
@@ -68,6 +73,16 @@ class DrainServiceModule(private val reactContext: ReactApplicationContext) :
         promise.resolve(null)
     }
 
+    override fun delay(ms: Double, promise: Promise) {
+        // Background-safe sleep for the drain loop: RN suspends JS timers
+        // while the host activity is paused, but a main-looper postDelayed
+        // (and the promise delivery back to JS) keeps working under the FGS.
+        Handler(Looper.getMainLooper()).postDelayed(
+            { promise.resolve(null) },
+            ms.toLong().coerceAtLeast(0L),
+        )
+    }
+
     override fun addListener(eventName: String) {
         listenerCount++
     }
@@ -77,6 +92,7 @@ class DrainServiceModule(private val reactContext: ReactApplicationContext) :
     }
 
     private fun emitTeardown(reason: String) {
+        Log.d(TAG, "emitTeardown($reason) listeners=$listenerCount")
         if (listenerCount <= 0) return
         try {
             val payload = Arguments.createMap().apply { putString("reason", reason) }
@@ -96,6 +112,7 @@ class DrainServiceModule(private val reactContext: ReactApplicationContext) :
     companion object {
         val NAME: String = NativeDrainServiceSpec.NAME
 
+        private const val TAG = "DrainServiceModule"
         private const val EVENT_TEARDOWN = "drain_service_teardown"
     }
 }

@@ -146,6 +146,23 @@ describe("Pipeline.start() admission", () => {
 		unsub();
 	});
 
+	test("concurrent start() calls spin up exactly one host (reentry race)", async () => {
+		const { runner, calls } = makeRunner();
+		Pipeline.configure(makeDeps({ pending: 2, deliveryReady: true, runner }));
+		const events: PipelineEvent[] = [];
+		const unsub = Pipeline.subscribe((e) => events.push(e));
+
+		// Boot-time reality: bootstrap + delivery-ready + discovery-complete
+		// all invoke start() near-simultaneously, overlapping in the async
+		// admission checks. Only one host/loop may result.
+		await Promise.all([Pipeline.start(), Pipeline.start(), Pipeline.start()]);
+		await flush();
+
+		expect(calls.filter((c) => c === "run")).toHaveLength(1);
+		expect(events.filter((e) => e.type === "started")).toHaveLength(1);
+		unsub();
+	});
+
 	test("admissible: host runs the drain and the waiting state clears", async () => {
 		const { runner, calls } = makeRunner();
 		Pipeline.configure(makeDeps({ pending: 1, deliveryReady: true, runner }));
