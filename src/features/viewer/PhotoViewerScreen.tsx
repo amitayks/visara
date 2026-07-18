@@ -3,7 +3,7 @@
  *
  * Paging: horizontal FlatList with pagingEnabled + getItemLayout. Every page
  * settle writes viewerStore.index synchronously (momentum-end + viewability
- * fallback), so title/date, the Info sheet, and all actions target the
+ * fallback), so title/date, the info drawer, and all actions target the
  * CURRENTLY displayed photo — the old stale-metadata bug is structurally
  * impossible (surfaces read items[index] from the store, never mount props).
  *
@@ -37,8 +37,11 @@ import Animated, {
 	useSharedValue,
 	withTiming,
 } from "react-native-reanimated";
+import {
+	PhotoInfoDrawer,
+	type PhotoInfoDrawerRef,
+} from "./drawer/PhotoInfoDrawer";
 import { formatViewerDate } from "./formatDate";
-import { InfoSheet, type InfoSheetRef } from "./InfoSheet";
 import { ViewerPage } from "./ViewerPage";
 
 export function PhotoViewerScreen() {
@@ -53,7 +56,7 @@ export function PhotoViewerScreen() {
 	const [deleting, setDeleting] = useState(false);
 
 	const listRef = useRef<FlatList<MediaFile>>(null);
-	const infoRef = useRef<InfoSheetRef>(null);
+	const infoRef = useRef<PhotoInfoDrawerRef>(null);
 	const initialIndexRef = useRef(index);
 	const dismissedRef = useRef(false);
 	const pendingScrollIndexRef = useRef<number | null>(null);
@@ -161,8 +164,8 @@ export function PhotoViewerScreen() {
 		infoRef.current?.present();
 	}, []);
 
-	const requestDeleteFromSheet = useCallback(async () => {
-		// The confirm dialog lives at screen level; dismiss the native sheet
+	const requestDeleteFromDrawer = useCallback(async () => {
+		// The confirm dialog lives at screen level; dismiss the native drawer
 		// first so the RN Modal stacks cleanly above the viewer.
 		await infoRef.current?.dismiss();
 		setDeleteVisible(true);
@@ -334,10 +337,10 @@ export function PhotoViewerScreen() {
 				/>
 			</Animated.View>
 
-			<InfoSheet
+			<PhotoInfoDrawer
 				ref={infoRef}
 				onRequestDelete={() => {
-					void requestDeleteFromSheet();
+					void requestDeleteFromDrawer();
 				}}
 				onRequestClose={closeViewer}
 			/>
