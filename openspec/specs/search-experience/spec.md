@@ -128,16 +128,14 @@ Submitting the search input from the keyboard SHALL dismiss the keyboard and SHA
 
 ### Requirement: Search index lifecycle stays out of screens
 
-Search index readiness SHALL be ensured through the services facade (`ensureSearchIndex`, per `services-ui-facade`); screens and UI components SHALL NOT construct, load, serialize, or rebuild search indexes, and no screen mount SHALL trigger an index rebuild.
+Search SHALL execute solely through the services facade (`searchMedia`, per `services-ui-facade`); screens and UI components SHALL NOT construct, load, serialize, or rebuild any search index, and no screen mount SHALL trigger index work. There is no index-readiness step: the facade queries live database tables directly (`hybrid-search`), so no `ensureSearchIndex`-style call exists in the UI layer.
 
 #### Scenario: Mounting the gallery does not touch indexes
 
 - **WHEN** the Gallery page (the search host) mounts
 - **THEN** no search-index load, construction, or rebuild is initiated from the UI layer
 
-#### Scenario: Searching with a cold index still works
+#### Scenario: Cold-start search works immediately
 
-- **WHEN** the user searches before the persisted search index has been loaded into memory
-- **THEN** the search resolves through the facade path, which ensures index readiness
-- **AND** the UI layer performs no index work of its own
-
+- **WHEN** the user searches immediately after a cold launch
+- **THEN** the search resolves through the facade path against live tables, with no index warm-up performed by any layer

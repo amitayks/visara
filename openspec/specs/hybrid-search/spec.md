@@ -3,57 +3,48 @@
 ## Purpose
 TBD - created by archiving change semantic-search-embeddings. Update Purpose after archive.
 ## Requirements
-### Requirement: Hybrid search augments lexical results with a semantic ranker
+### Requirement: Hybrid ranking is computed in SQL with RRF
 
-The system SHALL provide a hybrid search entry point that runs the existing lexical `SearchService` search and the `SemanticSearchService` semantic search for the same query and fuses their ranked results into a single ranked list of media file ids. Fusion SHALL combine the two rankings by rank position (Reciprocal Rank Fusion) rather than by raw score, because the lexical and semantic engines produce scores on non-comparable scales. The hybrid result SHALL be a superset-aware ranking: a file matched by either engine is eligible to appear, and a file matched by both is boosted.
+`searchMedia(query)` SHALL execute one hybrid ranking: an FTS5 arm (`media_fts MATCH` with sanitized tokens AND-joined and a trailing prefix `*` on the final token; bm25 column weights caption 4, tags 3, ocr_text 2, description 1, filename 1; top 80) and — when the embedder is available — a semantic arm (`vec_media` KNN, `k=80`, query embedded per `gemma-embedding-index`), fused by Reciprocal Rank Fusion (`k=60`, equal arm weights) in a single SQL statement (CTE join), with `hidden=0 AND deleted=0` enforced in the same statement. Results hydrate to full media rows in fused order.
 
-#### Scenario: Results from both engines are fused
+#### Scenario: Lexical and semantic agree
 
-- **WHEN** a query matches some files lexically and some files semantically
-- **THEN** the hybrid result contains files from both engines in one ranked list
-- **AND** a file ranked highly by both engines outranks a file matched by only one
+- **WHEN** the query matches a photo both by FTS and by vector proximity
+- **THEN** RRF places it above photos matched by only one arm
 
-#### Scenario: The fused output is consumable by existing search UI
+#### Scenario: Hidden media cannot leak through any arm
 
-- **WHEN** the hybrid search returns results
-- **THEN** it returns ranked media file ids (with scores) in the same shape the search screens already resolve to `MediaFile` objects
+- **WHEN** a hidden photo is among the vector top-k
+- **THEN** the SQL-level filter excludes it — no code path can return hidden or deleted rows
 
-### Requirement: The lexical search API is preserved and hybrid is additive
+### Requirement: Degradation ladder
 
-The existing `SearchService.search` lexical behavior and signature SHALL remain unchanged. Hybrid search SHALL be exposed as an additive entry point, so callers opt in without altering the lexical path. Adding hybrid search SHALL NOT change lexical indexing, serialization, or the incremental `addToIndex` hot path.
+The hybrid pipeline SHALL degrade without error: embedder unavailable or query embedding fails → FTS-only; a photo not yet enriched → reachable by its filename (FTS filename column, indexed at discovery time with empty enrichment columns until enriched); empty/whitespace query → empty result without touching the database.
 
-#### Scenario: The lexical path is unchanged
+#### Scenario: Search during first-ever drain
 
-- **WHEN** a caller invokes the existing lexical `SearchService.search`
-- **THEN** it returns the same lexical results as before this change, with no semantic ranking applied
+- **WHEN** the user searches while zero photos are enriched
+- **THEN** filename matches return (FTS filename arm), no error surfaces, and results improve as enrichment progresses
 
-#### Scenario: Callers opt into hybrid explicitly
+#### Scenario: Embedder not yet delivered
 
-- **WHEN** a search surface chooses hybrid search
-- **THEN** it calls the additive hybrid entry point
-- **AND** surfaces that do not opt in keep pure lexical behavior
+- **WHEN** models are not downloaded and the user searches
+- **THEN** results are lexical-only with no thrown error and no vector query attempted
 
-### Requirement: Hybrid search degrades gracefully to lexical-only
+### Requirement: No persisted side-indexes
 
-When the semantic side is unavailable — the embedding model has not loaded, the device is ineligible, or no vectors are indexed — hybrid search SHALL return the lexical results alone rather than failing. The natural-language promise SHALL soften to keyword search in that state, never erroring or blocking the query.
+Search SHALL read only the live FTS5 and vec0 tables; there SHALL be no serialized index snapshots, no index warm-up phase, and no `ensureSearchIndex` lifecycle. First-search latency SHALL be bounded by SQL execution (plus one query embedding when semantic is active).
 
-#### Scenario: Missing semantic index falls back to lexical
+#### Scenario: Cold app, instant search
 
-- **WHEN** hybrid search runs but no embeddings are indexed (or the embedding model is unavailable)
-- **THEN** it returns the lexical results only, with no error surfaced to the user
+- **WHEN** the user launches and immediately searches
+- **THEN** the query runs directly against the database with no index build/load step
 
-#### Scenario: A cold embedding model does not block the query
+### Requirement: Suggestions come from the database
 
-- **WHEN** the embedding model is still loading at query time
-- **THEN** hybrid search returns lexical results immediately and does not wait on the model
+`suggest(prefix)` SHALL return up to 10 distinct tag values (from `json_each(enrichment.tags)`) and filename stems matching the prefix case-insensitively, ordered by frequency, for the search UI's suggestion chips.
 
-### Requirement: Hybrid search fulfills the natural-language search promise
+#### Scenario: Tag suggestions reflect the library
 
-Hybrid search SHALL let a paraphrase or conceptual query surface a semantically related file even when that file's indexed text does not contain the query's literal tokens, fulfilling the onboarding "Search photos with natural language" promise, provided that file has an embedding.
-
-#### Scenario: A conceptual query matches a non-literal file
-
-- **WHEN** a query expresses a concept (e.g. a paraphrase) and an embedded file is semantically related but shares no query tokens in its lexical fields
-- **THEN** hybrid search includes that file in the ranked results via the semantic ranker
-- **AND** the same file would not have appeared under lexical search alone
-
+- **WHEN** many beach photos are tagged "beach" and the user types "be"
+- **THEN** "beach" appears among the suggestions

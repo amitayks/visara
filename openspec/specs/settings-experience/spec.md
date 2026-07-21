@@ -87,13 +87,13 @@ The Processing section SHALL display the current pipeline status: the processed 
 
 ### Requirement: Re-run Analysis is fire-and-forget and idempotent
 
-The Processing section SHALL provide a Re-run Analysis action that starts the model-version-aware library reprocess (`LibraryReprocessingService.requestReprocess`) as a fire-and-forget operation: the tap interaction SHALL complete without awaiting the library sweep, and the Settings screen SHALL remain responsive while the sweep runs. Activating the action while a sweep or drain is already active SHALL NOT start a duplicate sweep. This action is distinct from the AI Model section's re-analysis control, which remains governed by `ai-model-settings`.
+The Processing section SHALL provide a Re-run Analysis action that starts the model-version-aware library reprocess (`Pipeline.reprocess()`) as a fire-and-forget operation: the tap interaction SHALL complete without awaiting the sweep, and the Settings screen SHALL remain responsive while it runs. Activating the action while a sweep or drain is already active SHALL NOT start a duplicate sweep. This action is distinct from the AI Model section's re-analysis control, which remains governed by `ai-model-settings`.
 
 #### Scenario: Tap does not block on the sweep
 
 - **WHEN** the user triggers Re-run Analysis on a large library
 - **THEN** the interaction completes immediately and the Settings screen stays responsive
-- **AND** the reprocess sweep proceeds in the background
+- **AND** the reprocess proceeds in the background
 
 #### Scenario: Repeat activation is a no-op
 
@@ -162,4 +162,3 @@ The About section SHALL display the installed app version (sourced from device i
 - **WHEN** the user inspects every Settings section
 - **THEN** no Privacy Policy, Terms of Service, or Open Source Licenses rows exist
 - **AND** every rendered control performs its documented action
-

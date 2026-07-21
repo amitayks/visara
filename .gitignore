@@ -154,3 +154,4 @@ todo.md
 
 # Xcode local env (machine-specific node path)
 ios/.xcode.env.local
+.claude/worktrees/

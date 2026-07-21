@@ -29,7 +29,7 @@ App-global UI state SHALL live in exactly seven Zustand 5 domain stores — `set
 
 ### Requirement: Entity collections are consumed at screen level, never mirrored into stores
 
-Global stores SHALL NOT subscribe to WatermelonDB observables and SHALL NOT hold entity collections mirrored from the database. Screens that render database collections SHALL subscribe to the owning repository observable at screen level with a trailing throttle of approximately 250 ms (trailing edge guaranteed, so the final database state always renders), hold emissions in screen-local state, and render cells memoized on the reference-stable Model instances the database emits. Exactly two bounded snapshots of already-loaded entities are permitted in global stores — `searchStore`'s current result set (written only by a completed, non-stale search response) and `viewerStore`'s open-session item list (written only when the viewer opens) — and these SHALL NOT be updated by database observation and SHALL be cleared when their surface exits.
+Global stores SHALL NOT subscribe to backend reactive queries and SHALL NOT hold entity collections mirrored from the database. Screens that render database collections SHALL subscribe to the owning backend feed (`useVisibleMedia` / `watchQuery`-based hooks) at screen level with a trailing throttle of approximately 250 ms (trailing edge guaranteed, so the final database state always renders), hold emissions in screen-local state, and render cells memoized on the reference-stable row objects the feed emits (the backend's row cache guarantees unchanged rows keep object identity across emissions). Exactly two bounded snapshots of already-loaded entities are permitted in global stores — `searchStore`'s current result set (written only by a completed, non-stale search response) and `viewerStore`'s open-session item list (written only when the viewer opens) — and these SHALL NOT be updated by database observation and SHALL be cleared when their surface exits.
 
 #### Scenario: A processing drain does not storm the UI
 
@@ -40,12 +40,12 @@ Global stores SHALL NOT subscribe to WatermelonDB observables and SHALL NOT hold
 #### Scenario: Unchanged rows do not re-render
 
 - **WHEN** a throttled emission delivers an updated array in which one row changed
-- **THEN** only cells whose Model reference changed re-render, and all other memoized cells are skipped
+- **THEN** only cells whose row reference changed re-render, and all other memoized cells are skipped
 
 #### Scenario: Deletion propagates through observation alone
 
 - **WHEN** a photo is deleted
-- **THEN** the grid updates via the observable's next emission
+- **THEN** the grid updates via the feed's next emission
 - **AND** no code manually patches a mirrored array or dispatches a removal into a global store
 
 ### Requirement: Derived values are computed at read time, never stored
@@ -142,4 +142,3 @@ Every MMKV-persisted preference key SHALL have exactly one owning writer and exa
 
 - **WHEN** the app relaunches with the flag persisted as true
 - **THEN** the Shell renders with no onboarding flash and the bootstrap runs
-
