@@ -23,6 +23,16 @@ name: Release
 on:
   push:
     tags: ["v*.*.*"]
+  # Self-test: a PR that touches the release machinery must prove it still
+  # builds and authenticates (forced dry-run — nothing is published).
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "android/gradle.properties.example"
+      - "android/gradle/wrapper/**"
+      - "ios/ExportOptions.plist"
+      - "scripts/deploy-play.mjs"
+      - "scripts/deploy-appstore.sh"
   workflow_dispatch:
     inputs:
       dry_run:
@@ -45,8 +55,10 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Tag pushes are real releases; manual dispatches honor the dry_run input.
-  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
+  # Publishing requires an EXPLICIT go: a vX.Y.Z tag push, or a manual dispatch
+  # with dry_run unchecked. Every other trigger (PR self-test included) is a
+  # dry run — full build, credential validation, zero publishing.
+  DRY_RUN: ${{ (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.dry_run == false)) && 'false' || 'true' }}
   PLAY_TRACK: ${{ github.event_name == 'workflow_dispatch' && inputs.track || 'internal' }}
 
 jobs:
@@ -78,7 +90,7 @@ jobs:
   android:
     name: Android → Google Play
     needs: version-guard
-    if: ${{ github.event_name == 'push' || inputs.platform == 'both' || inputs.platform == 'android' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform == 'both' || inputs.platform == 'android' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -140,7 +152,7 @@ jobs:
   ios:
     name: iOS → App Store Connect
     needs: version-guard
-    if: ${{ github.event_name == 'push' || inputs.platform == 'both' || inputs.platform == 'ios' }}
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.platform == 'both' || inputs.platform == 'ios' }}
     runs-on: macos-26
     timeout-minutes: 90
     steps:
