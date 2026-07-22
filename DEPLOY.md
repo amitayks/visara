@@ -54,18 +54,11 @@ The `.keystore`/`.jks` files are gitignored — **never commit them.** If Play A
 Signing is enabled (recommended), this is your **upload key**; Google re-signs with
 the app signing key on their side.
 
-### 3. Gradle wrapper (currently missing from a clean checkout)
+### 3. Gradle wrapper
 
-`android/gradle/wrapper/*` is **gitignored**, so a fresh clone can't run gradle.
-On your existing Android machine it's already present; for a clean checkout / CI,
-regenerate it once (needs a system Gradle **or** any Gradle install):
-
-```bash
-cd android && gradle wrapper --gradle-version 8.10.2   # match your RN 0.81 gradle
-```
-
-Then use a JDK compatible with that Gradle (17 or 21 — **not** 26). Consider
-committing the wrapper for reproducibility.
+The wrapper (`android/gradle/wrapper/*` + `android/gradlew`) is **committed**,
+so any clean checkout — including CI — can build. Use a JDK compatible with the
+wrapper's Gradle version (17 or 21 — **not** 26).
 
 ### 4. Node
 
