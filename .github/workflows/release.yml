@@ -1,0 +1,254 @@
+# Visara release pipeline — builds and uploads to BOTH stores.
+#
+#   Tag push `vX.Y.Z`  → Android AAB → Google Play (internal track)
+#                      → iOS archive → App Store Connect / TestFlight
+#
+# Routine release: `npm run release 3.0.2` (bumps, commits, tags, pushes — the
+# tag triggers this workflow). Manual runs (workflow_dispatch) default to
+# DRY-RUN so they validate the whole pipeline without publishing anything.
+#
+# Secrets required (see RELEASING.md for how each is produced):
+#   ANDROID_UPLOAD_KEYSTORE_BASE64   base64 of the upload keystore
+#   ANDROID_UPLOAD_STORE_PASSWORD    keystore password
+#   ANDROID_UPLOAD_KEY_ALIAS         key alias
+#   ANDROID_UPLOAD_KEY_PASSWORD      key password
+#   GOOGLE_PLAY_SERVICE_ACCOUNT_JSON raw JSON of the Play service-account key
+#   ASC_KEY_ID / ASC_ISSUER_ID / ASC_API_KEY_P8
+#                                    App Store Connect API key (ID, issuer,
+#                                    and the .p8 content). If unset, the iOS
+#                                    job skips with a warning instead of failing.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — build everything, publish nothing"
+        type: boolean
+        default: true
+      platform:
+        description: "Which platform(s) to release"
+        type: choice
+        options: [both, android, ios]
+        default: both
+      track:
+        description: "Google Play track"
+        type: choice
+        options: [internal, alpha, beta, production]
+        default: internal
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Tag pushes are real releases; manual dispatches honor the dry_run input.
+  DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run == true }}
+  PLAY_TRACK: ${{ github.event_name == 'workflow_dispatch' && inputs.track || 'internal' }}
+
+jobs:
+  version-guard:
+    name: Version guard
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - id: version
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      # On a tag push every version anchor must agree with the tag — a release
+      # of vX.Y.Z must actually ship X.Y.Z on both platforms. Manual dispatches
+      # only warn (a mid-cycle manual build-counter bump is legal there).
+      - name: Reconcile version anchors
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            node scripts/check-version-reconciliation.js "$TAG_VERSION"
+          else
+            node scripts/check-version-reconciliation.js || \
+              echo "::warning::Version anchors disagree (tolerated for manual runs — a tag push would fail)."
+          fi
+
+  android:
+    name: Android → Google Play
+    needs: version-guard
+    if: ${{ github.event_name == 'push' || inputs.platform == 'both' || inputs.platform == 'android' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - run: npm ci
+
+      # android/gradle.properties is gitignored (it holds signing secrets on
+      # dev machines). CI recreates it from the committed example; the signing
+      # values arrive via ORG_GRADLE_PROJECT_* env vars instead.
+      - name: Materialize gradle.properties
+        run: cp android/gradle.properties.example android/gradle.properties
+
+      - name: Decode upload keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_UPLOAD_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_UPLOAD_KEYSTORE_BASE64 secret is not set — see RELEASING.md."
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload.keystore
+
+      - name: Build release AAB
+        env:
+          ORG_GRADLE_PROJECT_VISARA_UPLOAD_STORE_FILE: upload.keystore
+          ORG_GRADLE_PROJECT_VISARA_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
+          ORG_GRADLE_PROJECT_VISARA_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
+          ORG_GRADLE_PROJECT_VISARA_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+        run: cd android && ./gradlew bundleRelease --no-daemon
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: visara-${{ needs.version-guard.outputs.version }}-android
+          path: android/app/build/outputs/bundle/release/*.aab
+          retention-days: 30
+
+      - name: Publish to Google Play
+        env:
+          GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          EXTRA=""
+          if [ "$DRY_RUN" = "true" ]; then EXTRA="--dry-run"; fi
+          node scripts/deploy-play.mjs --track "$PLAY_TRACK" $EXTRA
+
+  ios:
+    name: iOS → App Store Connect
+    needs: version-guard
+    if: ${{ github.event_name == 'push' || inputs.platform == 'both' || inputs.platform == 'ios' }}
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      # The three ASC_* secrets are the one piece of setup only a human can do
+      # (App Store Connect → Users and Access → Integrations). Until they're
+      # set, skip the job with a loud warning rather than failing every release.
+      - name: Check App Store Connect credentials
+        id: asc
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          if [ -n "$ASC_KEY_ID" ] && [ -n "$ASC_ISSUER_ID" ] && [ -n "$ASC_API_KEY_P8" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::iOS upload SKIPPED — ASC_KEY_ID / ASC_ISSUER_ID / ASC_API_KEY_P8 secrets are not set. See RELEASING.md §iOS one-time setup."
+          fi
+
+      - if: steps.asc.outputs.configured == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - if: steps.asc.outputs.configured == 'true'
+        run: npm ci
+
+      - if: steps.asc.outputs.configured == 'true'
+        name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: ios/Pods
+          key: pods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
+          restore-keys: pods-${{ runner.os }}-
+
+      - if: steps.asc.outputs.configured == 'true'
+        name: Install pods
+        run: pod install --project-directory=ios
+
+      - if: steps.asc.outputs.configured == 'true'
+        name: Install App Store Connect API key
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+        run: |
+          mkdir -p ~/private_keys
+          printf '%s' "$ASC_API_KEY_P8" > ~/private_keys/AuthKey_"$ASC_KEY_ID".p8
+
+      - if: steps.asc.outputs.configured == 'true'
+        name: Archive (cloud-managed signing)
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -workspace ios/Visara.xcworkspace \
+            -scheme Visara \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/Visara.xcarchive" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_"$ASC_KEY_ID".p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM=Q4V4V3KZ9P \
+            | tee "$RUNNER_TEMP/xcodebuild-archive.log" | tail -40
+
+      - if: steps.asc.outputs.configured == 'true'
+        name: Upload to App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+        run: |
+          set -o pipefail
+          PLIST=ios/ExportOptions.plist
+          if [ "$DRY_RUN" = "true" ]; then
+            # Dry run: export a signed IPA locally instead of uploading.
+            sed 's|<string>upload</string>|<string>export</string>|' "$PLIST" > "$RUNNER_TEMP/ExportOptions.plist"
+            PLIST="$RUNNER_TEMP/ExportOptions.plist"
+          fi
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/Visara.xcarchive" \
+            -exportOptionsPlist "$PLIST" \
+            -exportPath "$RUNNER_TEMP/export" \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath ~/private_keys/AuthKey_"$ASC_KEY_ID".p8 \
+            -authenticationKeyID "$ASC_KEY_ID" \
+            -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            | tee "$RUNNER_TEMP/xcodebuild-export.log" | tail -40
+
+      - if: steps.asc.outputs.configured == 'true' && env.DRY_RUN == 'true'
+        name: Upload IPA artifact (dry run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: visara-${{ needs.version-guard.outputs.version }}-ios
+          path: ${{ runner.temp }}/export/*.ipa
+          retention-days: 30
+
+      - if: failure() && steps.asc.outputs.configured == 'true'
+        name: Upload xcodebuild logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-build-logs
+          path: ${{ runner.temp }}/xcodebuild-*.log
+          retention-days: 7

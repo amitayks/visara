@@ -1,5 +1,9 @@
 # Deploying Visara to Google Play
 
+> **Looking for the release pipeline?** Routine releases to BOTH stores are one
+> command — `npm run release <x.y.z>` — see [RELEASING.md](RELEASING.md). This
+> document covers the Google Play mechanics that pipeline builds on.
+
 A deterministic, credential-driven flow that **builds the signed release AAB and
 uploads it to Google Play** via the **Android Publisher API v3** — no browser
 automation / "computer use". It can be run by you from the CLI **or** driven by
