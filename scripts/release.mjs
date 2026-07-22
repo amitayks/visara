@@ -72,7 +72,7 @@ if (!fs.existsSync(notesPath)) {
 // --- Commit, tag, push -------------------------------------------------------
 say("\n📦 Committing and tagging…");
 run(
-	"git add package.json app.json android/app/build.gradle ios/Visara.xcodeproj/project.pbxproj release-notes",
+	"git add package.json package-lock.json app.json android/app/build.gradle ios/Visara.xcodeproj/project.pbxproj release-notes",
 );
 run(`git commit -m "chore(release): v${version}"`);
 run(`git tag -a v${version} -m "Visara ${version}"`);

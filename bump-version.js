@@ -63,6 +63,21 @@ try {
 	console.error("❌ Error updating package.json:", error.message);
 }
 
+// 1b. Update package-lock.json (committed for reproducible CI builds — its
+//     root version fields must track package.json or `npm ci` complains).
+try {
+	const lockPath = path.join(__dirname, "package-lock.json");
+	const lock = JSON.parse(fs.readFileSync(lockPath, "utf8"));
+	lock.version = newVersion;
+	if (lock.packages?.[""]) lock.packages[""].version = newVersion;
+	// npm writes lockfiles with 2-space indent — keep its format to avoid churn.
+	fs.writeFileSync(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
+	console.log("✅ Updated package-lock.json");
+} catch (error) {
+	hadFailure = true;
+	console.error("❌ Error updating package-lock.json:", error.message);
+}
+
 // 2. Update app.json
 try {
 	const appJsonPath = path.join(__dirname, "app.json");

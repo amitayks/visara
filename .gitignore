@@ -121,7 +121,6 @@ tmp/
 temp/
 
 # Lock files (choose one)
-package-lock.json
 # yarn.lock
 
 # Generated files
