@@ -1,0 +1,33 @@
+# ============================================================================
+# Visara — android/gradle.properties.example
+# ----------------------------------------------------------------------------
+# The real android/gradle.properties is .gitignored because it also holds the
+# release signing credentials on dev machines. This example is the committed
+# source of truth for the NON-secret build configuration:
+#
+#   - Local setup:  cp android/gradle.properties.example android/gradle.properties
+#                   then append the four VISARA_UPLOAD_* signing properties
+#                   (see .env.example for the list, DEPLOY.md for details).
+#   - CI:           the release workflow copies this file verbatim and injects
+#                   the signing values via ORG_GRADLE_PROJECT_* env variables.
+#
+# NEVER put real passwords in THIS file — it is committed.
+# ============================================================================
+
+# --- Gradle / JVM -----------------------------------------------------------
+org.gradle.jvmargs=-Xmx4096m -XX:MaxMetaspaceSize=1536m
+
+# --- AndroidX ---------------------------------------------------------------
+android.useAndroidX=true
+
+# --- React Native -----------------------------------------------------------
+# New Architecture (Fabric + TurboModules) — this app requires it (matches iOS).
+newArchEnabled=true
+
+# Hermes JS engine (read by android/app/build.gradle).
+hermesEnabled=true
+
+# ABIs to build native code for. Constrained to arm64-v8a: executorch supports
+# arm64-v8a + x86_64 (not armeabi-v7a), and android/app/build.gradle filters to
+# arm64-v8a. Append ",x86_64" if you need an Intel Android emulator build.
+reactNativeArchitectures=arm64-v8a

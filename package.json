@@ -11,6 +11,8 @@
 		"deploy:play": "node scripts/deploy-play.mjs",
 		"deploy:play:build": "node scripts/deploy-play.mjs --build",
 		"deploy:play:production": "node scripts/deploy-play.mjs --track production --status draft",
+		"deploy:appstore": "scripts/deploy-appstore.sh",
+		"release": "node scripts/release.mjs",
 		"ca": "cd android && ./gradlew clean",
 		"typecheck": "tsc --noEmit",
 		"test": "jest",
